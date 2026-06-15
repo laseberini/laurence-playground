@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perpetual Fractal Loop</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+    cursor: none;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+  }
+  #hint {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    font: 12px/1.4 system-ui, sans-serif;
+    color: rgba(255, 255, 255, 0.45);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    pointer-events: none;
+    user-select: none;
+    transition: opacity 1s;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint">Move mouse to steer &middot; click to reverse</div>
+<script>
+"use strict";
+
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+// --- Self-similar fractal parameters --------------------------------------
+// The trick for a *seamless perpetual loop*: the scene is built from nested
+// copies of one shape, each scaled by SCALE and rotated by TWIST. We zoom
+// continuously; after the zoom factor grows by exactly SCALE the picture is
+// identical to where it started, so the loop never has a seam.
+const SIDES  = 6;        // polygon sides
+const SCALE  = 1.6;      // size ratio between successive rings
+const TWIST  = 0.32;     // rotation (radians) added per ring
+const DEPTH  = 26;       // how many rings to draw (front to back)
+const LOG_SCALE = Math.log(SCALE);
+
+let zoom = 0;            // continuous zoom phase (in "ring" units)
+let dir = 1;            // zoom direction (+ into the tunnel, - out)
+let baseRot = 0;         // global slow spin
+let steer = 0;           // mouse-driven steering offset
+let steerTarget = 0;
+
+let W, H, cx, cy, R;
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = canvas.width = Math.floor(innerWidth * dpr);
+  H = canvas.height = Math.floor(innerHeight * dpr);
+  cx = W / 2;
+  cy = H / 2;
+  R = Math.hypot(W, H) * 0.62;   // outermost ring covers the screen corners
+}
+addEventListener("resize", resize);
+resize();
+
+addEventListener("mousemove", (e) => {
+  // steer the spin and re-center based on pointer position
+  steerTarget = (e.clientX / innerWidth - 0.5) * 1.4;
+  cy = (e.clientY / innerHeight) * 0 + H / 2; // keep vertical centered & smooth
+});
+addEventListener("click", () => { dir *= -1; });
+addEventListener("keydown", (e) => { if (e.key === " ") dir *= -1; });
+
+function polygon(radius, rot, sides) {
+  ctx.beginPath();
+  for (let i = 0; i <= sides; i++) {
+    const a = rot + (i / sides) * Math.PI * 2;
+    const x = cx + Math.cos(a) * radius;
+    const y = cy + Math.sin(a) * radius;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+}
+
+function frame(t) {
+  // advance everything
+  zoom += dir * 0.006;
+  baseRot += 0.0009;
+  steer += (steerTarget - steer) * 0.04;
+
+  // keep zoom wrapped to [0,1) so it loops forever without growing unbounded
+  zoom -= Math.floor(zoom);
+
+  // soft fade instead of hard clear -> gentle motion trails
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "rgba(2, 4, 12, 0.30)";
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.globalCompositeOperation = "lighter";
+  ctx.lineJoin = "round";
+
+  // draw rings from far (small) to near (large) so nearer ones layer on top
+  for (let i = DEPTH; i >= 0; i--) {
+    // fractional depth gives sub-ring smoothness for the seamless loop
+    const d = i - zoom;
+    const radius = R * Math.pow(SCALE, -d) ;  // each ring SCALE bigger outward
+    if (radius < 0.5 || radius > R * 2.2) continue;
+
+    const rot = baseRot + d * TWIST + steer * 0.6;
+
+    // color & opacity cycle with depth -> hue also loops with the zoom
+    const hue = (d * 26 + t * 0.02) % 360;
+    // fade rings as they reach the front (large) and the very back (small)
+    const near = radius / R;                // ~1 at front edge
+    const alpha = Math.max(0, Math.min(1, (1 - Math.abs(near - 0.5) * 1.6)));
+
+    ctx.strokeStyle = `hsla(${hue}, 90%, ${55 + 10 * Math.sin(d)}%, ${alpha * 0.9})`;
+    ctx.lineWidth = Math.max(0.6, radius * 0.012);
+    polygon(radius, rot, SIDES);
+    ctx.stroke();
+
+    // inner connecting "spokes" for extra fractal texture every other ring
+    if (i % 2 === 0) {
+      ctx.strokeStyle = `hsla(${(hue + 180) % 360}, 80%, 60%, ${alpha * 0.25})`;
+      ctx.lineWidth = Math.max(0.4, radius * 0.004);
+      const innerR = radius / SCALE;
+      ctx.beginPath();
+      for (let k = 0; k < SIDES; k++) {
+        const a0 = rot + (k / SIDES) * Math.PI * 2;
+        const a1 = rot - TWIST + (k / SIDES) * Math.PI * 2;
+        ctx.moveTo(cx + Math.cos(a0) * radius, cy + Math.sin(a0) * radius);
+        ctx.lineTo(cx + Math.cos(a1) * innerR, cy + Math.sin(a1) * innerR);
+      }
+      ctx.stroke();
+    }
+  }
+
+  // bright core
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.18);
+  g.addColorStop(0, "rgba(255,255,255,0.9)");
+  g.addColorStop(0.4, `hsla(${(baseRot * 60) % 360},90%,65%,0.4)`);
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.globalCompositeOperation = "lighter";
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R * 0.18, 0, Math.PI * 2);
+  ctx.fill();
+
+  requestAnimationFrame(frame);
+}
+
+requestAnimationFrame(frame);
+
+// fade the hint away after a few seconds
+setTimeout(() => { document.getElementById("hint").style.opacity = "0"; }, 6000);
+</script>
+</body>
+</html>
