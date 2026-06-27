@@ -214,6 +214,44 @@
     const POS_PREFIX = "resumereader:pos:";
     const LAST_KEY   = "resumereader:last";
 
+    // ---- IndexedDB: cache the PDF bytes so it auto-opens next time ----
+    const IDB_NAME = "resumereader", IDB_STORE = "books";
+    let idbPromise = null;
+    function idb() {
+      if (idbPromise) return idbPromise;
+      idbPromise = new Promise(function (resolve, reject) {
+        if (!window.indexedDB) return reject(new Error("no indexedDB"));
+        const req = indexedDB.open(IDB_NAME, 1);
+        req.onupgradeneeded = function () {
+          req.result.createObjectStore(IDB_STORE, { keyPath: "key" });
+        };
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { reject(req.error); };
+      });
+      return idbPromise;
+    }
+    function idbTx(db, mode) { return db.transaction(IDB_STORE, mode).objectStore(IDB_STORE); }
+    async function idbPutBook(key, name, buf) {
+      try {
+        const db = await idb();
+        await new Promise(function (res, rej) {
+          const r = idbTx(db, "readwrite").put({ key: key, name: name, data: buf, t: nowStamp() });
+          r.onsuccess = res; r.onerror = function () { rej(r.error); };
+        });
+        return true;
+      } catch (e) { return false; }
+    }
+    async function idbGetBook(key) {
+      try {
+        const db = await idb();
+        return await new Promise(function (res, rej) {
+          const r = idbTx(db, "readonly").get(key);
+          r.onsuccess = function () { res(r.result || null); };
+          r.onerror = function () { rej(r.error); };
+        });
+      } catch (e) { return null; }
+    }
+
     // ---- Persistence ----
     function loadPos(key) {
       try { return JSON.parse(localStorage.getItem(POS_PREFIX + key) || "null"); }
@@ -393,23 +431,37 @@
     function go(delta) { renderPage(currentPage + delta); }
 
     // ---- File loading ----
+    // Picked from the file picker: cache the bytes, then open.
     async function openFile(file) {
       if (!file) return;
-      fileName = file.name;
-      fileKey = [file.name, file.size, file.lastModified].join(":");
-
-      docTitle.firstChild.nodeValue = file.name;
-      docSub.textContent = "loading…";
+      const key = [file.name, file.size, file.lastModified].join(":");
       welcome.classList.add("hidden");
       spinner.style.display = "block";
-
+      docSub.textContent = "loading…";
       const buf = await file.arrayBuffer();
+      await idbPutBook(key, file.name, buf);          // cache before getDocument detaches the buffer
+      await loadDocument(file.name, key, buf, true);
+    }
+
+    // Auto-resume: open straight from the cached bytes, no picking.
+    async function openFromCache(rec) {
+      welcome.classList.add("hidden");
+      spinner.style.display = "block";
+      docSub.textContent = "resuming…";
+      await loadDocument(rec.name, rec.key, rec.data, false);
+    }
+
+    async function loadDocument(name, key, buf, isNew) {
+      fileName = name;
+      fileKey = key;
+      docTitle.firstChild.nodeValue = name;
       try {
         pdfDoc = await pdfjsLib.getDocument({ data: buf }).promise;
       } catch (e) {
         spinner.style.display = "none";
         docSub.textContent = "could not open this PDF";
         showToast("Couldn't open that file");
+        welcome.classList.remove("hidden");
         return;
       }
       pageCount = pdfDoc.numPages;
@@ -429,13 +481,16 @@
       reflowBtn.classList.toggle("active", mode === "reflow");
       docSub.textContent = pageCount + " pages";
       await renderPage(startPage);
-      if (saved && startPage > 1) showToast("Resumed at page " + startPage);
+      if (saved && startPage > 1) showToast((isNew ? "Resumed at page " : "Welcome back — page ") + startPage);
     }
 
-    // ---- Welcome / resume hint ----
-    function showResumeHint() {
+    // ---- Startup: auto-open the last book if we have it cached ----
+    async function tryAutoResume() {
       let last; try { last = JSON.parse(localStorage.getItem(LAST_KEY) || "null"); } catch (e) {}
-      if (!last || !last.name) return;
+      if (!last || !last.key) return;
+      const rec = await idbGetBook(last.key);
+      if (rec && rec.data) { await openFromCache(rec); return; }
+      // Bytes not cached (e.g. opened before caching existed, or storage cleared): show a hint.
       $("resumeName").textContent = last.name;
       $("resumeWhere").textContent = "Page " + last.page + " of " + last.total +
         " · tap “Open a PDF” and choose this file again";
@@ -516,7 +571,7 @@
       rsz = setTimeout(() => renderPage(currentPage), 200);
     });
 
-    showResumeHint();
+    tryAutoResume();
   })();
   </script>
 </body>
