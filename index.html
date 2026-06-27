@@ -65,6 +65,22 @@
   #pageHost { margin: auto; padding: 12px 0; }
   #canvas { display: block; background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,0.45); border-radius: 2px; }
 
+  /* ---- Reflow (wrapping text) mode ---- */
+  #reflowHost {
+    max-width: 42rem; width: 100%;
+    margin: 0 auto; padding: 20px 18px 60px;
+    color: var(--fg); line-height: 1.65;
+    font-size: 1.05rem;
+    -webkit-text-size-adjust: none;
+  }
+  #reflowHost p { margin: 0 0 0.9em; hyphens: auto; }
+  #reflowHost p.heading { font-weight: 700; margin-top: 1.2em; }
+  #reflowHost .reflow-note {
+    color: var(--muted); font-size: 12px; text-align: center;
+    border-top: 1px solid var(--bar-border); margin-top: 28px; padding-top: 12px;
+  }
+  button.icon.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
   /* tap zones for prev/next */
   .tapzone {
     position: absolute; top: 0; bottom: 0; width: 28%;
@@ -127,8 +143,9 @@
   <header>
     <button class="icon" id="openBtn" title="Open PDF">📂</button>
     <div class="title" id="docTitle">Resume Reader<small id="docSub">no document open</small></div>
-    <button class="icon" id="zoomOut" title="Zoom out">−</button>
-    <button class="icon" id="zoomIn" title="Zoom in">+</button>
+    <button class="icon" id="reflowBtn" title="Reflow / wrapping text">¶</button>
+    <button class="icon" id="zoomOut" title="Zoom out / smaller text">−</button>
+    <button class="icon" id="zoomIn" title="Zoom in / bigger text">+</button>
     <button class="icon" id="fitBtn" title="Fit width">⤢</button>
   </header>
 
@@ -136,6 +153,7 @@
     <div class="tapzone left"  id="tapPrev"></div>
     <div class="tapzone right" id="tapNext"></div>
     <div id="pageHost"><canvas id="canvas"></canvas></div>
+    <div id="reflowHost" class="hidden"></div>
     <div id="spinner"></div>
 
     <div id="welcome">
@@ -174,6 +192,7 @@
     // ---- DOM ----
     const $ = (id) => document.getElementById(id);
     const viewer = $("viewer"), canvas = $("canvas"), ctx = canvas.getContext("2d");
+    const pageHost = $("pageHost"), reflowHost = $("reflowHost"), reflowBtn = $("reflowBtn");
     const fileInput = $("fileInput"), footer = $("footer"), slider = $("slider");
     const pageNo = $("pageNo"), docTitle = $("docTitle"), docSub = $("docSub");
     const welcome = $("welcome"), spinner = $("spinner"), toast = $("toast");
@@ -184,6 +203,8 @@
     let currentPage = 1;
     let zoom = 1;            // user zoom multiplier on top of fit-width
     let fitWidth = true;
+    let mode = "page";       // "page" (fixed render) | "reflow" (wrapping text)
+    let fontSize = 1.05;     // rem, used in reflow mode
     let fileKey = null;
     let fileName = "";
     let rendering = false;
@@ -202,7 +223,7 @@
       if (!fileKey || !pageCount) return;
       const max = viewer.scrollHeight - viewer.clientHeight;
       const frac = max > 0 ? viewer.scrollTop / max : 0;
-      const data = { page: currentPage, scrollFrac: frac, total: pageCount, zoom, fitWidth, name: fileName, t: nowStamp() };
+      const data = { page: currentPage, scrollFrac: frac, total: pageCount, zoom, fitWidth, mode, fontSize, name: fileName, t: nowStamp() };
       try {
         localStorage.setItem(POS_PREFIX + fileKey, JSON.stringify(data));
         localStorage.setItem(LAST_KEY, JSON.stringify({ key: fileKey, name: fileName, page: currentPage, total: pageCount }));
@@ -216,19 +237,45 @@
       let h; return function () { clearTimeout(h); h = setTimeout(fn, ms); };
     }
 
-    // ---- Rendering ----
-    async function renderPage(num) {
+    // ---- Rendering (dispatcher) ----
+    function renderPage(num) {
       if (!pdfDoc) return;
       num = Math.min(Math.max(1, num | 0), pageCount);
       if (rendering) { pendingPage = num; return; }
       rendering = true;
       currentPage = num;
+      const job = (mode === "reflow") ? renderReflow(num) : renderCanvas(num);
+      job.then(finishRender).catch(function (e) { console.error(e); finishRender(); });
+    }
 
+    function finishRender() {
+      updateChrome();
+      // restore intra-page scroll if we just jumped to a remembered spot
+      if (restoreScrollFrac != null) {
+        const max = viewer.scrollHeight - viewer.clientHeight;
+        viewer.scrollTop = max * restoreScrollFrac;
+        restoreScrollFrac = null;
+      } else {
+        viewer.scrollTop = 0;
+      }
+      rendering = false;
+      if (pendingPage != null && pendingPage !== currentPage) {
+        const p = pendingPage; pendingPage = null; renderPage(p);
+      } else {
+        pendingPage = null;
+        savePos();
+      }
+    }
+
+    // ---- Fixed-layout (canvas) render ----
+    async function renderCanvas(num) {
+      pageHost.classList.remove("hidden");
+      reflowHost.classList.add("hidden");
       const page = await pdfDoc.getPage(num);
       const base = page.getViewport({ scale: 1 });
       const avail = viewer.clientWidth - 24; // padding allowance
       const fitScale = avail / base.width;
-      const scale = (fitWidth ? fitScale : fitScale) * zoom;
+      const scale = fitScale * zoom;
       const dpr = Math.min(window.devicePixelRatio || 1, 3);
       const viewport = page.getViewport({ scale });
 
@@ -242,25 +289,98 @@
         viewport,
         transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null,
       }).promise;
+    }
 
-      updateChrome();
+    // ---- Reflow (wrapping text) render ----
+    async function renderReflow(num) {
+      pageHost.classList.add("hidden");
+      reflowHost.classList.remove("hidden");
+      reflowHost.style.fontSize = fontSize + "rem";
+      const page = await pdfDoc.getPage(num);
+      const tc = await page.getTextContent();
+      const paras = buildParagraphs(tc);
 
-      // restore intra-page scroll if we just jumped to a remembered spot
-      if (restoreScrollFrac != null) {
-        const max = viewer.scrollHeight - viewer.clientHeight;
-        viewer.scrollTop = max * restoreScrollFrac;
-        restoreScrollFrac = null;
-      } else {
-        viewer.scrollTop = 0;
+      reflowHost.innerHTML = "";
+      if (!paras.length) {
+        const p = document.createElement("p");
+        p.className = "reflow-note";
+        p.textContent = "No selectable text on this page — it may be a scanned image. Tap ¶ to return to page view.";
+        reflowHost.appendChild(p);
+        return;
       }
-
-      rendering = false;
-      if (pendingPage != null && pendingPage !== num) {
-        const p = pendingPage; pendingPage = null; renderPage(p);
-      } else {
-        pendingPage = null;
-        savePos();
+      for (const para of paras) {
+        const p = document.createElement("p");
+        if (para.heading) p.className = "heading";
+        p.textContent = para.text;
+        reflowHost.appendChild(p);
       }
+      const note = document.createElement("div");
+      note.className = "reflow-note";
+      note.textContent = "Reflowed text · page " + num + " · tap ¶ for the exact original layout";
+      reflowHost.appendChild(note);
+    }
+
+    // Reconstruct flowing paragraphs from PDF text items (best-effort for prose).
+    function buildParagraphs(tc) {
+      const items = (tc.items || []).filter(function (it) { return it && typeof it.str === "string"; });
+      if (!items.length) return [];
+
+      const lines = [];
+      let cur = null, lastY = null, lastXEnd = null;
+      const heights = [];
+      for (const it of items) {
+        const tr = it.transform || [1, 0, 0, 1, 0, 0];
+        const x = tr[4], y = tr[5];
+        const h = it.height || Math.abs(tr[3]) || 10;
+        heights.push(h);
+        const newLine = lastY === null || Math.abs(y - lastY) > h * 0.6;
+        if (newLine) {
+          if (cur) lines.push(cur);
+          cur = { y: y, h: h, x: x, text: "" };
+        } else if (lastXEnd !== null && x - lastXEnd > h * 0.4 && cur.text && !/\s$/.test(cur.text)) {
+          cur.text += " ";
+        }
+        cur.text += it.str;
+        lastY = y;
+        lastXEnd = x + (it.width || 0);
+      }
+      if (cur) lines.push(cur);
+
+      const clean = lines
+        .map(function (l) { l.text = l.text.replace(/\s+/g, " ").trim(); return l; })
+        .filter(function (l) { return l.text.length; });
+      if (!clean.length) return [];
+
+      heights.sort(function (a, b) { return a - b; });
+      const medH = heights[Math.floor(heights.length / 2)] || 10;
+
+      const paras = [];
+      let buf = "";
+      const flush = function () { if (buf) { paras.push({ text: buf }); buf = ""; } };
+      for (let i = 0; i < clean.length; i++) {
+        const l = clean[i], prev = clean[i - 1];
+        if (l.h > medH * 1.4) {                 // larger text → heading
+          flush();
+          paras.push({ text: l.text, heading: true });
+          continue;
+        }
+        let brk = false;
+        if (prev) {
+          const gap = Math.abs(prev.y - l.y);
+          if (gap > medH * 1.8) brk = true;                          // blank-ish gap
+          else if (l.x - prev.x > medH * 1.2) brk = true;            // indented first line
+          else if (gap > medH * 1.3 && /[.!?”"’']\s*$/.test(prev.text)) brk = true;
+        }
+        if (brk) flush();
+        if (buf) {
+          if (/[A-Za-z]-$/.test(buf)) buf = buf.replace(/-$/, "") + l.text; // de-hyphenate
+          else buf += " " + l.text;
+        } else {
+          buf = l.text;
+        }
+      }
+      flush();
+      return paras;
     }
 
     function updateChrome() {
@@ -302,8 +422,11 @@
         startPage = Math.min(saved.page || 1, pageCount);
         zoom = saved.zoom || 1;
         fitWidth = saved.fitWidth !== false;
+        mode = saved.mode === "reflow" ? "reflow" : "page";
+        fontSize = saved.fontSize || 1.05;
         restoreScrollFrac = typeof saved.scrollFrac === "number" ? saved.scrollFrac : null;
       }
+      reflowBtn.classList.toggle("active", mode === "reflow");
       docSub.textContent = pageCount + " pages";
       await renderPage(startPage);
       if (saved && startPage > 1) showToast("Resumed at page " + startPage);
@@ -335,9 +458,28 @@
     $("tapNext").onclick = () => go(1);
     slider.oninput = () => { renderPage(parseInt(slider.value, 10)); };
 
-    $("zoomIn").onclick = () => { fitWidth = false; zoom = Math.min(zoom * 1.25, 5); renderPage(currentPage); };
-    $("zoomOut").onclick = () => { zoom = Math.max(zoom / 1.25, 0.5); if (zoom <= 1) { zoom = 1; } renderPage(currentPage); };
-    $("fitBtn").onclick = () => { fitWidth = true; zoom = 1; renderPage(currentPage); };
+    $("zoomIn").onclick = () => {
+      if (mode === "reflow") { fontSize = Math.min(fontSize * 1.12, 2.6); }
+      else { fitWidth = false; zoom = Math.min(zoom * 1.25, 5); }
+      renderPage(currentPage);
+    };
+    $("zoomOut").onclick = () => {
+      if (mode === "reflow") { fontSize = Math.max(fontSize / 1.12, 0.7); }
+      else { zoom = Math.max(zoom / 1.25, 0.5); if (zoom <= 1) zoom = 1; }
+      renderPage(currentPage);
+    };
+    $("fitBtn").onclick = () => {
+      if (mode === "reflow") { fontSize = 1.05; }
+      else { fitWidth = true; zoom = 1; }
+      renderPage(currentPage);
+    };
+    reflowBtn.onclick = () => {
+      mode = mode === "reflow" ? "page" : "reflow";
+      reflowBtn.classList.toggle("active", mode === "reflow");
+      restoreScrollFrac = null; // land at top of the page in the new mode
+      showToast(mode === "reflow" ? "Reflow on — text now wraps when you zoom" : "Original page layout");
+      renderPage(currentPage);
+    };
 
     document.addEventListener("keydown", (e) => {
       if (!pdfDoc) return;
