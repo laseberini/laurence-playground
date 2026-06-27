@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover" />
+<meta name="theme-color" content="#1b1c20" />
+<title>Resume Reader</title>
+<style>
+  :root {
+    --bg: #1b1c20;
+    --bar: #26282e;
+    --bar-border: #34373f;
+    --fg: #e7e8ea;
+    --muted: #9aa0aa;
+    --accent: #5b9cff;
+    --accent-soft: rgba(91, 156, 255, 0.15);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%;
+    background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overscroll-behavior: none;
+  }
+  body { display: flex; flex-direction: column; }
+
+  /* ---- Top bar ---- */
+  header {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 8px;
+    padding: max(8px, env(safe-area-inset-top)) 10px 8px;
+    background: var(--bar);
+    border-bottom: 1px solid var(--bar-border);
+    z-index: 20;
+  }
+  header .title {
+    flex: 1 1 auto; min-width: 0;
+    font-size: 14px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: var(--fg);
+  }
+  header .title small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  button.icon {
+    flex: 0 0 auto;
+    background: transparent; border: 1px solid var(--bar-border);
+    color: var(--fg); border-radius: 8px;
+    width: 38px; height: 36px; font-size: 17px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  button.icon:active { background: var(--accent-soft); }
+  button.primary {
+    background: var(--accent); border: none; color: #fff;
+    padding: 0 14px; height: 36px; border-radius: 8px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+
+  /* ---- Viewer ---- */
+  #viewer {
+    flex: 1 1 auto; position: relative;
+    overflow: auto; -webkit-overflow-scrolling: touch;
+    display: flex; justify-content: center;
+    background: #0f1013;
+  }
+  #pageHost { margin: auto; padding: 12px 0; }
+  #canvas { display: block; background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,0.45); border-radius: 2px; }
+
+  /* tap zones for prev/next */
+  .tapzone {
+    position: absolute; top: 0; bottom: 0; width: 28%;
+    z-index: 5; cursor: pointer;
+  }
+  .tapzone.left { left: 0; }
+  .tapzone.right { right: 0; }
+
+  /* ---- Footer ---- */
+  footer {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px max(8px, env(safe-area-inset-bottom));
+    background: var(--bar); border-top: 1px solid var(--bar-border);
+    z-index: 20;
+  }
+  footer input[type=range] { flex: 1 1 auto; accent-color: var(--accent); }
+  footer .pageno { flex: 0 0 auto; font-size: 12px; color: var(--muted); min-width: 78px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* ---- Welcome overlay ---- */
+  #welcome {
+    position: absolute; inset: 0; z-index: 50;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 24px; gap: 18px;
+    background: radial-gradient(120% 120% at 50% 0%, #23252b 0%, var(--bg) 60%);
+  }
+  #welcome h1 { margin: 0; font-size: 22px; }
+  #welcome p { margin: 0; color: var(--muted); max-width: 420px; line-height: 1.5; font-size: 14px; }
+  #welcome .logo { font-size: 46px; }
+  #resumeCard {
+    margin-top: 6px; width: 100%; max-width: 420px;
+    background: var(--bar); border: 1px solid var(--bar-border);
+    border-radius: 12px; padding: 14px 16px; text-align: left;
+    display: none;
+  }
+  #resumeCard .label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  #resumeCard .name { font-weight: 600; margin: 3px 0 2px; word-break: break-word; }
+  #resumeCard .where { font-size: 13px; color: var(--accent); }
+
+  /* ---- Toast ---- */
+  #toast {
+    position: absolute; left: 50%; bottom: 72px; transform: translateX(-50%) translateY(20px);
+    background: #000; color: #fff; padding: 9px 16px; border-radius: 20px;
+    font-size: 13px; opacity: 0; pointer-events: none; transition: all .25s ease; z-index: 40;
+    box-shadow: 0 6px 20px rgba(0,0,0,.5);
+  }
+  #toast.show { opacity: .95; transform: translateX(-50%) translateY(0); }
+
+  .hidden { display: none !important; }
+  #spinner {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    width: 34px; height: 34px; border: 3px solid var(--bar-border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin .8s linear infinite; z-index: 10; display: none;
+  }
+  @keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+</style>
+</head>
+<body>
+  <header>
+    <button class="icon" id="openBtn" title="Open PDF">📂</button>
+    <div class="title" id="docTitle">Resume Reader<small id="docSub">no document open</small></div>
+    <button class="icon" id="zoomOut" title="Zoom out">−</button>
+    <button class="icon" id="zoomIn" title="Zoom in">+</button>
+    <button class="icon" id="fitBtn" title="Fit width">⤢</button>
+  </header>
+
+  <div id="viewer">
+    <div class="tapzone left"  id="tapPrev"></div>
+    <div class="tapzone right" id="tapNext"></div>
+    <div id="pageHost"><canvas id="canvas"></canvas></div>
+    <div id="spinner"></div>
+
+    <div id="welcome">
+      <div class="logo">📖</div>
+      <h1>Resume Reader</h1>
+      <p>Open your PDF once and it picks up exactly where you left off — every time, automatically. Your file never leaves your device.</p>
+      <button class="primary" id="welcomeOpen">Open a PDF</button>
+      <div id="resumeCard">
+        <div class="label">Continue reading</div>
+        <div class="name" id="resumeName"></div>
+        <div class="where" id="resumeWhere"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="hidden" id="footer">
+    <input type="range" id="slider" min="1" max="1" value="1" />
+    <div class="pageno" id="pageNo">– / –</div>
+  </footer>
+
+  <input type="file" id="fileInput" accept="application/pdf,.pdf" class="hidden" />
+  <div id="toast"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+  (function () {
+    "use strict";
+
+    if (!window.pdfjsLib) {
+      document.getElementById("docSub").textContent = "failed to load PDF engine — check connection";
+      return;
+    }
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+    // ---- DOM ----
+    const $ = (id) => document.getElementById(id);
+    const viewer = $("viewer"), canvas = $("canvas"), ctx = canvas.getContext("2d");
+    const fileInput = $("fileInput"), footer = $("footer"), slider = $("slider");
+    const pageNo = $("pageNo"), docTitle = $("docTitle"), docSub = $("docSub");
+    const welcome = $("welcome"), spinner = $("spinner"), toast = $("toast");
+
+    // ---- State ----
+    let pdfDoc = null;
+    let pageCount = 0;
+    let currentPage = 1;
+    let zoom = 1;            // user zoom multiplier on top of fit-width
+    let fitWidth = true;
+    let fileKey = null;
+    let fileName = "";
+    let rendering = false;
+    let pendingPage = null;  // queued page if a render is in flight
+    let restoreScrollFrac = null;
+
+    const POS_PREFIX = "resumereader:pos:";
+    const LAST_KEY   = "resumereader:last";
+
+    // ---- Persistence ----
+    function loadPos(key) {
+      try { return JSON.parse(localStorage.getItem(POS_PREFIX + key) || "null"); }
+      catch (e) { return null; }
+    }
+    function savePos() {
+      if (!fileKey || !pageCount) return;
+      const max = viewer.scrollHeight - viewer.clientHeight;
+      const frac = max > 0 ? viewer.scrollTop / max : 0;
+      const data = { page: currentPage, scrollFrac: frac, total: pageCount, zoom, fitWidth, name: fileName, t: nowStamp() };
+      try {
+        localStorage.setItem(POS_PREFIX + fileKey, JSON.stringify(data));
+        localStorage.setItem(LAST_KEY, JSON.stringify({ key: fileKey, name: fileName, page: currentPage, total: pageCount }));
+      } catch (e) {}
+    }
+    // Date.now via performance fallback (avoids issues in restricted contexts)
+    function nowStamp() { try { return Date.now(); } catch (e) { return 0; } }
+
+    const saveDebounced = debounce(savePos, 400);
+    function debounce(fn, ms) {
+      let h; return function () { clearTimeout(h); h = setTimeout(fn, ms); };
+    }
+
+    // ---- Rendering ----
+    async function renderPage(num) {
+      if (!pdfDoc) return;
+      num = Math.min(Math.max(1, num | 0), pageCount);
+      if (rendering) { pendingPage = num; return; }
+      rendering = true;
+      currentPage = num;
+
+      const page = await pdfDoc.getPage(num);
+      const base = page.getViewport({ scale: 1 });
+      const avail = viewer.clientWidth - 24; // padding allowance
+      const fitScale = avail / base.width;
+      const scale = (fitWidth ? fitScale : fitScale) * zoom;
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
+      const viewport = page.getViewport({ scale });
+
+      canvas.width = Math.floor(viewport.width * dpr);
+      canvas.height = Math.floor(viewport.height * dpr);
+      canvas.style.width = Math.floor(viewport.width) + "px";
+      canvas.style.height = Math.floor(viewport.height) + "px";
+
+      await page.render({
+        canvasContext: ctx,
+        viewport,
+        transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null,
+      }).promise;
+
+      updateChrome();
+
+      // restore intra-page scroll if we just jumped to a remembered spot
+      if (restoreScrollFrac != null) {
+        const max = viewer.scrollHeight - viewer.clientHeight;
+        viewer.scrollTop = max * restoreScrollFrac;
+        restoreScrollFrac = null;
+      } else {
+        viewer.scrollTop = 0;
+      }
+
+      rendering = false;
+      if (pendingPage != null && pendingPage !== num) {
+        const p = pendingPage; pendingPage = null; renderPage(p);
+      } else {
+        pendingPage = null;
+        savePos();
+      }
+    }
+
+    function updateChrome() {
+      slider.max = String(pageCount);
+      slider.value = String(currentPage);
+      const pct = pageCount ? Math.round((currentPage / pageCount) * 100) : 0;
+      pageNo.textContent = currentPage + " / " + pageCount + "  ·  " + pct + "%";
+    }
+
+    function go(delta) { renderPage(currentPage + delta); }
+
+    // ---- File loading ----
+    async function openFile(file) {
+      if (!file) return;
+      fileName = file.name;
+      fileKey = [file.name, file.size, file.lastModified].join(":");
+
+      docTitle.firstChild.nodeValue = file.name;
+      docSub.textContent = "loading…";
+      welcome.classList.add("hidden");
+      spinner.style.display = "block";
+
+      const buf = await file.arrayBuffer();
+      try {
+        pdfDoc = await pdfjsLib.getDocument({ data: buf }).promise;
+      } catch (e) {
+        spinner.style.display = "none";
+        docSub.textContent = "could not open this PDF";
+        showToast("Couldn't open that file");
+        return;
+      }
+      pageCount = pdfDoc.numPages;
+      footer.classList.remove("hidden");
+      spinner.style.display = "none";
+
+      const saved = loadPos(fileKey);
+      let startPage = 1;
+      if (saved) {
+        startPage = Math.min(saved.page || 1, pageCount);
+        zoom = saved.zoom || 1;
+        fitWidth = saved.fitWidth !== false;
+        restoreScrollFrac = typeof saved.scrollFrac === "number" ? saved.scrollFrac : null;
+      }
+      docSub.textContent = pageCount + " pages";
+      await renderPage(startPage);
+      if (saved && startPage > 1) showToast("Resumed at page " + startPage);
+    }
+
+    // ---- Welcome / resume hint ----
+    function showResumeHint() {
+      let last; try { last = JSON.parse(localStorage.getItem(LAST_KEY) || "null"); } catch (e) {}
+      if (!last || !last.name) return;
+      $("resumeName").textContent = last.name;
+      $("resumeWhere").textContent = "Page " + last.page + " of " + last.total +
+        " · tap “Open a PDF” and choose this file again";
+      $("resumeCard").style.display = "block";
+    }
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add("show");
+      clearTimeout(showToast._h);
+      showToast._h = setTimeout(() => toast.classList.remove("show"), 2200);
+    }
+
+    // ---- Events ----
+    $("openBtn").onclick = () => fileInput.click();
+    $("welcomeOpen").onclick = () => fileInput.click();
+    fileInput.onchange = (e) => { if (e.target.files[0]) openFile(e.target.files[0]); };
+
+    $("tapPrev").onclick = () => go(-1);
+    $("tapNext").onclick = () => go(1);
+    slider.oninput = () => { renderPage(parseInt(slider.value, 10)); };
+
+    $("zoomIn").onclick = () => { fitWidth = false; zoom = Math.min(zoom * 1.25, 5); renderPage(currentPage); };
+    $("zoomOut").onclick = () => { zoom = Math.max(zoom / 1.25, 0.5); if (zoom <= 1) { zoom = 1; } renderPage(currentPage); };
+    $("fitBtn").onclick = () => { fitWidth = true; zoom = 1; renderPage(currentPage); };
+
+    document.addEventListener("keydown", (e) => {
+      if (!pdfDoc) return;
+      if (e.key === "ArrowRight" || e.key === "PageDown") { go(1); e.preventDefault(); }
+      else if (e.key === "ArrowLeft" || e.key === "PageUp") { go(-1); e.preventDefault(); }
+      else if (e.key === "Home") { renderPage(1); }
+      else if (e.key === "End") { renderPage(pageCount); }
+    });
+
+    // swipe (horizontal) to flip pages
+    let touchX = null, touchY = null;
+    viewer.addEventListener("touchstart", (e) => {
+      if (e.touches.length === 1) { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; }
+    }, { passive: true });
+    viewer.addEventListener("touchend", (e) => {
+      if (touchX == null) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - touchX, dy = t.clientY - touchY;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6) { go(dx < 0 ? 1 : -1); }
+      touchX = touchY = null;
+    }, { passive: true });
+
+    viewer.addEventListener("scroll", saveDebounced, { passive: true });
+    window.addEventListener("beforeunload", savePos);
+    document.addEventListener("visibilitychange", () => { if (document.hidden) savePos(); });
+
+    // re-render on resize / rotate, preserving spot
+    let rsz;
+    window.addEventListener("resize", () => {
+      if (!pdfDoc) return;
+      clearTimeout(rsz);
+      const max = viewer.scrollHeight - viewer.clientHeight;
+      restoreScrollFrac = max > 0 ? viewer.scrollTop / max : 0;
+      rsz = setTimeout(() => renderPage(currentPage), 200);
+    });
+
+    showResumeHint();
+  })();
+  </script>
+</body>
+</html>
