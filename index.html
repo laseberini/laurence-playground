@@ -14,6 +14,32 @@
     --muted: #9aa0aa;
     --accent: #5b9cff;
     --accent-soft: rgba(91, 156, 255, 0.15);
+    --viewer-bg: #0f1013;   /* margins around the page */
+    --page-filter: none;    /* CSS filter applied to the rendered PDF page */
+  }
+  /* Sepia: warm paper tone for the page and a matching warm UI */
+  body[data-theme="sepia"] {
+    --bg: #d3c4a3;
+    --bar: #c9b994;
+    --bar-border: #b6a37c;
+    --fg: #463a28;
+    --muted: #7c6c4f;
+    --accent: #9a6a3c;
+    --accent-soft: rgba(154, 106, 60, 0.18);
+    --viewer-bg: #c6b58f;
+    --page-filter: sepia(0.5) brightness(0.97) contrast(0.94);
+  }
+  /* Night: dark surroundings + inverted page so white sheets read as dark */
+  body[data-theme="night"] {
+    --bg: #0b0b0c;
+    --bar: #161618;
+    --bar-border: #2a2a2e;
+    --fg: #d6d6d8;
+    --muted: #7f8086;
+    --accent: #5b9cff;
+    --accent-soft: rgba(91, 156, 255, 0.15);
+    --viewer-bg: #000;
+    --page-filter: invert(1) hue-rotate(180deg);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
@@ -60,10 +86,13 @@
     flex: 1 1 auto; position: relative;
     overflow: auto; -webkit-overflow-scrolling: touch;
     display: flex; justify-content: center;
-    background: #0f1013;
+    background: var(--viewer-bg);
   }
   #pageHost { margin: auto; padding: 12px 0; }
-  #canvas { display: block; background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,0.45); border-radius: 2px; }
+  #canvas {
+    display: block; background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,0.45);
+    border-radius: 2px; filter: var(--page-filter);
+  }
 
   /* ---- Reflow (wrapping text) mode ---- */
   #reflowHost {
@@ -135,6 +164,7 @@
   <header>
     <button class="icon" id="openBtn" title="Open PDF">📂</button>
     <div class="title" id="docTitle">Resume Reader<small id="docSub">no document open</small></div>
+    <button class="icon" id="themeBtn" title="Reading theme">🌓</button>
     <button class="icon" id="reflowBtn" title="Reflow / wrapping text">¶</button>
     <button class="icon" id="zoomOut" title="Zoom out / smaller text">−</button>
     <button class="icon" id="zoomIn" title="Zoom in / bigger text">+</button>
@@ -186,6 +216,27 @@
     const fileInput = $("fileInput"), footer = $("footer"), slider = $("slider");
     const pageNo = $("pageNo"), docTitle = $("docTitle"), docSub = $("docSub");
     const welcome = $("welcome"), spinner = $("spinner"), toast = $("toast");
+    const themeBtn = $("themeBtn");
+
+    // ---- Reading themes (global, not per-book) ----
+    const THEME_KEY = "resumereader:theme";
+    const THEMES = ["dark", "sepia", "night"];
+    const THEME_LABEL = { dark: "Default", sepia: "Sepia", night: "Night" };
+    function currentTheme() {
+      try { return localStorage.getItem(THEME_KEY) || "dark"; } catch (e) { return "dark"; }
+    }
+    function applyTheme(name) {
+      if (THEMES.indexOf(name) < 0) name = "dark";
+      if (name === "dark") document.body.removeAttribute("data-theme");
+      else document.body.setAttribute("data-theme", name);
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) {
+        const bar = getComputedStyle(document.body).getPropertyValue("--bar").trim();
+        if (bar) meta.setAttribute("content", bar);
+      }
+      try { localStorage.setItem(THEME_KEY, name); } catch (e) {}
+    }
+    applyTheme(currentTheme());
 
     // ---- State ----
     let pdfDoc = null;
@@ -512,6 +563,12 @@
       else if (e.clientX > w * 0.72) go(1);
     });
     slider.oninput = () => { renderPage(parseInt(slider.value, 10)); };
+
+    themeBtn.onclick = () => {
+      const next = THEMES[(THEMES.indexOf(currentTheme()) + 1) % THEMES.length];
+      applyTheme(next);
+      showToast(THEME_LABEL[next] + " theme");
+    };
 
     $("zoomIn").onclick = () => {
       if (mode === "reflow") { fontSize = Math.min(fontSize * 1.12, 2.6); }
