@@ -16,6 +16,8 @@
     --accent-soft: rgba(91, 156, 255, 0.15);
     --viewer-bg: #0f1013;   /* margins around the page */
     --page-filter: none;    /* CSS filter applied to the rendered PDF page */
+    --page-tint: transparent; /* warm wash multiplied over the page (sepia) */
+    --reflow-bg: transparent;  /* paper colour behind reflowed text */
   }
   /* Sepia: warm paper tone for the page and a matching warm UI */
   body[data-theme="sepia"] {
@@ -27,7 +29,9 @@
     --accent: #9a6a3c;
     --accent-soft: rgba(154, 106, 60, 0.18);
     --viewer-bg: #c6b58f;
-    --page-filter: sepia(0.5) brightness(0.97) contrast(0.94);
+    --page-filter: sepia(0.2);
+    --page-tint: #e4d4a8;   /* multiply over white → warm paper */
+    --reflow-bg: #efe3c1;
   }
   /* Night: dark surroundings + inverted page so white sheets read as dark */
   body[data-theme="night"] {
@@ -88,7 +92,13 @@
     display: flex; justify-content: center;
     background: var(--viewer-bg);
   }
-  #pageHost { margin: auto; padding: 12px 0; }
+  #pageHost { margin: auto; padding: 12px 0; position: relative; }
+  /* warm wash laid over the page; multiply turns white paper sepia, keeps text dark */
+  #pageHost::after {
+    content: ""; position: absolute; left: 0; right: 0; top: 12px; bottom: 12px;
+    background: var(--page-tint); mix-blend-mode: multiply;
+    pointer-events: none; border-radius: 2px;
+  }
   #canvas {
     display: block; background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,0.45);
     border-radius: 2px; filter: var(--page-filter);
@@ -100,6 +110,7 @@
     margin: 0 auto; padding: 20px 18px 60px;
     color: var(--fg); line-height: 1.65;
     font-size: 1.05rem;
+    background: var(--reflow-bg);
     -webkit-text-size-adjust: none;
   }
   #reflowHost p { margin: 0 0 0.9em; hyphens: auto; }
