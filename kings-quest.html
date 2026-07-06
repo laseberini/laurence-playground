@@ -22,9 +22,14 @@
   #ttl { font-weight:bold; color:#ffd54f; white-space:nowrap; }
   #inv { flex:1; text-align:center; font-size:16px; letter-spacing:4px; min-height:1em; }
   #score { color:#ffd54f; white-space:nowrap; }
-  #reset {
+  #reset, #fs {
     background:#2c3050; color:#f4e3b2; border:0; border-radius:6px;
     font-size:14px; padding:4px 9px; font-family:inherit;
+  }
+  @media (orientation: landscape) and (max-height: 520px) {
+    #hdr { padding:4px 10px; font-size:12px; }
+    #inv { font-size:14px; }
+    #msg { min-height:2.6em; padding:5px 12px; font-size:12px; }
   }
   #stage { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; touch-action:none; }
   canvas { image-rendering:pixelated; image-rendering:crisp-edges; background:#000; }
@@ -53,6 +58,7 @@
     <span id="ttl">👑 King’s Quest</span>
     <span id="inv"></span>
     <span id="score">⭐ 0/8</span>
+    <button id="fs" title="Fullscreen">⛶</button>
     <button id="reset" title="New game">↺</button>
   </div>
   <div id="stage"><canvas id="cv" width="320" height="200"></canvas></div>
@@ -87,7 +93,12 @@
 <script>
 'use strict';
 const W = 320, H = 200;
-const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const PX = 2;      // chunk size: scene renders at half res, upscaled for fat pixels
+const OV = 400;    // decorative overdraw beyond world edges for wide screens
+const cv = document.getElementById('cv'), dctx = cv.getContext('2d');
+const os = document.createElement('canvas');
+const ctx = os.getContext('2d');
+let DW = W, OX = 0; // display width in logical px, world x-offset
 const msgEl = document.getElementById('msg');
 const invEl = document.getElementById('inv');
 const scoreEl = document.getElementById('score');
@@ -155,7 +166,7 @@ function disc(x, y, r, c){ ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 
 function hash(a, b){ const s = Math.sin(a*127.1 + b*311.7) * 43758.5453; return s - Math.floor(s); }
 
 function sky(){
-  R(0,0,W,H,'#7ec9f2'); R(0,0,W,46,'#66b8ec'); R(0,0,W,20,'#54a8e6');
+  R(-OV,0,W+2*OV,H,'#7ec9f2'); R(-OV,0,W+2*OV,46,'#66b8ec'); R(-OV,0,W+2*OV,20,'#54a8e6');
   disc(286,24,11,'#fff6c4'); disc(286,24,8,'#ffe9a0');
 }
 function cloud(x, y){
@@ -163,14 +174,19 @@ function cloud(x, y){
   disc(x-9,y+2,5,'rgba(255,255,255,.9)');
 }
 function clouds(t){
-  const cx = (t*5) % (W+80) - 40;
-  cloud(cx, 26); cloud(((cx+150) % (W+80)) - 40, 44);
+  const span = W + 2*OV + 120;
+  cloud(((t*5) % span) - OV - 60, 26);
+  cloud(((t*5 + span/2) % span) - OV - 60, 44);
 }
-function hills(y){ R(0,y,W,14,'#5aa85f'); disc(50,y+6,18,'#5aa85f'); disc(200,y+4,24,'#5aa85f'); disc(300,y+7,16,'#5aa85f'); }
+function hills(y){
+  R(-OV,y,W+2*OV,14,'#5aa85f');
+  disc(50,y+6,18,'#5aa85f'); disc(200,y+4,24,'#5aa85f'); disc(300,y+7,16,'#5aa85f');
+  disc(-52,y+5,20,'#5aa85f'); disc(376,y+6,22,'#5aa85f');
+}
 function ground(top, c, cd){
-  R(0, top, W, H-top, c);
-  for (let i=0;i<110;i++){
-    R(hash(i,1)*W, top + 2 + hash(i,2)*(H-top-4), 2, 1, cd);
+  R(-OV, top, W+2*OV, H-top, c);
+  for (let i=0;i<260;i++){
+    R(-OV + hash(i,1)*(W+2*OV), top + 2 + hash(i,2)*(H-top-4), 2, 1, cd);
   }
 }
 function tree(x, y){
@@ -247,9 +263,10 @@ forest: {
   draw(t){
     sky(); clouds(t); hills(88);
     ground(100, '#3f9e46', '#2e7a33');
-    R(148,100,24,100,'#c9a35e'); R(0,146,W,18,'#c9a35e');
-    R(148,100,24,2,'#a97f42'); R(0,146,W,2,'#a97f42');
+    R(148,100,24,100,'#c9a35e'); R(-OV,146,W+2*OV,18,'#c9a35e');
+    R(148,100,24,2,'#a97f42'); R(-OV,146,W+2*OV,2,'#a97f42');
     tree(24,122); tree(292,118); tree(58,104); tree(262,102); tree(118,98); tree(212,98);
+    tree(-36,124); tree(-84,106); tree(356,120); tree(404,104);
     signpost(56,150);
   },
   spots: [
@@ -265,8 +282,8 @@ meadow: {
   draw(t){
     sky(); clouds(t); hills(90);
     ground(100, '#54b25c', '#3f9446');
-    for (let i=0;i<42;i++){
-      const fx = hash(i,7)*W, fy = 104 + hash(i,8)*(H-110);
+    for (let i=0;i<110;i++){
+      const fx = -OV + hash(i,7)*(W+2*OV), fy = 104 + hash(i,8)*(H-110);
       R(fx, fy, 2, 2, ['#ffffff','#ffd54f','#f48fb1'][i%3]);
     }
     if (!F.flower && !F.gaveFlower){
@@ -309,8 +326,9 @@ cottage: {
     R(150,82,18,30,'#7a5230'); disc(165,97,1.5,'#ffd54f');
     R(126,78,15,13,'#ffe08a'); R(126,78,15,2,'#8a6b45'); R(132,78,2,13,'#8a6b45');
     R(178,78,15,13,'#ffe08a'); R(178,78,15,2,'#8a6b45'); R(184,78,2,13,'#8a6b45');
-    for (let x=8; x<100; x+=13){ R(x,126,3,15,'#b08a56'); }
-    R(6,130,96,2,'#b08a56'); R(6,136,96,2,'#b08a56');
+    for (let x=-395; x<100; x+=13){ R(x,126,3,15,'#b08a56'); }
+    R(-397,130,500,2,'#b08a56'); R(-397,136,500,2,'#b08a56');
+    tree(376,118); tree(430,126);
     for (let i=0;i<10;i++){ R(112 + i*10, 118, 2, 2, ['#f48fb1','#ffd54f'][i%2]); }
     drawElda(226, 152, t);
   },
@@ -344,15 +362,17 @@ bridge: {
     ctx.fillStyle = '#8b93a5';
     ctx.beginPath(); ctx.moveTo(240,100); ctx.lineTo(268,64); ctx.lineTo(296,100); ctx.fill();
     ctx.beginPath(); ctx.moveTo(280,100); ctx.lineTo(306,72); ctx.lineTo(330,100); ctx.fill();
-    R(262,68,12,6,'#e8ecf2'); R(300,76,10,5,'#e8ecf2');
+    ctx.beginPath(); ctx.moveTo(336,100); ctx.lineTo(372,58); ctx.lineTo(408,100); ctx.fill();
+    R(262,68,12,6,'#e8ecf2'); R(300,76,10,5,'#e8ecf2'); R(366,62,13,6,'#e8ecf2');
     hills(90);
     ground(100, '#3f9e46', '#2e7a33');
     water(240, 100, 80, 100, t, 3);
     R(236,100,4,100,'#8d6e63'); R(316,100,4,100,'#8d6e63');
-    R(224,124,96,16,'#8a5a2b');
-    for (let x=226; x<318; x+=8){ R(x,124,1,16,'#6d4522'); }
-    R(224,118,96,3,'#a9762f');
-    R(224,118,3,22,'#6d4522'); R(258,118,3,22,'#6d4522'); R(294,118,3,22,'#6d4522');
+    R(224,124,116,16,'#8a5a2b');
+    for (let x=226; x<338; x+=8){ R(x,124,1,16,'#6d4522'); }
+    R(224,118,116,3,'#a9762f');
+    R(224,118,3,22,'#6d4522'); R(258,118,3,22,'#6d4522'); R(294,118,3,22,'#6d4522'); R(330,118,3,22,'#6d4522');
+    tree(392,124); tree(-44,118); tree(-92,128);
     drawTroll(198, 164, t);
   },
   block(x, y){ return x > 234 && !(y > 120 && y < 144); },
@@ -403,6 +423,11 @@ lake: {
       const rx = 110 + i*14 + hash(i,20)*6;
       R(rx,128,1,16,'#2e7d32'); R(rx-1,124,3,6,'#795548');
     }
+    for (let i=0;i<3;i++){
+      const rx = 384 + i*15 + hash(i,21)*6;
+      R(rx,126,1,16,'#2e7d32'); R(rx-1,122,3,6,'#795548');
+    }
+    tree(-48,122); tree(-104,112);
   },
   block(x, y){
     const dx = (x-216)/150, dy = (y-176)/48;
@@ -462,6 +487,7 @@ gate: {
     }
     ground(120, '#3f9e46', '#2e7a33');
     R(148,120,24,80,'#c9a35e'); R(148,120,24,2,'#a97f42');
+    tree(-46,152); tree(-98,138); tree(366,148); tree(420,134);
   },
   spots: [
     { x:132,y:62,w:56,h:60, wx:160,wy:132, hx:160,hy:62,
@@ -482,11 +508,13 @@ gate: {
 throne: {
   title: '— The Throne Hall —', gx:null, gy:null, walkTop:96,
   draw(t){
-    R(0,0,W,H,'#6d5a4a');
-    R(0,0,W,90,'#7d7f8a');
-    for (let i=0;i<30;i++){ R(hash(i,40)*W, hash(i,41)*88, 7, 3, '#73757f'); }
+    R(-OV,0,W+2*OV,H,'#6d5a4a');
+    R(-OV,0,W+2*OV,90,'#7d7f8a');
+    for (let i=0;i<75;i++){ R(-OV + hash(i,40)*(W+2*OV), hash(i,41)*88, 7, 3, '#73757f'); }
     R(46,16,16,74,'#8f929e'); R(258,16,16,74,'#8f929e');
     R(44,12,20,5,'#9a9daa'); R(256,12,20,5,'#9a9daa');
+    R(-78,16,16,74,'#8f929e'); R(-80,12,20,5,'#9a9daa');
+    R(382,16,16,74,'#8f929e'); R(380,12,20,5,'#9a9daa');
     [92,228].forEach((wx2,i)=>{
       ctx.fillStyle = '#4a6bbf';
       ctx.beginPath(); ctx.arc(wx2+9,26,9,Math.PI,0); ctx.fill();
@@ -637,9 +665,10 @@ const stage = document.getElementById('stage');
 stage.addEventListener('pointerdown', e => {
   ac();
   const b = cv.getBoundingClientRect();
-  const lx = (e.clientX - b.left) / b.width * W;
+  const lx = (e.clientX - b.left) / b.width * DW - OX;
   const ly = (e.clientY - b.top) / b.height * H;
-  if (lx >= 0 && lx <= W && ly >= 0 && ly <= H) tapAt(lx, ly);
+  if (lx >= -OX - 1 && lx <= W + OX + 1 && ly >= 0 && ly <= H)
+    tapAt(Math.max(0, Math.min(W, lx)), ly);
 });
 document.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -683,11 +712,26 @@ document.addEventListener('visibilitychange', ()=>{ if (document.hidden) save();
 
 // ---------- sizing & loop ----------
 function fit(){
-  const k = Math.min(stage.clientWidth / W, stage.clientHeight / H);
-  cv.style.width = Math.floor(W * k) + 'px';
-  cv.style.height = Math.floor(H * k) + 'px';
+  const sw = stage.clientWidth, sh = stage.clientHeight;
+  if (!sw || !sh) return;
+  DW = Math.max(W, Math.min(W + 2*OV, Math.round(sw / sh * H)));
+  OX = Math.floor((DW - W) / 2 / PX) * PX;
+  cv.width = DW; cv.height = H;
+  os.width = Math.ceil(DW / PX); os.height = H / PX;
+  const s = Math.min(sw / DW, sh / H);
+  cv.style.width = Math.floor(DW * s) + 'px';
+  cv.style.height = Math.floor(H * s) + 'px';
 }
 window.addEventListener('resize', fit);
+window.addEventListener('orientationchange', ()=> setTimeout(fit, 200));
+document.addEventListener('fullscreenchange', ()=> setTimeout(fit, 100));
+document.getElementById('fs').addEventListener('click', ()=>{
+  try {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen();
+  } catch(e){}
+  setTimeout(fit, 300);
+});
 fit();
 hud();
 say('');
@@ -698,7 +742,13 @@ function frame(ts){
   const dt = Math.min(.05, t - (last || t));
   last = t;
   if (introEl.classList.contains('hidden')) update(dt);
+  // scene renders at half res into the offscreen buffer, then upscales
+  // nearest-neighbor onto the display canvas for chunky 2px pixel art
+  ctx.setTransform(1/PX, 0, 0, 1/PX, OX/PX, 0);
   drawFrame(t);
+  dctx.setTransform(1, 0, 0, 1, 0, 0);
+  dctx.imageSmoothingEnabled = false;
+  dctx.drawImage(os, 0, 0, os.width, os.height, 0, 0, os.width*PX, os.height*PX);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
