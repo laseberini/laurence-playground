@@ -400,35 +400,85 @@ async function loadAI(voiceId){
   }
   if (!narEl.classList.contains('hidden')) buildNarMenu();
 }
+let aiSrc = null;
+function aiParts(text){
+  // split into sentences, but merge tiny fragments so there are fewer seams
+  const raw = (text.match(/[^.!?…]+[.!?…]*/g) || [text]).map(s => s.trim()).filter(Boolean);
+  const out = [];
+  for (const p of raw){
+    if (out.length && (out[out.length-1].length < 20 || p.length < 12))
+      out[out.length-1] += ' ' + p;
+    else out.push(p);
+  }
+  return out;
+}
+function aiGen(line){
+  const key = AI.voiceId + '|' + line;
+  const hit = aiCache.get(key);
+  if (hit) return Promise.resolve(hit);
+  return AI.session.predict(line).then(blob => {
+    aiCache.set(key, blob);
+    if (aiCache.size > 48) aiCache.delete(aiCache.keys().next().value);
+    return blob;
+  });
+}
+function trimBuf(a, buf){
+  // cut the model's leading/trailing silence — the main cause of long pauses
+  try {
+    const ch = buf.getChannelData(0), thr = .012;
+    let s = 0, e = ch.length - 1;
+    while (s < e && Math.abs(ch[s]) < thr) s++;
+    while (e > s && Math.abs(ch[e]) < thr) e--;
+    s = Math.max(0, s - (buf.sampleRate * .04 | 0));
+    e = Math.min(ch.length, e + (buf.sampleRate * .1 | 0));
+    if (e - s < buf.sampleRate * .05) return buf;
+    const out = a.createBuffer(buf.numberOfChannels, e - s, buf.sampleRate);
+    for (let c = 0; c < buf.numberOfChannels; c++)
+      out.getChannelData(c).set(buf.getChannelData(c).subarray(s, e));
+    return out;
+  } catch(err){ return buf; }
+}
+async function playAIBlob(blob, seq){
+  const a = ac();
+  if (a && a.state === 'running'){
+    try {
+      const ab = await blob.arrayBuffer();
+      if (seq !== speakSeq) return;
+      const buf = await a.decodeAudioData(ab);
+      if (seq !== speakSeq) return;
+      await new Promise(res => {
+        const src = a.createBufferSource();
+        src.buffer = trimBuf(a, buf);
+        src.connect(a.destination);
+        aiSrc = src; src.onended = res;
+        src.start();
+      });
+      return;
+    } catch(e){}
+  }
+  const url = URL.createObjectURL(blob);
+  await new Promise(res => {
+    aiAudio = new Audio(url);
+    aiAudio.onended = aiAudio.onerror = () => res();
+    aiAudio.play().catch(()=> res());
+  });
+  URL.revokeObjectURL(url);
+}
 async function aiSpeak(text, btn){
   const seq = ++speakSeq;
   speaking = true; aiActive = true; speakStart = Date.now();
   speakBtnActive = btn;
   btn.textContent = btn.id === 'speak' ? '⏳' : '⏳ …';
   try {
-    const parts = text.match(/[^.!?…]+[.!?…]*/g) || [text];
-    for (const part of parts){
-      const line = part.trim();
-      if (!line) continue;
-      const key = AI.voiceId + '|' + line;
-      let url = aiCache.get(key);
-      if (!url){
-        const blob = await AI.session.predict(line);
-        if (seq !== speakSeq) return;
-        url = URL.createObjectURL(blob);
-        aiCache.set(key, url);
-        if (aiCache.size > 80){
-          const k0 = aiCache.keys().next().value;
-          URL.revokeObjectURL(aiCache.get(k0)); aiCache.delete(k0);
-        }
-      }
+    const parts = aiParts(text);
+    let next = aiGen(parts[0]);
+    for (let i = 0; i < parts.length; i++){
+      const blob = await next;
       if (seq !== speakSeq) return;
+      // start generating the NEXT sentence while this one plays
+      if (i + 1 < parts.length) next = aiGen(parts[i + 1]);
       btn.textContent = btn.id === 'speak' ? '⏹' : '⏹ Stop';
-      await new Promise(res => {
-        aiAudio = new Audio(url);
-        aiAudio.onended = aiAudio.onerror = () => res();
-        aiAudio.play().catch(()=> res());
-      });
+      await playAIBlob(blob, seq);
       if (seq !== speakSeq) return;
     }
     if (seq === speakSeq){ aiActive = false; stopSpeak(); }
@@ -445,6 +495,7 @@ function stopSpeak(){
   speakSeq++; curU = null;
   try { speechSynthesis.cancel(); } catch(e){}
   if (aiAudio){ try { aiAudio.pause(); } catch(e){} aiAudio = null; }
+  if (aiSrc){ try { aiSrc.onended = null; aiSrc.stop(); } catch(e){} aiSrc = null; }
   aiActive = false;
   speaking = false;
   if (speakBtnActive) speakBtnActive.textContent = speakBtnActive.id === 'speak' ? '🔊' : '🔊 Listen';
