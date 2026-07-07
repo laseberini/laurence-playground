@@ -292,18 +292,7 @@ function schedule(fn, minMs, maxMs){
   setTimeout(tick, minMs + Math.random()*(maxMs-minMs));
 }
 
-// --- looping beds ---
-function bWind(a, level, cut){
-  const m = ambMaster(); if (!m) return;
-  const s = a.createBufferSource(); s.buffer = noiseBuf(); s.loop = true;
-  const bp = a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = cut||500; bp.Q.value = .6;
-  const g = a.createGain(); g.gain.value = level;
-  const lfo = a.createOscillator(); lfo.frequency.value = .07 + Math.random()*.06;
-  const lg = a.createGain(); lg.gain.value = level*.7;
-  lfo.connect(lg); lg.connect(g.gain);
-  s.connect(bp); bp.connect(g); g.connect(m);
-  s.start(); lfo.start(); ambNodes.push(s, lfo);
-}
+// --- the ONLY looping bed: gently moving water (rivers, lake, sea) ---
 function bWater(a, level, cut, swell){
   const m = ambMaster(); if (!m) return;
   const s = a.createBufferSource(); s.buffer = noiseBuf(); s.loop = true;
@@ -315,16 +304,7 @@ function bWater(a, level, cut, swell){
   s.connect(lp); lp.connect(g); g.connect(m);
   s.start(); lfo.start(); ambNodes.push(s, lfo);
 }
-function bFire(a, level){
-  const m = ambMaster(); if (!m) return;
-  const s = a.createBufferSource(); s.buffer = noiseBuf(); s.loop = true;
-  const hp = a.createBiquadFilter(); hp.type='highpass'; hp.frequency.value = 700;
-  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 3200;
-  const g = a.createGain(); g.gain.value = level;
-  s.connect(hp); hp.connect(lp); lp.connect(g); g.connect(m);
-  s.start(); ambNodes.push(s);
-  schedule(()=>firePop(level*4), 180, 850);
-}
+// a single fire crackle pop (used by cCrackle bursts, no constant fire bed)
 function firePop(peak){
   const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
   const t = a.currentTime;
@@ -333,38 +313,6 @@ function firePop(peak){
   const g = a.createGain();
   g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(peak,t+.004); g.gain.exponentialRampToValueAtTime(.0001,t+.06);
   s.connect(bp); bp.connect(g); g.connect(m); s.start(t); s.stop(t+.08);
-}
-function bBees(a, level){
-  const m = ambMaster(); if (!m) return;
-  const g = a.createGain(); g.gain.value = level; g.connect(m);
-  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 900; lp.connect(g);
-  [148,151,224,229].forEach(f=>{
-    const o = a.createOscillator(); o.type='sawtooth'; o.frequency.value = f;
-    const vib = a.createOscillator(); vib.frequency.value = 5 + Math.random()*5;
-    const vg = a.createGain(); vg.gain.value = 4;
-    vib.connect(vg); vg.connect(o.frequency);
-    o.connect(lp); o.start(); vib.start(); ambNodes.push(o, vib);
-  });
-}
-function bShimmer(a, level){
-  const m = ambMaster(); if (!m) return;
-  [1210, 1809, 2417].forEach((f,i)=>{
-    const o = a.createOscillator(); o.type='sine'; o.frequency.value = f;
-    const g = a.createGain(); g.gain.value = level*.5;
-    const lfo = a.createOscillator(); lfo.frequency.value = .09 + i*.05;
-    const lg = a.createGain(); lg.gain.value = level*.5;
-    lfo.connect(lg); lg.connect(g.gain);
-    o.connect(g); g.connect(m);
-    o.start(); lfo.start(); ambNodes.push(o, lfo);
-  });
-}
-function bRumble(a, level, cut){
-  const m = ambMaster(); if (!m) return;
-  const s = a.createBufferSource(); s.buffer = noiseBuf(); s.loop = true;
-  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = cut||180;
-  const g = a.createGain(); g.gain.value = level;
-  s.connect(lp); lp.connect(g); g.connect(m);
-  s.start(); ambNodes.push(s);
 }
 
 // --- one-shot critters (short, so they can finish after a scene change) ---
@@ -486,27 +434,103 @@ function cCricket(){
   }
 }
 
-// which sounds belong to which land
+// a bee buzzing past — swells up then fades as it "passes"
+function cBuzz(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime, dur = .55 + Math.random()*.4;
+  const o = a.createOscillator(); o.type='sawtooth'; o.frequency.value = 175 + Math.random()*45;
+  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 850;
+  const vib = a.createOscillator(); vib.frequency.value = 13; const vg = a.createGain(); vg.gain.value = 9;
+  vib.connect(vg); vg.connect(o.frequency);
+  const g = a.createGain();
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.028,t+dur*.4); g.gain.linearRampToValueAtTime(.0001,t+dur);
+  o.connect(lp); lp.connect(g); g.connect(m); o.start(t); vib.start(t); o.stop(t+dur+.02); vib.stop(t+dur+.02);
+}
+// a single wind gust that rises and falls (no constant howl)
+function cGust(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime, dur = .9 + Math.random()*.9;
+  const s = a.createBufferSource(); s.buffer = noiseBuf(); s.loop = true;
+  const bp = a.createBiquadFilter(); bp.type='bandpass'; bp.Q.value = .7;
+  bp.frequency.setValueAtTime(380,t); bp.frequency.linearRampToValueAtTime(900,t+dur*.5); bp.frequency.linearRampToValueAtTime(380,t+dur);
+  const g = a.createGain();
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.035,t+dur*.4); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  s.connect(bp); bp.connect(g); g.connect(m); s.start(t); s.stop(t+dur+.05);
+}
+// a magic shimmer — a quick sparkle of high bell tones
+function cSparkle(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t0 = a.currentTime, notes = [1568,2093,2637,3136];
+  for (let i=0;i<4;i++){
+    const t = t0 + i*.08, o = a.createOscillator(); o.type='sine'; o.frequency.value = notes[i];
+    const g = a.createGain();
+    g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.022,t+.01); g.gain.exponentialRampToValueAtTime(.0001,t+.3);
+    o.connect(g); g.connect(m); o.start(t); o.stop(t+.32);
+  }
+}
+// a short burst of fire crackles
+function cCrackle(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const n = 3 + ((Math.random()*4)|0);
+  for (let i=0;i<n;i++) setTimeout(()=>firePop(.055+Math.random()*.05), i*(60+Math.random()*130));
+}
+// a low volcanic rumble that swells once and fades
+function cRumbleShot(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime, dur = 1.3 + Math.random()*.8;
+  const s = a.createBufferSource(); s.buffer = noiseBuf(); s.loop = true;
+  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 120;
+  const g = a.createGain();
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.05,t+dur*.4); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  s.connect(lp); lp.connect(g); g.connect(m); s.start(t); s.stop(t+dur+.05);
+}
+
+// footstep: a soft sound each footfall, tinted by the ground surface
+const SURFACE = { bridge:'wood', pass:'snow', cave:'stone', foothills:'stone',
+                  emberpeak:'stone', lair:'stone', throne:'stone', gate:'stone' };
+function sfxStep(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const surf = SURFACE[cur] || 'grass';
+  const t = a.currentTime;
+  const s = a.createBufferSource(); s.buffer = noiseBuf();
+  const f = a.createBiquadFilter(); const g = a.createGain();
+  let peak = .026, dur = .06;
+  if (surf === 'wood'){
+    f.type='bandpass'; f.frequency.value = 360; f.Q.value = 2; peak = .04; dur = .09;
+    const o = a.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(155,t); o.frequency.exponentialRampToValueAtTime(85,t+.08);
+    const og = a.createGain(); og.gain.setValueAtTime(.045,t); og.gain.exponentialRampToValueAtTime(.0001,t+.09);
+    o.connect(og); og.connect(m); o.start(t); o.stop(t+.1);
+  } else if (surf === 'snow'){ f.type='highpass'; f.frequency.value = 2400; peak = .03; dur = .05; }
+  else if (surf === 'stone'){ f.type='bandpass'; f.frequency.value = 1600; f.Q.value = 1.4; peak = .024; dur = .045; }
+  else { f.type='lowpass'; f.frequency.value = 620; peak = .028; dur = .06; } // grass
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(peak,t+.005); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  s.connect(f); f.connect(g); g.connect(m); s.start(t); s.stop(t+dur+.02);
+}
+
+// which sounds belong to which land: an entry cue + occasional one-shots.
+// Only water scenes keep a gently looping bed; everything else is quiet
+// between its occasional critters.
 const AMB = {
-  forest:    a => { bWind(a,.014,720); schedule(cBird,3000,8000); },
-  meadow:    a => { bWind(a,.011,650); schedule(cBird,3500,9000); schedule(cCricket,5000,12000); },
-  cottage:   a => { bFire(a,.018); schedule(cBird,5000,11000); schedule(cHen,7000,15000); },
-  bridge:    a => { bWater(a,.05,950,.4); },
-  lake:      a => { bWater(a,.03,600,.14); schedule(cGull,6000,13000); schedule(cSplash,7000,16000); },
-  gate:      a => { bWind(a,.018,520); schedule(cFlap,4000,9000); },
-  throne:    a => { bRumble(a,.014,160); bFire(a,.009); },
-  darkwoods: a => { bWind(a,.024,360); schedule(cCrow,5000,11000); },
-  beeglade:  a => { bBees(a,.02); schedule(cBird,6000,13000); },
-  tower:     a => { bShimmer(a,.02); bWind(a,.009,620); },
-  foothills: a => { bWind(a,.024,460); schedule(cBird,7000,15000); },
-  cave:      a => { bRumble(a,.02,150); schedule(cDrip,2500,6000); },
-  pass:      a => { bWind(a, F.warm?.014:.055, F.warm?600:1200); },
-  emberpeak: a => { bFire(a,.032); bRumble(a,.018,130); },
-  lair:      a => { bFire(a,.024); schedule(cSnore,4000,8000); },
-  marsh:     a => { bWater(a,.018,420,.1); schedule(cFrog,3000,7000); schedule(cCricket,4000,9000); },
-  hamlet:    a => { bWind(a,.011,600); schedule(cHen,4000,9000); schedule(cBird,6000,13000); },
-  orchard:   a => { bWind(a,.014,650); schedule(cCrow,6000,12000); schedule(()=>{ if(!F.cat && !F.catHome) cCat(); },5000,11000); },
-  cliffs:    a => { bWater(a,.04,520,.09); bWind(a,.016,720); schedule(cGull,4000,9000); },
+  forest:    { enter:cBird,   every:[[cBird,9000,20000]] },
+  meadow:    { enter:cBird,   every:[[cBird,9000,20000],[cCricket,13000,26000]] },
+  cottage:   { enter:cHen,    every:[[cBird,11000,24000],[cHen,13000,28000],[cCrackle,11000,24000]] },
+  bridge:    { water:[.05,950,.4], every:[[cSplash,11000,24000]] },
+  lake:      { water:[.028,600,.14], enter:cGull, every:[[cGull,11000,24000],[cSplash,13000,28000]] },
+  gate:      { enter:cFlap,   every:[[cFlap,11000,24000],[cGust,13000,28000]] },
+  throne:    { enter:cCrackle,every:[[cCrackle,10000,22000]] },
+  darkwoods: { enter:cCrow,   every:[[cCrow,10000,22000],[cGust,12000,26000]] },
+  beeglade:  { enter:cBuzz,   every:[[cBuzz,6000,15000],[cBird,13000,26000]] },
+  tower:     { enter:cSparkle,every:[[cSparkle,9000,20000]] },
+  foothills: { enter:cBird,   every:[[cBird,11000,24000],[cGust,10000,22000]] },
+  cave:      { enter:cDrip,   every:[[cDrip,4000,10000]] },
+  pass:      { enter:cGust,   every:[[cGust,()=>F.warm?9000:4500,()=>F.warm?20000:11000]] },
+  emberpeak: { enter:cCrackle,every:[[cCrackle,6000,14000],[cRumbleShot,10000,22000]] },
+  lair:      { enter:cSnore,  every:[[cSnore,6500,12000]] },
+  marsh:     { enter:cFrog,   every:[[cFrog,7000,16000],[cCricket,9000,20000]] },
+  hamlet:    { enter:cHen,    every:[[cHen,8000,18000],[cBird,11000,24000]] },
+  orchard:   { enter:cCrow,   every:[[cCrow,11000,24000],[()=>{ if(!F.cat && !F.catHome) cCat(); },9000,20000]] },
+  cliffs:    { water:[.04,520,.09], enter:cGull, every:[[cGull,7000,16000]] },
 };
 
 function stopAmb(){
@@ -519,8 +543,10 @@ function sceneAudio(id){
   stopAmb();
   if (!ambOn) return;
   const a = ac(); if (!a) return;
-  const build = AMB[id];
-  if (build) build(a);
+  const cfg = AMB[id]; if (!cfg) return;
+  if (cfg.water) bWater(a, cfg.water[0], cfg.water[1], cfg.water[2]); // moving water loops
+  if (cfg.enter){ const fn = cfg.enter; setTimeout(()=>{ if (ambScene === id) fn(); }, 350 + Math.random()*400); }
+  (cfg.every||[]).forEach(([fn,mn,mx]) => schedule(fn, typeof mn==='function'?mn():mn, typeof mx==='function'?mx():mx));
 }
 // on phones/laptops, pause the whole soundscape when the game isn't on screen
 document.addEventListener('visibilitychange', ()=>{
@@ -2987,6 +3013,7 @@ function stepPlayer(dx, dy){
   if (dx) player.dir = dx > 0 ? 1 : -1;
   player.x = nx; player.y = ny;
 }
+let footFloor = -1, footLast = 0;
 function update(dt){
   const kv = keyVec();
   if ((kv.x || kv.y) && !overlayOpen()){
@@ -3008,6 +3035,14 @@ function update(dt){
       if (Math.abs(dx) > 1) player.dir = dx > 0 ? 1 : -1;
       player.step += dt * 9;
     }
+  }
+  // footsteps: a soft footfall as the walk cycle advances, throttled to a
+  // natural cadence and tinted by the ground surface (grass, wood, snow, stone)
+  const sf = Math.floor(player.step);
+  if (sf !== footFloor){
+    footFloor = sf;
+    const now = AC ? AC.currentTime : 0;
+    if (now - footLast > 0.28){ footLast = now; sfxStep(); }
   }
   const r = rooms[cur];
   const d = exits();
