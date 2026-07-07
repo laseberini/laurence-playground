@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#141625">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href='data:application/manifest+json,{"name":"King%27s Quest","short_name":"King%27s Quest","display":"fullscreen","background_color":"%230d0f1a","theme_color":"%23141625","icons":[{"src":"data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%23141625%22/><text x=%2250%22 y=%2268%22 font-size=%2255%22 text-anchor=%22middle%22>👑</text></svg>","sizes":"any","type":"image/svg+xml"}]}'>
 <title>King’s Quest: The Crown of Aldermere</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; }
@@ -91,7 +92,6 @@
     <span id="inv"></span>
     <span id="score">⭐ 0/18</span>
     <button id="narBtn" title="Auto read-aloud">🗣️</button>
-    <button id="musBtn" title="Music">🎵</button>
     <button id="mapBtn" title="Map">🗺</button>
     <button id="fs" title="Fullscreen">⛶</button>
     <button id="reset" title="New game">↺</button>
@@ -107,7 +107,7 @@
          but beware: there’s a dragon in this tale.</p>
       <p><b>Tap the ground</b> to walk. <b>Tap things</b> to use them.
          <b>Golden arrows</b> lead to new lands. ✦ marks things to try,
-         👁️ describes the scene, 🗺 shows the map, 🎵 changes the music,
+         👁️ describes the scene, 🗺 shows the map,
          🗣️ picks the storyteller’s voice.</p>
       <button id="begin">▶ Begin</button>
     </div>
@@ -189,7 +189,8 @@ function freshFlags(){
            crown:false, throne:false };
 }
 let F = freshFlags();
-let seen = {};
+let seen = {};  // revealed on the map (the well's wish fills this)
+let been = {};  // physically visited — drives first-visit narration
 let score = 0;
 let cur = 'forest';
 const player = { x:160, y:150, tx:160, ty:150, dir:1, step:0, moving:false };
@@ -197,7 +198,7 @@ let pending = null;
 let fishing = false;
 
 function save(){
-  try { localStorage.setItem('kq-save2', JSON.stringify({ F, seen, score, cur, x:player.x, y:player.y })); }
+  try { localStorage.setItem('kq-save2', JSON.stringify({ F, seen, been, score, cur, x:player.x, y:player.y })); }
   catch(e){}
 }
 function loadSave(){
@@ -232,69 +233,7 @@ function sfxUnlock(){ beep(330,.08); beep(440,.08,.09); beep(587,.16,.18); }
 function sfxFanfare(){ [523,659,784,1047].forEach((f,i)=>beep(f,.22,i*.13,'square',.05)); }
 function sfxGrowl(){ beep(72,.5,0,'sawtooth',.09); beep(54,.55,.12,'sawtooth',.09); }
 
-// ---------- music ----------
-const THEMES = {
-  bright: { step:.17,
-    mel:[76,0,79,0,84,0,79,0, 81,0,79,0,76,0,72,0, 74,0,76,0,79,0,76,0, 72,0,0,0,0,0,0,0,
-         76,0,79,0,84,0,88,0, 86,0,84,0,81,0,79,0, 81,0,79,0,76,0,74,0, 72,0,0,0,0,0,0,0],
-    bass:[48,0,0,0,43,0,0,0, 45,0,0,0,43,0,0,0, 50,0,0,0,52,0,0,0, 48,0,0,0,43,0,0,0,
-          48,0,0,0,43,0,0,0, 50,0,0,0,48,0,0,0, 45,0,0,0,43,0,0,0, 48,0,0,0,48,0,0,0] },
-  dark: { step:.21,
-    mel:[69,0,0,0,72,0,0,0, 71,0,0,0,64,0,0,0, 69,0,0,0,72,0,76,0, 74,0,71,0,0,0,0,0],
-    bass:[45,0,0,0,0,0,0,0, 40,0,0,0,0,0,0,0, 45,0,0,0,0,0,0,0, 43,0,0,0,40,0,0,0] },
-  lull: { step:.2, wave:'triangle', mvol:.026,
-    mel:[79,0,0,76,0,0, 74,0,0,76,0,0, 72,0,0,0,0,0, 69,0,0,72,0,0,
-         76,0,0,74,0,0, 71,0,0,0,0,0, 74,0,0,79,0,0, 76,0,0,72,0,0],
-    bass:[48,0,0,0,0,0, 43,0,0,0,0,0, 45,0,0,0,0,0, 48,0,0,0,0,0,
-          41,0,0,0,0,0, 43,0,0,0,0,0, 45,0,0,0,0,0, 48,0,0,0,0,0] },
-};
-const TUNESETS = [
-  { icon:'🎵', bright:THEMES.bright, dark:THEMES.dark },
-  { icon:'🎶', bright:THEMES.lull, dark:THEMES.dark },
-];
-const DARKROOMS = { cave:1, lair:1, darkwoods:1, emberpeak:1 };
-let tune = 0; // index into TUNESETS, -1 = music off
-try {
-  const m = localStorage.getItem('kq-music2');
-  if (m === 'off') tune = -1;
-  else if (m != null) tune = Math.min(TUNESETS.length-1, parseInt(m,10) || 0);
-  else if (localStorage.getItem('kq-music') === '0') tune = -1;
-} catch(e){}
-let nextNote = 0, mstep = 0;
-let speaking = false; // music ducks while the narrator reads aloud
-function midi(n){ return 440 * Math.pow(2, (n-69)/12); }
-function note(f, t, d, type, vol){
-  const a = AC; if (!a) return;
-  const o = a.createOscillator(), g = a.createGain();
-  o.type = type; o.frequency.value = f;
-  g.gain.setValueAtTime(vol, t);
-  g.gain.exponentialRampToValueAtTime(.0001, t + d);
-  o.connect(g); g.connect(a.destination);
-  o.start(t); o.stop(t + d);
-}
-function musicLoop(){
-  const a = AC;
-  if (!a || tune < 0 || speaking || a.state !== 'running') return;
-  if (nextNote < a.currentTime - 1) nextNote = a.currentTime + .05;
-  while (nextNote < a.currentTime + .6){
-    const th = TUNESETS[tune][DARKROOMS[cur] ? 'dark' : 'bright'];
-    const i = mstep % th.mel.length;
-    if (th.mel[i]) note(midi(th.mel[i]), nextNote, th.step*2.2, th.wave || 'square', th.mvol || .014);
-    if (th.bass[i]) note(midi(th.bass[i]), nextNote, th.step*3.6, 'triangle', .032);
-    nextNote += th.step; mstep++;
-  }
-}
-setInterval(musicLoop, 120);
-function musBtnIcon(){
-  document.getElementById('musBtn').textContent = tune < 0 ? '🔇' : TUNESETS[tune].icon;
-}
-document.getElementById('musBtn').addEventListener('click', ()=>{
-  // rotate: tune 1 -> tune 2 -> off -> tune 1 ...
-  tune = tune === -1 ? 0 : (tune === TUNESETS.length - 1 ? -1 : tune + 1);
-  try { localStorage.setItem('kq-music2', tune === -1 ? 'off' : String(tune)); } catch(e){}
-  if (tune >= 0){ ac(); const a = AC; if (a) nextNote = a.currentTime + .05; mstep = 0; }
-  musBtnIcon();
-});
+let speaking = false; // true while the narrator reads aloud
 
 // ---------- read-aloud (for adventurers who can't read yet) ----------
 const msgTxtEl = document.getElementById('msgTxt');
@@ -2011,9 +1950,12 @@ function gotoRoom(id, px, py){
   player.x = player.tx = Math.max(4, Math.min(316, px));
   player.y = player.ty = Math.max(r.walkTop, Math.min(196, py));
   player.moving = false; pending = null;
-  seen[id] = 1;
+  const firstVisit = !been[id];
+  seen[id] = 1; been[id] = 1;
   hideCloseup();
-  say(r.title, true); // scene entry shows the title silently — 👁️ describes on demand
+  // first visit: the narrator introduces the scene; afterwards entry is silent
+  if (firstVisit && typeof DESCS !== 'undefined' && DESCS[id]) say(DESCS[id]());
+  else say(r.title, true);
   save();
 }
 function walkTo(x, y, p){
@@ -2204,8 +2146,11 @@ function drawFrame(t){
 
 // ---------- input ----------
 const stage = document.getElementById('stage');
+let fsTried = false;
 stage.addEventListener('pointerdown', e => {
   ac();
+  // one gentle retry at fullscreen on the first play tap, in case Begin's didn't take
+  if (!fsTried && !document.fullscreenElement){ fsTried = true; goFull(); }
   const b = cv.getBoundingClientRect();
   const lx = (e.clientX - b.left) / b.width * DW - OX;
   const ly = (e.clientY - b.top) / b.height * H;
@@ -2252,6 +2197,9 @@ const DESCS = {
                : ' Beside the throne: an empty pedestal with claw marks.'),
   darkwoods: () => 'A gloomy wood of dead trees and drifting fog. A raven perches up high'
     + (!F.gaveGeode ? ', clutching a little book.' : ', admiring its shiny geode.'),
+  beeglade: () => 'A flowery glade with a great humming beehive. The queen bee hovers close by.'
+    + (honeyDone() ? '' : ' She loves wildflowers.'),
+  tower: () => 'A tall wizard’s tower with a glowing star window. Fenwick the wizard stands outside, and a telescope points at the mountains.',
   foothills: () => 'Rocky hills with a dark cave mouth — and a deep gorge to the east.',
   cave: () => 'A crystal cave glowing blue and purple. Bats flit above your lantern light.'
     + (!F.geode ? ' Something purple sparkles on the floor.' : ''),
@@ -2270,36 +2218,8 @@ const DESCS = {
     + (!F.cat && !F.catHome ? ' A little white cat meows up a tree!' : ''),
   cliffs: () => 'High green cliffs above a silver sea — gulls, a sailboat, and a lighthouse.',
 };
-function goalHint(){
-  if (!F.gaveFlower) return F.flower
-    ? 'Take the moonpetal to Elda, at her cottage.'
-    : 'Pick Elda a moonpetal from the meadow, WEST of the forest.';
-  if (!F.gaveFish) return F.fish
-    ? 'Give the trout to Grukk at the bridge.'
-    : 'Catch a trout at the lake for the hungry troll.';
-  if (F.key && !F.gateOpen) return 'Open the castle gate, NORTH of the forest.';
-  if (!F.quest) return 'Go inside the castle and look around.';
-  if (!F.crown){
-    if (F.honeyOut) return 'Grab the crown!';
-    if (F.honey) return 'Take the honey to the dragon’s lair at Ember Peak.';
-    if (F.warm) return F.posy
-      ? 'Give the flowers to the bee queen in the Bee Glade.'
-      : 'The bees of the Bee Glade trade honey for wildflowers.';
-    if (F.book) return 'Return the spellbook to Fenwick at his tower.';
-    if (F.geode) return 'Trade the geode to the raven in the Dark Woods.';
-    if (F.lantern) return 'Explore the crystal cave in the foothills.';
-    if (F.sawCave) return 'Fetch Elda’s lantern from her cottage door.';
-    return 'Cross Grukk’s bridge and explore EAST — and check the cave in the foothills.';
-  }
-  if (!F.throne) return 'Go sit your throne in the castle!';
-  if (F.cat && !F.catHome) return 'Bring Biscuit home to Tilly in the hamlet.';
-  if (F.coin && !F.wished) return 'Toss the coin in the wishing well.';
-  return 'You are the Sovereign! Explore your kingdom.';
-}
 document.getElementById('eye').addEventListener('click', ()=>{
-  let d = DESCS[cur] ? DESCS[cur]() : rooms[cur].title;
-  const h = goalHint();
-  if (h) d += ' Your quest: ' + h;
+  const d = DESCS[cur] ? DESCS[cur]() : rooms[cur].title;
   msgTxtEl.textContent = d;
   startSpeech(d, speakBtn);
 });
@@ -2338,12 +2258,13 @@ function showWin(){
 function applyState(s){
   F = Object.assign(freshFlags(), s.F);
   seen = s.seen || {};
+  been = s.been || Object.assign({}, s.seen) || {};
   score = s.score || 0;
   gotoRoom(s.cur, s.x, s.y);
   hud();
 }
 function newGame(){
-  F = freshFlags(); seen = {}; score = 0; fishing = false;
+  F = freshFlags(); seen = {}; been = {}; score = 0; fishing = false;
   clearSave();
   winEl.classList.add('hidden');
   hud();
@@ -2360,12 +2281,7 @@ function goFull(){
 function begin(){
   introEl.classList.add('hidden');
   goFull();
-  if (tune >= 0){ ac(); if (AC) nextNote = AC.currentTime + .1; }
-  // restore the AI storyteller if it was chosen before (cached on http origins)
-  try {
-    const av = localStorage.getItem('kq-aivoice');
-    if (av && location.protocol.indexOf('http') === 0) loadAI(av);
-  } catch(e){}
+  ac(); // warm audio for sound effects and the storyteller
   const s = loadSave();
   if (s){ applyState(s); say(rooms[cur].title + '  (welcome back, adventurer)', true); }
   else newGame();
@@ -2384,8 +2300,13 @@ document.getElementById('fs').addEventListener('click', ()=>{
   setTimeout(fit, 300);
 });
 if (loadSave()) document.getElementById('begin').textContent = '▶ Continue';
-musBtnIcon();
 narBtnIcon();
+// restore the AI storyteller right away if it was chosen before —
+// on web origins the model is cached on-device, so this is instant and free
+try {
+  const av = localStorage.getItem('kq-aivoice');
+  if (av && location.protocol.indexOf('http') === 0) loadAI(av);
+} catch(e){}
 window.addEventListener('pagehide', save);
 document.addEventListener('visibilitychange', ()=>{ if (document.hidden) save(); });
 
