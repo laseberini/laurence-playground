@@ -73,6 +73,7 @@
     <span id="ttl">👑 King’s Quest</span>
     <span id="inv"></span>
     <span id="score">⭐ 0/18</span>
+    <button id="narBtn" title="Auto read-aloud">🗣️</button>
     <button id="musBtn" title="Music">🎵</button>
     <button id="mapBtn" title="Map">🗺</button>
     <button id="fs" title="Fullscreen">⛶</button>
@@ -92,7 +93,8 @@
          <b>Golden arrows</b> at the screen edges lead to the sixteen lands —
          tap an arrow to travel. Sparkles ✦ mark things worth a look,
          🗺 shows your map, tap an item in your pack to inspect it,
-         and 🎵 toggles the music.</p>
+         🎵 toggles the music — and the story reads itself aloud
+         (🗣️ turns the narrator on and off).</p>
       <button id="begin">▶ Begin</button>
     </div>
   </div>
@@ -243,36 +245,88 @@ document.getElementById('musBtn').addEventListener('click', ()=>{
 // ---------- read-aloud (for adventurers who can't read yet) ----------
 const msgTxtEl = document.getElementById('msgTxt');
 const speakBtn = document.getElementById('speak');
-let speakBtnActive = null;
+const hasTTS = 'speechSynthesis' in window;
+let autoRead = true;
+try { autoRead = localStorage.getItem('kq-autoread') !== '0'; } catch(e){}
+let speakBtnActive = null, curU = null, speakSeq = 0, speakStart = 0;
+
+// pick the best storyteller voice the device offers — neural/enhanced/network
+// voices sound far better than the default, but are never chosen automatically
+let voice = null;
+function pickVoice(){
+  if (!hasTTS) return;
+  const vs = (speechSynthesis.getVoices() || []).filter(v => /^en/i.test(v.lang));
+  if (!vs.length) return;
+  const rank = v => {
+    const n = v.name.toLowerCase();
+    let s = 0;
+    if (/natural|neural/.test(n)) s += 100;
+    if (/enhanced|premium/.test(n)) s += 80;
+    if (/google uk english female|google uk english male|google us english/.test(n)) s += 60;
+    if (/samantha|serena|karen|martha|daniel|moira|stephanie/.test(n)) s += 40;
+    if (!v.localService) s += 15;
+    if (/^en-(gb|us)/i.test(v.lang)) s += 5;
+    if (/female/.test(n)) s += 2;
+    return s;
+  };
+  vs.sort((a,b) => rank(b) - rank(a));
+  voice = vs[0];
+}
+if (hasTTS){
+  pickVoice();
+  try { speechSynthesis.onvoiceschanged = pickVoice; } catch(e){}
+}
 function stopSpeak(){
+  speakSeq++; curU = null;
   try { speechSynthesis.cancel(); } catch(e){}
   speaking = false;
   if (speakBtnActive) speakBtnActive.textContent = speakBtnActive.id === 'speak' ? '🔊' : '🔊 Listen';
   speakBtnActive = null;
 }
-function speakText(raw, btn){
-  if (speaking){ stopSpeak(); return; }
-  if (!raw || !('speechSynthesis' in window)) return;
+function startSpeech(raw, btn){
+  stopSpeak();
+  if (!hasTTS || !raw) return;
   const text = raw
     .replace(/\(\+\d+\)/g, '')
     .replace(/[🗺✦🎵⛄]/g, '')
+    .replace(/^[—\s]+|[—\s]+$/g, '')
     .replace(/—/g, ', ');
-  try {
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = .95; u.pitch = 1.05; u.lang = 'en';
-    u.onend = stopSpeak; u.onerror = stopSpeak;
-    speaking = true;
-    speakBtnActive = btn;
-    btn.textContent = btn.id === 'speak' ? '⏹' : '⏹ Stop';
-    speechSynthesis.speak(u);
-  } catch(e){ stopSpeak(); }
+  if (!text.trim()) return;
+  const u = new SpeechSynthesisUtterance(text);
+  if (voice){ u.voice = voice; u.lang = voice.lang; } else { u.lang = 'en'; }
+  u.rate = .92; u.pitch = 1.05;
+  u.onend = u.onerror = () => { if (curU === u) stopSpeak(); };
+  curU = u; speaking = true; speakStart = Date.now();
+  speakBtnActive = btn;
+  btn.textContent = btn.id === 'speak' ? '⏹' : '⏹ Stop';
+  const seq = speakSeq;
+  // tiny delay after cancel() — some engines drop an utterance queued in the same tick
+  setTimeout(()=>{
+    if (seq !== speakSeq) return;
+    try { speechSynthesis.speak(u); } catch(e){ stopSpeak(); }
+  }, 60);
 }
-if (!('speechSynthesis' in window)){
+function speakText(raw, btn){
+  if (speaking){ stopSpeak(); return; }
+  startSpeech(raw, btn);
+}
+if (!hasTTS){
   speakBtn.style.display = 'none';
+  document.getElementById('narBtn').style.display = 'none';
 } else {
-  setInterval(()=>{ if (speaking && !speechSynthesis.speaking && !speechSynthesis.pending) stopSpeak(); }, 600);
+  setInterval(()=>{
+    if (speaking && Date.now() - speakStart > 900 &&
+        !speechSynthesis.speaking && !speechSynthesis.pending) stopSpeak();
+  }, 600);
 }
+function narBtnIcon(){ document.getElementById('narBtn').textContent = autoRead ? '🗣️' : '💬'; }
+document.getElementById('narBtn').addEventListener('click', ()=>{
+  autoRead = !autoRead;
+  try { localStorage.setItem('kq-autoread', autoRead ? '1' : '0'); } catch(e){}
+  if (!autoRead) stopSpeak();
+  else startSpeech(msgTxtEl.textContent, speakBtn);
+  narBtnIcon();
+});
 speakBtn.addEventListener('click', ()=> speakText(msgTxtEl.textContent, speakBtn));
 document.getElementById('speakItem').addEventListener('click', e => {
   e.stopPropagation();
@@ -281,7 +335,10 @@ document.getElementById('speakItem').addEventListener('click', e => {
 });
 
 // ---------- ui ----------
-function say(t){ msgTxtEl.textContent = t; }
+function say(t){
+  msgTxtEl.textContent = t;
+  if (autoRead && t) startSpeech(t, speakBtn);
+}
 const ITEMS = {
   flower:['🌸','Moonpetal','A glowing meadow flower that hums in your hand. Old Elda needs one for her aching-bones potion.'],
   fish:['🐟','Silver trout','Fat, fresh and still flapping. Grukk the bridge troll looks awfully hungry…'],
@@ -1750,6 +1807,7 @@ document.getElementById('fs').addEventListener('click', ()=>{
 });
 if (loadSave()) document.getElementById('begin').textContent = '▶ Continue';
 musBtnIcon();
+narBtnIcon();
 window.addEventListener('pagehide', save);
 document.addEventListener('visibilitychange', ()=>{ if (document.hidden) save(); });
 
