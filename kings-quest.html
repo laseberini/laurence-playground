@@ -354,22 +354,117 @@ if (hasTTS){
   pickVoice();
   try { speechSynthesis.onvoiceschanged = pickVoice; } catch(e){}
 }
+// ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
+const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'' };
+const AIVOICES = [
+  ['en_GB-alba-medium', 'Alba — British storyteller'],
+  ['en_US-amy-medium', 'Amy — American'],
+  ['en_GB-alan-medium', 'Alan — British male'],
+];
+let aiActive = false, aiAudio = null;
+const aiCache = new Map();
+async function makeAISession(mod, voiceId, onProgress){
+  if (mod.TtsSession){
+    let s;
+    if (typeof mod.TtsSession.create === 'function')
+      s = await mod.TtsSession.create({ voiceId, progress: onProgress });
+    else s = new mod.TtsSession({ voiceId, progress: onProgress });
+    if (s && s.voiceId !== voiceId){ try { s.voiceId = voiceId; } catch(e){} }
+    if (s && typeof s.predict === 'function') return s;
+  }
+  return { predict: t => mod.predict({ text: t, voiceId }) };
+}
+async function loadAI(voiceId){
+  if (AI.state === 'loading') return;
+  AI.state = 'loading'; AI.pct = 0; AI.err = '';
+  if (!narEl.classList.contains('hidden')) buildNarMenu();
+  try {
+    if (!AI.mod)
+      AI.mod = await import('https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1/+esm');
+    let lastPct = -1;
+    const onProgress = p => {
+      let pct = null;
+      if (typeof p === 'number') pct = p <= 1 ? Math.round(p*100) : Math.round(p);
+      else if (p && p.total) pct = Math.round(p.loaded / p.total * 100);
+      if (pct != null && pct !== lastPct){
+        lastPct = pct; AI.pct = Math.max(0, Math.min(100, pct));
+        if (!narEl.classList.contains('hidden')) buildNarMenu();
+      }
+    };
+    AI.session = await makeAISession(AI.mod, voiceId, onProgress);
+    AI.voiceId = voiceId; AI.state = 'ready';
+    try { localStorage.setItem('kq-aivoice', voiceId); } catch(e){}
+  } catch(e){
+    AI.state = 'error'; AI.err = String(e && e.message || e).slice(0, 90);
+    AI.session = null; AI.voiceId = null;
+  }
+  if (!narEl.classList.contains('hidden')) buildNarMenu();
+}
+async function aiSpeak(text, btn){
+  const seq = ++speakSeq;
+  speaking = true; aiActive = true; speakStart = Date.now();
+  speakBtnActive = btn;
+  btn.textContent = btn.id === 'speak' ? '⏳' : '⏳ …';
+  try {
+    const parts = text.match(/[^.!?…]+[.!?…]*/g) || [text];
+    for (const part of parts){
+      const line = part.trim();
+      if (!line) continue;
+      const key = AI.voiceId + '|' + line;
+      let url = aiCache.get(key);
+      if (!url){
+        const blob = await AI.session.predict(line);
+        if (seq !== speakSeq) return;
+        url = URL.createObjectURL(blob);
+        aiCache.set(key, url);
+        if (aiCache.size > 80){
+          const k0 = aiCache.keys().next().value;
+          URL.revokeObjectURL(aiCache.get(k0)); aiCache.delete(k0);
+        }
+      }
+      if (seq !== speakSeq) return;
+      btn.textContent = btn.id === 'speak' ? '⏹' : '⏹ Stop';
+      await new Promise(res => {
+        aiAudio = new Audio(url);
+        aiAudio.onended = aiAudio.onerror = () => res();
+        aiAudio.play().catch(()=> res());
+      });
+      if (seq !== speakSeq) return;
+    }
+    if (seq === speakSeq){ aiActive = false; stopSpeak(); }
+  } catch(e){
+    // model hiccup — fall back to the phone voice for this line
+    if (seq === speakSeq){
+      aiActive = false; speaking = false;
+      if (hasTTS) startSpeechSys(text, btn); else stopSpeak();
+    }
+  }
+}
+
 function stopSpeak(){
   speakSeq++; curU = null;
   try { speechSynthesis.cancel(); } catch(e){}
+  if (aiAudio){ try { aiAudio.pause(); } catch(e){} aiAudio = null; }
+  aiActive = false;
   speaking = false;
   if (speakBtnActive) speakBtnActive.textContent = speakBtnActive.id === 'speak' ? '🔊' : '🔊 Listen';
   speakBtnActive = null;
 }
 function startSpeech(raw, btn){
   stopSpeak();
-  if (!hasTTS || !raw) return;
+  if (!raw) return;
   const text = raw
     .replace(/\(\+\d+\)/g, '')
     .replace(/[🗺✦🎵⛄]/g, '')
     .replace(/^[—\s]+|[—\s]+$/g, '')
-    .replace(/—/g, ', ');
-  if (!text.trim()) return;
+    .replace(/—/g, ', ')
+    .trim();
+  if (!text) return;
+  if (AI.session && AI.voiceId){ aiSpeak(text, btn); return; }
+  if (!hasTTS) return;
+  startSpeechSys(text, btn);
+}
+function startSpeechSys(text, btn){
   const u = new SpeechSynthesisUtterance(text);
   if (voice){ u.voice = voice; u.lang = voice.lang; } else { u.lang = 'en'; }
   u.rate = .92; u.pitch = 1.05;
@@ -393,7 +488,7 @@ if (!hasTTS){
   document.getElementById('narBtn').style.display = 'none';
 } else {
   setInterval(()=>{
-    if (speaking && Date.now() - speakStart > 900 &&
+    if (speaking && !aiActive && Date.now() - speakStart > 900 &&
         !speechSynthesis.speaking && !speechSynthesis.pending) stopSpeak();
   }, 600);
 }
@@ -402,18 +497,54 @@ const narEl = document.getElementById('nar');
 function refreshAutoBtn(){
   document.getElementById('autoBtn').textContent = autoRead ? '🗣️ Auto-narrate: ON' : '💬 Auto-narrate: OFF';
 }
+function aiRow(label, small, cls, onTap){
+  const b = document.createElement('button');
+  b.className = 'vrow' + (cls || '');
+  b.textContent = label;
+  if (small){ const sm = document.createElement('small'); sm.textContent = small; b.appendChild(sm); }
+  if (onTap) b.addEventListener('click', e => { e.stopPropagation(); onTap(); });
+  return b;
+}
 function buildNarMenu(){
   refreshAutoBtn();
   const list = document.getElementById('voiceList');
+  list.innerHTML = '';
+  // --- AI Storyteller section ---
+  if (AI.state === 'off'){
+    list.appendChild(aiRow('✨ Get the AI Storyteller voice',
+      'Natural, not robotic. ~60 MB download, kept on your phone. Wi-Fi recommended.'
+      + (location.protocol === 'file:' ? ' Tip: open the game via its web link so the download is remembered.' : ''),
+      '', ()=> loadAI(AIVOICES[0][0])));
+  } else if (AI.state === 'loading'){
+    list.appendChild(aiRow('⏳ Downloading storyteller… ' + (AI.pct ? AI.pct + '%' : ''),
+      'First time only — the voice stays on your phone.', ''));
+  } else if (AI.state === 'error'){
+    list.appendChild(aiRow('⚠️ AI voice failed — tap to retry', AI.err, '', ()=> loadAI(AIVOICES[0][0])));
+  } else {
+    AIVOICES.forEach(v => {
+      const sel = AI.voiceId === v[0];
+      list.appendChild(aiRow('✨ ' + v[1], sel ? 'AI Storyteller — active' : 'Tap to use' + (v[0] === AI.voiceId ? '' : ' (may download)'),
+        sel ? ' sel' : '', ()=>{
+          if (AI.voiceId === v[0]){
+            startSpeech('Once upon a time, in the kingdom of Aldermere, a brave adventurer set out to find a crown.', speakBtn);
+            return;
+          }
+          loadAI(v[0]).then(()=>{
+            if (AI.state === 'ready')
+              startSpeech('Once upon a time, in the kingdom of Aldermere, a brave adventurer set out to find a crown.', speakBtn);
+          });
+        }));
+    });
+  }
+  // --- phone voices ---
   const vs = allVoices();
   if (!vs.length){
-    list.innerHTML = '<div class="vrow">No English voices found on this device yet — try again in a moment.</div>';
+    list.appendChild(aiRow('No phone voices found on this device.', '', ''));
     return;
   }
-  list.innerHTML = '';
   vs.slice(0, 16).forEach(v => {
     const b = document.createElement('button');
-    b.className = 'vrow' + (voice && vid(v) === vid(voice) ? ' sel' : '');
+    b.className = 'vrow' + (!AI.voiceId && voice && vid(v) === vid(voice) ? ' sel' : '');
     const sm = document.createElement('small');
     sm.textContent = v.name + (v.voiceURI && v.voiceURI !== v.name ? ' · ' + v.voiceURI : '');
     b.textContent = voiceLabel(v);
@@ -421,7 +552,8 @@ function buildNarMenu(){
     b.addEventListener('click', e => {
       e.stopPropagation();
       voice = v;
-      try { localStorage.setItem('kq-voice', vid(v)); } catch(e2){}
+      AI.voiceId = null; // phone voice takes over; AI stays downloaded
+      try { localStorage.setItem('kq-voice', vid(v)); localStorage.setItem('kq-aivoice', ''); } catch(e2){}
       buildNarMenu();
       startSpeech('Once upon a time, in the kingdom of Aldermere, a brave adventurer set out to find a crown.', speakBtn);
     });
@@ -2178,6 +2310,11 @@ function begin(){
   introEl.classList.add('hidden');
   goFull();
   if (tune >= 0){ ac(); if (AC) nextNote = AC.currentTime + .1; }
+  // restore the AI storyteller if it was chosen before (cached on http origins)
+  try {
+    const av = localStorage.getItem('kq-aivoice');
+    if (av && location.protocol.indexOf('http') === 0) loadAI(av);
+  } catch(e){}
   const s = loadSave();
   if (s){ applyState(s); say(rooms[cur].title + '  (welcome back, adventurer)', true); }
   else newGame();
