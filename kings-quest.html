@@ -1875,6 +1875,7 @@ function showCloseup(s){
   };
   ccv.width = cw; ccv.height = ch;
   closeTxtEl.textContent = '';
+  closeShownAt = Date.now();
   closeEl.classList.remove('hidden');
   const card = closeEl.querySelector('.card');
   card.style.animation = 'none'; void card.offsetWidth; card.style.animation = '';
@@ -1915,11 +1916,16 @@ function renderCloseup(t){
     }
   }
 }
+let closeShownAt = 0;
 function hideCloseup(){
   closeSpot = null; closeF = null;
   closeEl.classList.add('hidden');
 }
-closeEl.addEventListener('click', hideCloseup);
+// dismiss on the NEXT press — the tap that opened the card ends with a
+// synthetic click at the same spot, which must not close it instantly
+closeEl.addEventListener('pointerdown', ()=>{
+  if (Date.now() - closeShownAt > 250) hideCloseup();
+});
 function interact(s){
   const room0 = cur;
   showCloseup(s); // freeze BEFORE acting, so picked things are still in view
