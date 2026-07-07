@@ -294,7 +294,7 @@ if (hasTTS){
   try { speechSynthesis.onvoiceschanged = pickVoice; } catch(e){}
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
-const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'' };
+const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[] };
 const AIVOICES = [
   ['en_GB-alba-medium', 'Alba — British storyteller'],
   ['en_US-amy-medium', 'Amy — American'],
@@ -332,6 +332,7 @@ async function loadAI(voiceId){
     };
     AI.session = await makeAISession(AI.mod, voiceId, onProgress);
     AI.voiceId = voiceId; AI.state = 'ready';
+    if (AI.storedIds.indexOf(voiceId) < 0) AI.storedIds.push(voiceId);
     try { localStorage.setItem('kq-aivoice', voiceId); } catch(e){}
   } catch(e){
     AI.state = 'error'; AI.err = String(e && e.message || e).slice(0, 90);
@@ -487,6 +488,9 @@ const narEl = document.getElementById('nar');
 function refreshAutoBtn(){
   document.getElementById('autoBtn').textContent = autoRead ? '🗣️ Auto-narrate: ON' : '💬 Auto-narrate: OFF';
 }
+function aiPreview(){
+  startSpeech('Once upon a time, in the kingdom of Aldermere, a brave adventurer set out to find a crown.', speakBtn);
+}
 function aiRow(label, small, cls, onTap){
   const b = document.createElement('button');
   b.className = 'vrow' + (cls || '');
@@ -501,10 +505,19 @@ function buildNarMenu(){
   list.innerHTML = '';
   // --- AI Storyteller section ---
   if (AI.state === 'off'){
-    list.appendChild(aiRow('✨ Get the AI Storyteller voice',
-      'Natural, not robotic. ~60 MB download, kept on your phone. Wi-Fi recommended.'
-      + (location.protocol === 'file:' ? ' Tip: open the game via its web link so the download is remembered.' : ''),
-      '', ()=> loadAI(AIVOICES[0][0])));
+    if (AI.storedIds && AI.storedIds.length){
+      AIVOICES.forEach(v => {
+        const has = AI.storedIds.indexOf(v[0]) >= 0;
+        list.appendChild(aiRow('✨ ' + v[1],
+          has ? 'On your phone — tap to use' : '~60 MB download',
+          '', ()=> loadAI(v[0]).then(()=>{ if (AI.state === 'ready') aiPreview(); })));
+      });
+    } else {
+      list.appendChild(aiRow('✨ Get the AI Storyteller voice',
+        'Natural, not robotic. ~60 MB download, kept on your phone. Wi-Fi recommended.'
+        + (location.protocol === 'file:' ? ' Tip: open the game via its web link so the download is remembered.' : ''),
+        '', ()=> loadAI(AIVOICES[0][0])));
+    }
   } else if (AI.state === 'loading'){
     list.appendChild(aiRow('⏳ Downloading storyteller… ' + (AI.pct ? AI.pct + '%' : ''),
       'First time only — the voice stays on your phone.', ''));
@@ -513,16 +526,12 @@ function buildNarMenu(){
   } else {
     AIVOICES.forEach(v => {
       const sel = AI.voiceId === v[0];
-      list.appendChild(aiRow('✨ ' + v[1], sel ? 'AI Storyteller — active' : 'Tap to use' + (v[0] === AI.voiceId ? '' : ' (may download)'),
+      const has = AI.storedIds.indexOf(v[0]) >= 0;
+      list.appendChild(aiRow('✨ ' + v[1],
+        sel ? 'AI Storyteller — active' : (has ? 'On your phone — tap to use' : 'Tap to download (~60 MB)'),
         sel ? ' sel' : '', ()=>{
-          if (AI.voiceId === v[0]){
-            startSpeech('Once upon a time, in the kingdom of Aldermere, a brave adventurer set out to find a crown.', speakBtn);
-            return;
-          }
-          loadAI(v[0]).then(()=>{
-            if (AI.state === 'ready')
-              startSpeech('Once upon a time, in the kingdom of Aldermere, a brave adventurer set out to find a crown.', speakBtn);
-          });
+          if (AI.voiceId === v[0]){ aiPreview(); return; }
+          loadAI(v[0]).then(()=>{ if (AI.state === 'ready') aiPreview(); });
         }));
     });
   }
@@ -2301,12 +2310,29 @@ document.getElementById('fs').addEventListener('click', ()=>{
 });
 if (loadSave()) document.getElementById('begin').textContent = '▶ Continue';
 narBtnIcon();
-// restore the AI storyteller right away if it was chosen before —
-// on web origins the model is cached on-device, so this is instant and free
-try {
-  const av = localStorage.getItem('kq-aivoice');
-  if (av && location.protocol.indexOf('http') === 0) loadAI(av);
-} catch(e){}
+// detect the AI storyteller already stored on this device and re-activate it.
+// This asks the voice engine what's actually downloaded, so it works even if
+// the saved preference was lost — no re-download, no tap needed.
+async function detectAI(){
+  try {
+    if (!AI.mod)
+      AI.mod = await import('https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1/+esm');
+    let pref = null;
+    try { pref = localStorage.getItem('kq-aivoice'); } catch(e){}
+    let storedIds = [];
+    try {
+      if (typeof AI.mod.stored === 'function') storedIds = (await AI.mod.stored()) || [];
+    } catch(e){}
+    AI.storedIds = storedIds;
+    const preferred = (pref && storedIds.indexOf(pref) >= 0)
+      ? pref
+      : storedIds.filter(id => AIVOICES.some(v => v[0] === id))[0];
+    if (preferred && pref !== ''){ loadAI(preferred); return; }        // '' = user chose a phone voice
+    if (pref && typeof AI.mod.stored !== 'function'){ loadAI(pref); return; } // old lib: trust the pref
+    if (!narEl.classList.contains('hidden')) buildNarMenu();
+  } catch(e){}
+}
+if (location.protocol.indexOf('http') === 0) detectAI();
 window.addEventListener('pagehide', save);
 document.addEventListener('visibilitychange', ()=>{ if (document.hidden) save(); });
 
