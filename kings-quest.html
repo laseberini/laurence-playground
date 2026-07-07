@@ -301,6 +301,18 @@ const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', s
 // Cache Storage ourselves, which works everywhere; repeat loads never hit the
 // network again.
 const AI_CACHEABLE = /huggingface\.co\/[^\s]*piper-voices[^\s]*\.(onnx|json)(\?|$)|piper_phonemize\.(data|wasm)(\?|$)|onnxruntime-web[^\s]*\.wasm(\?|$)/;
+async function aiCachePut(c, url, res){
+  // Hugging Face replies carry 'Vary: Origin', which makes cache.match() reject
+  // the entry later (the lookup request has no Origin header) — the bytes were
+  // stored but never served, causing phantom re-downloads. Store a clean copy
+  // with Vary stripped and the redirect flag cleared.
+  const clone = res.clone();
+  const headers = new Headers(clone.headers);
+  headers.delete('Vary');
+  await c.put(url, new Response(clone.body, {
+    status: clone.status, statusText: clone.statusText, headers,
+  }));
+}
 if ('caches' in window && location.protocol.indexOf('http') === 0){
   const origFetch = window.fetch.bind(window);
   window.fetch = async function(input, init){
@@ -308,10 +320,10 @@ if ('caches' in window && location.protocol.indexOf('http') === 0){
     if (AI_CACHEABLE.test(url) && (!init || !init.method || init.method === 'GET')){
       try {
         const c = await caches.open('kq-piper');
-        const hit = await c.match(url);
+        const hit = await c.match(url, { ignoreVary: true });
         if (hit) return hit;
         const res = await origFetch(input, init);
-        if (res && res.ok){ try { await c.put(url, res.clone()); } catch(e){} }
+        if (res && res.ok){ try { await aiCachePut(c, url, res); } catch(e){} }
         return res;
       } catch(e){ return origFetch(input, init); }
     }
@@ -349,6 +361,7 @@ async function makeAISession(mod, voiceId, onProgress){
 async function loadAI(voiceId){
   if (AI.state === 'loading') return;
   AI.state = 'loading'; AI.pct = 0; AI.err = '';
+  AI.fromCache = AI.storedIds.indexOf(voiceId) >= 0;
   if (!narEl.classList.contains('hidden')) buildNarMenu();
   try {
     if (!AI.mod)
@@ -559,8 +572,11 @@ function buildNarMenu(){
         '', ()=> loadAI(AIVOICES[0][0])));
     }
   } else if (AI.state === 'loading'){
-    list.appendChild(aiRow('⏳ Downloading storyteller… ' + (AI.pct ? AI.pct + '%' : ''),
-      'First time only — the voice stays on your phone.', ''));
+    list.appendChild(aiRow(
+      AI.fromCache ? '⏳ Loading storyteller from your phone… ' + (AI.pct ? AI.pct + '%' : '')
+                   : '⏳ Downloading storyteller… ' + (AI.pct ? AI.pct + '%' : ''),
+      AI.fromCache ? 'No download needed — using the saved voice.'
+                   : 'First time only — the voice stays on your phone.', ''));
   } else if (AI.state === 'error'){
     list.appendChild(aiRow('⚠️ AI voice failed — tap to retry', AI.err, '', ()=> loadAI(AIVOICES[0][0])));
   } else {
