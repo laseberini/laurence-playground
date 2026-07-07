@@ -176,7 +176,10 @@
 <script>
 'use strict';
 const W = 320, H = 200, MAX = 18;
-const PX = 2;      // chunk size: scene renders at half res, upscaled for fat pixels
+// chunk size: phones render at half res for fat, cosy pixels; laptops/desktops
+// (a real pointer) render at full res so the art is crisp and detailed. Set per fit().
+let PX = 2;
+const CRISP = (window.matchMedia && matchMedia('(pointer: fine)').matches);
 const OV = 400;    // decorative overdraw beyond world edges for wide screens
 const cv = document.getElementById('cv'), dctx = cv.getContext('2d');
 const os = document.createElement('canvas');
@@ -2226,8 +2229,27 @@ function tapAt(lx, ly){
   if (ly >= H - 12 && d.S){ walkTo(lx, 196, { exit: 'S' }); return; }
   walkTo(lx, ly);
 }
+// keep the walker inside the room and out of blocked terrain, sliding along walls
+function stepPlayer(dx, dy){
+  const r = rooms[cur];
+  let nx = Math.max(4, Math.min(316, player.x + dx));
+  let ny = Math.max(r.walkTop, Math.min(196, player.y + dy));
+  if (r.block && r.block(nx, ny)){
+    if (!r.block(nx, player.y)) ny = player.y;       // slide horizontally
+    else if (!r.block(player.x, ny)) nx = player.x;  // slide vertically
+    else { nx = player.x; ny = player.y; }
+  }
+  if (dx) player.dir = dx > 0 ? 1 : -1;
+  player.x = nx; player.y = ny;
+}
 function update(dt){
-  if (player.moving){
+  const kv = keyVec();
+  if ((kv.x || kv.y) && !overlayOpen()){
+    // arrow keys / WASD steer the walker directly, cancelling any tap target
+    if (player.moving){ player.moving = false; pending = null; }
+    stepPlayer(kv.x * 56 * dt, kv.y * 56 * dt);
+    player.step += dt * 9;
+  } else if (player.moving){
     const dx = player.tx - player.x, dy = player.ty - player.y;
     const d = Math.hypot(dx, dy), sp = 56 * dt;
     if (d <= sp){
@@ -2299,6 +2321,63 @@ stage.addEventListener('pointerdown', e => {
     tapAt(Math.max(0, Math.min(W, lx)), ly);
 });
 document.addEventListener('contextmenu', e => e.preventDefault());
+
+// ---------- keyboard (laptop / desktop) ----------
+// Arrow keys or WASD walk the hero; walking into an edge takes the exit there.
+// Enter/Space uses the nearest thing, Esc closes a pop-up.
+const held = new Set();
+const KDIR = {
+  ArrowLeft:'W', KeyA:'W', ArrowRight:'E', KeyD:'E',
+  ArrowUp:'N', KeyW:'N', ArrowDown:'S', KeyS:'S',
+};
+function overlayOpen(){
+  return [introEl, mapEl, closeEl, narEl, winEl, document.getElementById('item')]
+    .some(el => el && !el.classList.contains('hidden'));
+}
+function keyVec(){
+  let x = (held.has('E') ? 1 : 0) - (held.has('W') ? 1 : 0);
+  let y = (held.has('S') ? 1 : 0) - (held.has('N') ? 1 : 0);
+  if (x && y){ x *= .7071; y *= .7071; }
+  return { x, y };
+}
+function keyInteract(){
+  const r = rooms[cur];
+  let best = null, bd = 1e9;
+  for (const s of r.spots){
+    if (s.vis && !s.vis()) continue;
+    const d = Math.hypot(player.x - s.wx, player.y - s.wy);
+    if (d < bd){ bd = d; best = s; }
+  }
+  if (!best || bd > 60) return;
+  if (bd < 14){ player.moving = false; pending = null; interact(best); }
+  else walkTo(best.wx, best.wy, { spot: best });
+}
+document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const dir = KDIR[e.code];
+  if (dir){
+    e.preventDefault();
+    if (!overlayOpen()){ ac(); held.add(dir); }
+    return;
+  }
+  if (e.code === 'Enter' || e.code === 'Space'){
+    if (overlayOpen()) return;
+    e.preventDefault(); ac(); keyInteract();
+    return;
+  }
+  if (e.code === 'Escape'){
+    if (!closeEl.classList.contains('hidden')){ hideCloseup(); e.preventDefault(); return; }
+    for (const el of [mapEl, narEl, document.getElementById('item')]){
+      if (el && !el.classList.contains('hidden')){ el.classList.add('hidden'); e.preventDefault(); return; }
+    }
+  }
+});
+document.addEventListener('keyup', e => {
+  const dir = KDIR[e.code];
+  if (dir) held.delete(dir);
+});
+// a lost keyup (tab-away, focus change) would stick a key down — clear on blur
+window.addEventListener('blur', ()=> held.clear());
 
 // ---------- overlays / lifecycle ----------
 const introEl = document.getElementById('intro');
@@ -2561,6 +2640,8 @@ document.addEventListener('visibilitychange', ()=>{ if (document.hidden) save();
 function fit(){
   const sw = stage.clientWidth, sh = stage.clientHeight;
   if (!sw || !sh) return;
+  // full-res pixels on a laptop/desktop, chunky ones on a phone
+  PX = CRISP ? 1 : 2;
   DW = Math.max(W, Math.min(W + 2*OV, Math.round(sw / sh * H)));
   OX = Math.floor((DW - W) / 2 / PX) * PX;
   os.width = Math.ceil(DW / PX); os.height = H / PX;
