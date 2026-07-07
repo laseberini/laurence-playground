@@ -314,7 +314,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v26';
+const KQ_VER = 'v27';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -2187,14 +2187,20 @@ lair: {
 marsh: {
   title: '— The Misty Marsh —', gx:0, gy:3, walkTop:100,
   draw(t){
-    R(-OV,0,W+2*OV,H,'#7c937c'); R(-OV,0,W+2*OV,52,'#6d856f'); R(-OV,0,W+2*OV,24,'#5f7763');
-    disc(280,26,9,'#d8dcc8');
-    ground(100, '#4e6b47', '#3d5638');
+    // misty green-grey sky with a wan sun
+    gradFill(-OV,0,W+2*OV,110, 0,110, [[0,'#657d68'],[.55,'#8a9d84'],[1,'#b0bba0']]);
+    glow(280,26,26,'rgba(232,238,216,.55)','rgba(232,238,216,0)'); disc(280,26,8,'#d8dcc8');
+    // murky ground gradient + muted texture
+    gradFill(-OV,100,W+2*OV,H-100, 100,H, [[0,'#4e6b47'],[1,'#2e402c']]);
+    for (let i=0;i<140;i++)
+      R(-OV+hash(i,1)*(W+2*OV), 102+hash(i,2)*(H-104), 1, 2, hash(i,6)>.5?'rgba(30,54,30,.5)':'rgba(110,150,100,.22)');
     [[120,166,58,20],[262,138,34,12],[46,132,26,10],[-80,150,40,14],[380,168,44,16]].forEach(p=>{
       ctx.fillStyle = '#3d5f4a';
       ctx.beginPath(); ctx.ellipse(p[0],p[1],p[2]+3,p[3]+2,0,0,7); ctx.fill();
-      ctx.fillStyle = '#31503f';
+      ctx.fillStyle = '#26402f';
       ctx.beginPath(); ctx.ellipse(p[0],p[1],p[2],p[3],0,0,7); ctx.fill();
+      ctx.fillStyle = 'rgba(150,200,170,.14)'; // pale sheen
+      ctx.beginPath(); ctx.ellipse(p[0]-p[2]*.3,p[1]-p[3]*.4,p[2]*.5,p[3]*.35,0,0,7); ctx.fill();
     });
     disc(104,162,5,'#4a7a3a'); R(106,160,4,2,'#31503f');
     disc(136,172,6,'#4a7a3a'); R(138,170,5,2,'#31503f'); disc(133,169,2,'#f48fb1');
@@ -2212,9 +2218,12 @@ marsh: {
       disc(wx2, wy2, 5, 'rgba(180,255,220,' + a*.5 + ')');
       disc(wx2, wy2, 2, 'rgba(220,255,240,' + a + ')');
     }
-    deadTree(-52,124); deadTree(352,120);
-    ctx.fillStyle = 'rgba(215,225,215,.1)';
+    dTree(-52,124,1.1,3); dTree(352,120,1.0,5);
+    // drifting fog bands
+    ctx.fillStyle = 'rgba(220,228,216,.12)';
     ctx.fillRect(-OV, 128 + Math.sin(t*.5)*5, W+2*OV, 13);
+    ctx.fillStyle = 'rgba(220,228,216,.08)';
+    ctx.fillRect(-OV, 158 + Math.sin(t*.4+2)*6, W+2*OV, 16);
   },
   block(x, y){ const dx=(x-120)/61, dy=(y-166)/22; return dx*dx+dy*dy < 1; },
   spots: [
@@ -2232,31 +2241,47 @@ marsh: {
 hamlet: {
   title: '— Thistledown Hamlet —', gx:1, gy:3, walkTop:102,
   draw(t){
-    sky(); clouds(t); hills(92);
-    ground(102, '#4aa050', '#38853e');
-    [[52,'#e8d9b8'],[242,'#dfd0b0']].forEach((hh,i)=>{
+    fSky(t); fClouds(t); fFar();
+    fGrass(102, '#4aa050', '#2c743a');
+    fTree(-44,124,1.2,t,1); fTree(-96,110,1.0,t,3); fTree(368,120,1.15,t,5); fTree(424,132,1.0,t,7);
+    [[52,'#ecdcbc'],[242,'#e2d3b2']].forEach((hh,i)=>{
       const hx2 = hh[0];
-      R(hx2,70,58,42,hh[1]);
+      gradFill(hx2,70,58,42, 70,112, [[0, hh[1]],[1,'#c9b78e']]); // shaded plaster
+      R(hx2,110,58,2,'#b89b6c');
+      // thatched roof with gradient + straw + ridge
       ctx.fillStyle = '#a9762f';
       ctx.beginPath(); ctx.moveTo(hx2-6,72); ctx.lineTo(hx2+64,72); ctx.lineTo(hx2+29,44); ctx.fill();
-      R(hx2+22,88,13,24,'#7a5230');
-      R(hx2+6,84,11,10,'#ffe08a'); R(hx2+40,84,11,10,'#ffe08a');
+      ctx.save(); ctx.beginPath(); ctx.moveTo(hx2-6,72); ctx.lineTo(hx2+64,72); ctx.lineTo(hx2+29,44); ctx.clip();
+      gradFill(hx2-6,44,70,28, 44,72, [[0,'#c28f45'],[1,'#8a5f26']]);
+      for (let k=0;k<26;k++){ R(hx2-4+hash(k+i*9,60)*62, 48+hash(k+i*9,61)*22, 3, 1, 'rgba(90,60,20,.4)'); }
+      ctx.restore();
+      // door with planks + windows with frames and glow
+      R(hx2+22,88,13,24,'#7a5230'); R(hx2+24,90,4,22,'#8a5f38'); R(hx2+30,90,4,22,'#6b4526');
+      glow(hx2+11,89,8,'rgba(255,224,130,.45)','rgba(255,224,130,0)');
+      glow(hx2+45,89,8,'rgba(255,224,130,.45)','rgba(255,224,130,0)');
+      R(hx2+6,84,11,10,'#ffe08a'); R(hx2+6,84,11,2,'#8a6b45'); R(hx2+11,84,1,10,'#c9a860');
+      R(hx2+40,84,11,10,'#ffe08a'); R(hx2+40,84,11,2,'#8a6b45'); R(hx2+45,84,1,10,'#c9a860');
       if (i===0){
-        R(hx2+44,50,8,14,'#8d6e63');
+        R(hx2+44,50,8,14,'#8d6e63'); R(hx2+44,50,8,2,'#a3846f');
         for (let k=0;k<2;k++){
           const sy = ((t*8 + k*18) % 36);
           disc(hx2+48, 48-sy, 3, 'rgba(230,230,230,' + Math.max(0,.4-sy/100) + ')');
         }
       }
     });
-    R(186,120,3,20,'#8a6238'); R(211,120,3,20,'#8a6238');
-    ctx.fillStyle = '#a9762f';
+    R(186,120,3,20,'#7a5230'); R(211,120,3,20,'#7a5230'); // well posts
+    ctx.fillStyle = '#a9762f'; // little roof
     ctx.beginPath(); ctx.moveTo(180,122); ctx.lineTo(220,122); ctx.lineTo(200,108); ctx.fill();
-    ctx.fillStyle = '#8f939e';
+    ctx.fillStyle = '#8a5f26';
+    ctx.beginPath(); ctx.moveTo(200,108); ctx.lineTo(220,122); ctx.lineTo(200,122); ctx.fill();
+    ctx.fillStyle = '#9198a4'; // stone rim with shading
     ctx.beginPath(); ctx.ellipse(200,142,15,7,0,0,7); ctx.fill();
-    ctx.fillStyle = '#2c3040';
-    ctx.beginPath(); ctx.ellipse(200,141,10,4,0,0,7); ctx.fill();
-    R(198,118,4,3,'#6d4522'); R(199,121,2,14,'#4a3a28');
+    ctx.fillStyle = '#71767f';
+    ctx.beginPath(); ctx.ellipse(200,143,15,6,0,0,7); ctx.ellipse(200,142,11,4.5,0,0,7); ctx.fill('evenodd');
+    ctx.fillStyle = '#232733'; // dark water
+    ctx.beginPath(); ctx.ellipse(200,142,10,4,0,0,7); ctx.fill();
+    disc(203,141,1.5,'rgba(150,190,220,.5)'); // faint water glint
+    R(198,116,4,3,'#6d4522'); R(199,119,2,16,'#4a3a28'); // winch
     if (DETAIL){
       for (let i=0;i<7;i++){
         R(188+i*4, 138+Math.round(Math.sin(i*1.1)*2), 3, 2, '#7a7f8c');
@@ -2271,8 +2296,8 @@ hamlet: {
       R(cwx+6, c[1]-3+peck, 2, 1, '#e8912b');
       R(cwx+4, c[1]-4+peck, 1, 1, '#222');
     });
-    for (let i=0;i<8;i++){ R(30+i*9, 120, 2, 2, ['#f48fb1','#ffd54f'][i%2]); }
-    tree(-44,124); tree(-96,110); tree(368,120); tree(424,132);
+    for (let i=0;i<8;i++){ R(30+i*9, 120, 1, 3, '#2e7d32'); R(29+i*9, 118, 3, 2, ['#f48fb1','#ffd54f'][i%2]); }
+    fMotes(t);
     drawTilly(98,154,t);
   },
   spots: [
@@ -2313,18 +2338,24 @@ hamlet: {
 orchard: {
   title: '— The Old Orchard —', gx:2, gy:3, walkTop:100,
   draw(t){
-    sky(); clouds(t); hills(90);
-    ground(100, '#559b52', '#428448');
-    const appleTree = (x,y)=>{
-      tree(x,y);
-      R(x-8,y-24,2,2,'#c62828'); R(x+2,y-30,2,2,'#c62828'); R(x+7,y-21,2,2,'#c62828');
-      R(x-2,y-20,2,2,'#c62828');
+    fSky(t); fClouds(t); fFar();
+    fGrass(100, '#57a052', '#357f42');
+    let ai = 0;
+    const appleTree = (x,y,sc)=>{
+      sc = sc || 1;
+      fTree(x,y,sc,t,ai++);
+      const cy = y - 20*sc - 5*sc, sway = Math.sin(t*.7 + (ai)*1.9)*2.2*sc;
+      [[-9,-2],[4,-7],[9,-1],[-4,3],[6,-10],[0,-5]].forEach(a=>{
+        R(x + a[0]*sc + sway*.5, cy + a[1]*sc, 2, 2, '#d22c2c');
+        R(x + a[0]*sc + sway*.5, cy + a[1]*sc, 1, 1, '#ef6b5c');
+      });
     };
-    appleTree(40,118); appleTree(110,112); appleTree(180,118); appleTree(60,158);
-    appleTree(150,166); appleTree(288,112);
-    appleTree(-40,130); appleTree(-100,116); appleTree(360,126); appleTree(416,112);
-    for (let i=0;i<16;i++){
-      R(-OV/2 + hash(i,27)*(W+OV), 120 + hash(i,28)*70, 2, 2, '#a83030');
+    appleTree(40,118,1.0); appleTree(110,112,.95); appleTree(180,118,1.0); appleTree(60,158,1.25);
+    appleTree(150,166,1.3); appleTree(288,112,1.0);
+    appleTree(-40,130,1.2); appleTree(-100,116,1.0); appleTree(360,126,1.15); appleTree(416,112,1.0);
+    for (let i=0;i<16;i++){ // windfall apples in the grass
+      const ax = -OV/2 + hash(i,27)*(W+OV), ay = 120 + hash(i,28)*70;
+      R(ax, ay, 2, 2, '#a83030'); R(ax, ay, 1, 1, '#c94a3a');
     }
     const sw = Math.sin(t*1.4)*1.5;
     R(228,116,3,40,'#6d4c28');
@@ -2363,11 +2394,16 @@ orchard: {
 cliffs: {
   title: '— The Sea Cliffs —', gx:3, gy:3, walkTop:104,
   draw(t){
-    sky(); clouds(t);
-    ground(104, '#5aa85f', '#46914c');
-    R(-OV,146,W+2*OV,12,'#7a5a40');
-    for (let i=0;i<20;i++){ R(-OV+hash(i,33)*(W+2*OV), 148+hash(i,34)*8, 5, 2, '#66492f'); }
-    R(-OV,158,W+2*OV,42,'#2a63b8');
+    fSky(t); fClouds(t); fFar();
+    fGrass(104, '#5aa85f', '#3a8048');
+    // rocky cliff edge
+    gradFill(-OV,146,W+2*OV,12, 146,158, [[0,'#8a6848'],[1,'#5c442e']]);
+    for (let i=0;i<24;i++){ R(-OV+hash(i,33)*(W+2*OV), 148+hash(i,34)*8, 5, 2, '#4e3a28'); }
+    for (let i=0;i<14;i++){ R(-OV+hash(i,38)*(W+2*OV), 146, 3, 1, '#6f8a4a'); } // grass fringe
+    // sea with depth gradient + bright horizon
+    gradFill(-OV,158,W+2*OV,42, 158,200, [[0,'#4a9adf'],[.5,'#2f6fc4'],[1,'#204d90']]);
+    R(-OV,158,W+2*OV,1,'rgba(255,255,255,.35)');
+    glow(300,168,50,'rgba(255,247,205,.18)','rgba(255,247,205,0)'); // sun sparkle on sea
     for (let i=0;i<26;i++){
       const wy2 = 162 + (i%3)*12 + hash(i,35)*6;
       const wx2 = ((-OV + hash(i,36)*(W+2*OV)) - t*14*(1+(i%3)*.3)) % (W+2*OV);
@@ -2394,7 +2430,7 @@ cliffs: {
       ctx.strokeStyle = '#f5f5f5'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(gx2-5, gy2-fl); ctx.lineTo(gx2, gy2); ctx.lineTo(gx2+5, gy2-fl); ctx.stroke();
     }
-    tree(-52,128); tree(-110,116);
+    fTree(-52,128,1.2,t,3); fTree(-110,116,1.0,t,7);
   },
   block(x, y){ return y > 144; },
   spots: [
