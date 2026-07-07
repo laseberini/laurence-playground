@@ -103,16 +103,12 @@
     <div class="card">
       <div class="big">👑</div>
       <h1>King’s Quest<br><small style="font-size:13px;color:#f4e3b2">The Crown of Aldermere</small></h1>
-      <p>The old king is gone and his golden crown is lost. Whoever claims it and
-         sits the throne shall rule Aldermere — but the tale is longer, stranger
-         and more draconic than the rumors say.</p>
-      <p><b>Tap the ground</b> to walk. <b>Tap people and things</b> to talk and use.
-         <b>Golden arrows</b> at the screen edges lead to the sixteen lands —
-         tap an arrow to travel. Sparkles ✦ mark things worth a look,
-         🗺 shows your map, tap an item in your pack to inspect it,
-         🎵 rotates the music (two tunes, then silence) — and the story
-         reads itself aloud: tap 🗣️ to pick the narrator’s voice or turn
-         the narrator off.</p>
+      <p>The king’s crown is lost. Find it, sit the throne, and rule Aldermere —
+         but beware: there’s a dragon in this tale.</p>
+      <p><b>Tap the ground</b> to walk. <b>Tap things</b> to use them.
+         <b>Golden arrows</b> lead to new lands. ✦ marks things to try,
+         👁️ describes the scene, 🗺 shows the map, 🎵 changes the music,
+         🗣️ picks the storyteller’s voice.</p>
       <button id="begin">▶ Begin</button>
     </div>
   </div>
@@ -462,19 +458,19 @@ function say(t, silent){
   if (!silent && autoRead && t) startSpeech(t, speakBtn);
 }
 const ITEMS = {
-  flower:['🌸','Moonpetal','A glowing meadow flower that hums in your hand. Old Elda needs one for her aching-bones potion.'],
-  fish:['🐟','Silver trout','Fat, fresh and still flapping. Grukk the bridge troll looks awfully hungry…'],
-  key:['🗝️','Brass key','Heavy, cold, and troll-scented. It fits the silent castle’s great gate.'],
-  geode:['💎','Glittering geode','A fist of purple stars from the crystal cave. Something that loves ssshiny things would adore it.'],
-  book:['📖','Fenwick’s spellbook','A dusty grimoire, faintly warm to the touch. The wizard wants it back rather badly.'],
-  posy:['💐','Wildflower posy','A bright armful from Moonpetal Meadow. Somewhere, ten thousand bees approve.'],
-  honey:['🍯','Honeycomb','Dripping gold from the Bee Glade. Rumor has it dragons prefer sweetness to treasure.'],
-  cat:['🐱','Biscuit','Warm, purring, and shedding on your cloak. Tilly of Thistledown misses her terribly.'],
-  coin:['🪙','Old copper coin','Found in a scarecrow’s pocket, warm from the sun. The hamlet’s well grants one true wish.'],
-  crown:['👑','Crown of Aldermere','Recovered from a dragon’s hoard, still warm like fresh bread. It belongs on a monarch’s head — yours.'],
-  warm:['✨','Everwarm charm','Fenwick’s golden fire coils about you. No cold — not even a cursed blizzard — can touch you.'],
-  rod:['🎣','Bertram’s rod','Old Elda’s late husband’s fishing rod. The Silver Lake teems with trout.'],
-  lantern:['🏮','Bertram’s lantern','Casts a warm circle of light in the dark. Mind the bats, dear.'],
+  flower:['🌸','Moonpetal','A glowing flower that hums softly. Elda needs it for her potion.'],
+  fish:['🐟','Silver trout','Fat and flapping. Grukk looks hungry…'],
+  key:['🗝️','Brass key','Heavy and cold. It fits the castle gate.'],
+  geode:['💎','Glittering geode','A fist of purple stars. The raven wants it.'],
+  book:['📖','Fenwick’s spellbook','A dusty grimoire. Fenwick wants it back.'],
+  posy:['💐','Wildflower posy','Bright flowers from the meadow. The bees approve.'],
+  honey:['🍯','Honeycomb','Dripping gold. Dragons love sweetness.'],
+  cat:['🐱','Biscuit','Warm and purring. Tilly misses her.'],
+  coin:['🪙','Old copper coin','From a scarecrow’s pocket. The wishing well wants it.'],
+  crown:['👑','Crown of Aldermere','Warm from a dragon’s hoard. It belongs on your head.'],
+  warm:['✨','Everwarm charm','Fenwick’s golden fire. No blizzard can touch you.'],
+  rod:['🎣','Bertram’s rod','Elda’s old fishing rod. The lake is full of trout.'],
+  lantern:['🏮','Bertram’s lantern','A warm circle of light. Mind the bats!'],
 };
 const ITEMORDER = ['flower','fish','key','geode','book','posy','honey','cat','coin','crown','warm','rod','lantern'];
 function hud(){
@@ -822,7 +818,7 @@ forest: {
   },
   spots: [
     { x:52,y:114,w:32,h:38, wx:78,wy:154, hx:70,hy:112,
-      act(){ sfxTalk(); say('The sign reads: “NORTH — the silent castle. WEST — Moonpetal Meadow. SOUTH — old Elda’s cottage. EAST — Grukk’s bridge, and the wild mountains beyond.”'); } },
+      act(){ sfxTalk(); say('The sign reads: “Castle NORTH. Meadow WEST. Elda’s cottage SOUTH. Bridge EAST.”'); } },
     { x:12,y:96,w:26,h:30, wx:38,wy:130, hint:false,
       act(){ sfxTalk(); say('A sturdy old oak. Its leaves whisper of adventure.'); } },
   ],
@@ -868,13 +864,13 @@ meadow: {
       vis(){ return !F.flower && !F.gaveFlower; },
       act(){
         F.flower = true; addScore(1); sfxPickup(); hud(); save();
-        say('You gently pick the glowing moonpetal. It hums faintly in your hand. (+1)');
+        say('You pick the glowing moonpetal. It hums in your hand. (+1)');
       } },
     { x:234,y:140,w:32,h:22, wx:248,wy:164, hx:250,hy:140,
       vis(){ return !F.posy && !honeyDone(); },
       act(){
         F.posy = true; addScore(1); sfxPickup(); hud(); save();
-        say('You gather a bright armful of wildflowers. Somewhere, something buzzes approvingly. (+1)');
+        say('You gather an armful of wildflowers. Something buzzes happily. (+1)');
       } },
   ],
 },
@@ -920,16 +916,16 @@ cottage: {
           if (F.flower){
             F.flower = false; F.gaveFlower = true; F.rod = true;
             addScore(1); sfxPickup(); hud(); save();
-            say('Elda beams: “A moonpetal! Just the thing for my aching-bones potion. Take my late Bertram’s fishing rod, dear — the lake east of here teems with fat trout.” (+1)');
+            say('Elda beams: “A moonpetal! Take Bertram’s fishing rod, dear — the lake EAST is full of trout.” (+1)');
           } else {
-            say('Elda sighs: “My old bones do ache so… If only I had a glowing moonpetal. They grow in the meadow west of the forest, dear.”');
+            say('Elda sighs: “Fetch me a glowing moonpetal, dear — they grow in the meadow, WEST of the forest.”');
           }
         } else if (!F.gaveFish){
-          say('Elda winks: “Trolls are friendlier on a full stomach, you know. The lake lies east, past Grukk’s bridge.”');
+          say('Elda winks: “Trolls are friendlier on a full stomach. Try the lake, dear.”');
         } else if (F.sawCave && !F.lantern){
-          say('Elda nods at the door: “That dark cave in the foothills? Take Bertram’s lantern from the hook there, dear — and mind the bats.”');
+          say('Elda nods: “Take Bertram’s lantern from the hook, dear — and mind the bats.”');
         } else if (F.quest && !F.crown){
-          say('Elda pats your arm: “Dragons, is it? Don’t fight the beast — sweeten it. And wrap up warm in that high pass, dear.”');
+          say('Elda pats your arm: “Dragons? Don’t fight it, dear — sweeten it.”');
         } else if (F.crown){
           say('Elda curtsies, eyes twinkling: “Your majesty. Bertram would be proud.”');
         } else {
@@ -941,10 +937,10 @@ cottage: {
       act(){
         if (!F.sawCave){
           sfxTalk();
-          say('Bertram’s old lantern hangs by the door. You’ve no need of it… yet.');
+          say('Elda’s lantern. No need for it… yet.');
         } else {
           F.lantern = true; addScore(1); sfxPickup(); hud(); save();
-          say('You take Bertram’s lantern. Elda calls after you: “Mind the bats, dear!” (+1)');
+          say('You take the lantern. “Mind the bats, dear!” (+1)');
         }
       } },
     { x:148,y:80,w:18,h:32, wx:159,wy:120, hint:false,
@@ -980,15 +976,15 @@ bridge: {
   spots: [
     { x:184,y:116,w:52,h:54, wx:192,wy:158, hx:212,hy:122,
       act(){
-        if (F.gaveFish){ sfxTalk(); say('Grukk pats his round belly. “Mmm. Good trout. Grukk like you, little king. Passss any time.”'); return; }
+        if (F.gaveFish){ sfxTalk(); say('Grukk pats his belly. “Grukk like you, little king. Passss any time.”'); return; }
         if (F.fish){
           F.fish = false; F.gaveFish = true; F.key = true;
           addScore(1); sfxPickup(); hud(); save();
-          say('Grukk gulps the trout whole and grins. “Deal isss deal.” He hands you a heavy brass key and shuffles off the bridge. (+1)');
+          say('Grukk gulps the trout. “Deal isss deal.” He hands you a brass key and steps aside. (+1)');
           return;
         }
         sfxTalk();
-        say('“None crossss Grukk’s bridge!” the troll rumbles. “…Unlesss. Grukk ssso hungry. Bring sssomething tasssty from the lake, and the crossing — and thisss shiny key — are yoursss.”');
+        say('“None crossss!” rumbles Grukk. “Grukk sssso hungry! Bring a tasssty fish, and thisss shiny key is yourssss.”');
       } },
     { x:240,y:112,w:100,h:30, wx:200,wy:132, hint:false,
       act(){
@@ -1043,14 +1039,14 @@ lake: {
     { x:96,y:126,w:224,h:74, wx:66,wy:150, hx:230,hy:132,
       act(){
         if (F.fish || F.gaveFish){ say('The trout wisely keep their distance now.'); return; }
-        if (!F.rod){ sfxTalk(); say('Fat silver trout flicker beneath the surface. If only you had a fishing rod…'); return; }
+        if (!F.rod){ sfxTalk(); say('Fat trout flicker below. You need a fishing rod…'); return; }
         if (fishing) return;
         fishing = true; sfxTalk();
-        say('You stand on the little pier and cast the line…');
+        say('You cast the line…');
         setTimeout(()=>{
           fishing = false;
           F.fish = true; addScore(1); sfxPickup(); hud(); save();
-          say('A tug! You reel in a fat, flapping silver trout. (+1)');
+          say('A tug! You reel in a fat silver trout. (+1)');
         }, 1500);
       } },
   ],
@@ -1107,11 +1103,11 @@ gate: {
         if (F.key){
           F.key = false; F.gateOpen = true;
           addScore(1); sfxUnlock(); hud(); save();
-          say('The brass key turns with a heavy CLUNK. The great doors groan open onto a dark hall… (+1)');
+          say('CLUNK! The key turns and the great doors groan open… (+1)');
           return;
         }
         sfxTalk();
-        say('The great doors are locked fast. A brass keyhole glints in the old wood.');
+        say('Locked tight. A brass keyhole glints in the wood.');
       } },
   ],
 },
@@ -1162,9 +1158,9 @@ throne: {
         sfxTalk();
         if (!F.quest){
           F.quest = true; addScore(1); hud(); save();
-          say('Soot, claw-marks — and an EMPTY pedestal. Scratched into the stone: “CINDER THE DRAGON OF EMBER PEAK TOOK THE CROWN — EAST, BEYOND THE HIGH PASS.” (+1)');
+          say('The pedestal is EMPTY! Scratched in the stone: “CINDER THE DRAGON TOOK THE CROWN — EAST, PAST THE HIGH PASS.” (+1)');
         } else if (!F.crown){
-          say('The empty pedestal waits. Ember Peak lies east: over Grukk’s bridge, up through the cold pass.');
+          say('The empty pedestal waits. The crown is EAST, at Ember Peak.');
         } else {
           say('The pedestal can stay empty. The crown looks better on you.');
         }
@@ -1173,13 +1169,13 @@ throne: {
       act(){
         if (F.crown && !F.throne){
           F.throne = true; addScore(1); sfxFanfare(); hud(); save();
-          say('You place the crown upon your head and sit the throne. Somewhere above, wings thunder a friendly salute…');
+          say('You crown yourself and sit the throne. Above, dragon wings thunder a salute…');
           setTimeout(showWin, 900);
         } else if (F.throne){
           say('Your throne. Your kingdom. Your nap, if you fancy one.');
         } else {
           sfxTalk();
-          say('No crown, no coronation. The trail leads east — over the bridge, through the cold pass, to Ember Peak.');
+          say('No crown, no coronation. The trail leads EAST, to Ember Peak.');
         }
       } },
     { x:120,y:178,w:80,h:22, wx:160,wy:190, hint:false,
@@ -1212,14 +1208,14 @@ darkwoods: {
     { x:204,y:56,w:36,h:26, wx:222,wy:150, hx:222,hy:56,
       act(){
         sfxTalk();
-        if (F.gaveGeode){ say('The raven preens smugly beside its glittering geode. “Ssshiny,” it croaks, with deep satisfaction.'); return; }
+        if (F.gaveGeode){ say('The raven preens beside its geode. “Ssshiny,” it croaks.'); return; }
         if (F.geode){
           F.geode = false; F.gaveGeode = true; F.book = true;
           addScore(1); sfxPickup(); hud(); save();
-          say('You hold up the glittering geode. The raven’s eyes gleam — it drops a dusty leather spellbook and snatches its prize! (+1)');
+          say('The raven grabs the geode and drops a dusty spellbook! (+1)');
           return;
         }
-        say('A beady-eyed raven clutches a small leather book. It croaks: “Ssshiny! Trade for ssshiny!” Something glittering would tempt it…');
+        say('The raven clutches a little book. “Ssshiny!” it croaks. “Trade for ssshiny!”');
       } },
     { x:64,y:146,w:36,h:24, wx:84,wy:172, hint:false,
       act(){ sfxTalk(); say('Squat crimson mushrooms in a ring. Best left to the fairies.'); } },
@@ -1254,10 +1250,10 @@ foothills: {
         if (F.lantern){ gotoRoom('cave', 160, 184); return; }
         sfxTalk();
         if (!F.sawCave){ F.sawCave = true; save(); }
-        say('A cave mouth breathes cold, glittering air. Far too dark to enter without a light… old Elda surely keeps a lantern.');
+        say('Too dark to enter! You need a light — old Elda keeps a lantern.');
       } },
     { x:296,y:100,w:24,h:100, wx:284,wy:150, hint:false,
-      act(){ sfxTalk(); say('A bottomless gorge splits the earth to the EAST. The only road to Ember Peak is the high pass beyond Grukk’s bridge.'); } },
+      act(){ sfxTalk(); say('A bottomless gorge! The only way to Ember Peak is the high pass, past the bridge.'); } },
   ],
 },
 
@@ -1313,7 +1309,7 @@ cave: {
       vis(){ return !F.geode; },
       act(){
         F.geode = true; addScore(1); sfxPickup(); hud(); save();
-        say('You prise loose a glittering geode — a fist of purple stars. Something that loves ssshiny things would adore this. (+1)');
+        say('You prise loose a glittering purple geode. Sssomeone loves shiny things… (+1)');
       } },
     { x:56,y:90,w:60,h:36, wx:84,wy:134, hint:false,
       act(){ sfxTalk(); say('Veins of dreaming crystal. They hum faintly when you breathe.'); } },
@@ -1356,13 +1352,13 @@ pass: {
       vis(){ return !F.warm; },
       act(){
         sfxTalk();
-        say('An unnatural blizzard walls off the northern climb. Your bones ache with cold — you need warmth. MAGIC warmth. (A wizard’s tower stands to the SOUTH.)');
+        say('A magic blizzard blocks the way NORTH! You need magic warmth. (A wizard lives to the SOUTH.)');
       } },
     { x:140,y:78,w:44,h:34, wx:161,wy:118, hx:161,hy:80, hint:false,
       vis(){ return F.warm; },
-      act(){ sfxTalk(); say('The pass lies open and the cold slides off you like rain. Ember Peak glowers to the NORTH.'); } },
+      act(){ sfxTalk(); say('The pass is open! Ember Peak waits NORTH.'); } },
     { x:48,y:114,w:26,h:30, wx:74,wy:142, hint:false,
-      act(){ sfxTalk(); say('Someone built a snowman up here. It seems considerably happier about the weather than you are.'); } },
+      act(){ sfxTalk(); say('A snowman. It looks happier about the weather than you.'); } },
   ],
 },
 
@@ -1431,17 +1427,17 @@ tower: {
         if (F.book){
           F.book = false; F.warm = true;
           addScore(1); sfxUnlock(); hud(); save();
-          say('“My grimoire!” Fenwick flips the pages… “EVERWARM!” Golden fire coils around you, warm as hearth-light. “Cold will never trouble you again. Now — that high pass north of the bridge is yours to climb.” (+1)');
+          say('“My book!” Fenwick cheers… “EVERWARM!” Golden fire wraps you snug and warm. “Now the cold pass is yours to climb!” (+1)');
           return;
         }
         if (F.warm){
-          say('Fenwick strokes his beard: “Dragons adore sweetness more than gold, you know. The bees of the far western glade keep the finest honey in Aldermere…”');
+          say('Fenwick strokes his beard: “Dragons love sweetness more than gold. Ask the bees of the western glade…”');
           return;
         }
-        say('“Blast and bother! My spellbook — filched by that kleptomaniac RAVEN of the Dark Woods, far to the north-west! No book, no spells. Fetch it, and I’ll do you a good turn.”');
+        say('“Blast! That RAVEN of the Dark Woods stole my spellbook! Fetch it and I’ll do you a good turn.”');
       } },
     { x:104,y:114,w:28,h:28, wx:130,wy:146, hint:false,
-      act(){ sfxTalk(); say('A brass telescope aimed at Ember Peak. In the lens: a sleeping dragon, coiled around something that glints… golden.'); } },
+      act(){ sfxTalk(); say('A telescope aimed at Ember Peak. In the lens: a sleeping dragon… and a golden glint!'); } },
     { x:200,y:96,w:28,h:26, wx:214,wy:130, hint:false,
       act(){ sfxTalk(); say('The tower door is locked. Wizards.'); } },
   ],
@@ -1484,10 +1480,10 @@ beeglade: {
         if (F.posy){
           F.posy = false; F.honey = true;
           addScore(1); sfxPickup(); hud(); save();
-          say('The queen alights on your wildflowers, delighted. Workers stream out and press a dripping honeycomb into your hands. (+1)');
+          say('The queen loves your flowers! The bees give you a dripping honeycomb. (+1)');
           return;
         }
-        say('The queen bee circles you regally: “Bzzz… bring usss a posy of wildflowersss, sweetling — the meadow north of here brims with them — and we shall share our gold.”');
+        say('The queen bee buzzes: “Bring usss wildflowersss from the meadow, sweetling, and we shall share our honey.”');
       } },
     { x:72,y:86,w:34,h:34, wx:110,wy:136, hint:false,
       act(){ sfxTalk(); say('Ten thousand wings hum inside the great hive. It smells of summer.'); } },
@@ -1549,24 +1545,24 @@ lair: {
       act(){
         if (!F.honeyOut){
           sfxGrowl();
-          say('Cinder’s eye snaps open — a furnace glare! You bolt for daylight as flame licks the cave mouth behind you!');
+          say('Cinder’s eye snaps open! You run for it as flames roar behind you!');
           gotoRoom('emberpeak', 180, 148);
           return;
         }
         F.crown = true; F.honeyOut = false;
         addScore(2); sfxFanfare(); hud(); save();
-        say('While Cinder slurps honey, you lift the crown of Aldermere from the hoard — still warm, like fresh bread. (+2)');
+        say('While Cinder slurps, you lift the golden crown from the hoard! (+2)');
       } },
     { x:70,y:142,w:34,h:26, wx:104,wy:166, hx:88,hy:142,
       act(){
         sfxTalk();
         if (F.honey){
           F.honey = false; F.honeyOut = true; hud(); save();
-          say('You set the honeycomb on the flat stone. A vast nostril twitches… Cinder shuffles over, purring like a landslide. The hoard stands unguarded!');
+          say('You set down the honey. Cinder sniffs… and shuffles over, purring. The hoard is unguarded!');
           return;
         }
         if (F.honeyOut){ say('Cinder is entirely occupied with the honey. Now’s your chance.'); return; }
-        say('A flat stone, sticky with old sap. Something enormous was once fed here… something with a sweet tooth.');
+        say('A flat feeding stone, sticky with old sap. Something here has a sweet tooth…');
       } },
     { x:130,y:118,w:80,h:50, wx:130,wy:172, hint:false,
       act(){
@@ -1617,11 +1613,11 @@ marsh: {
     { x:188,y:132,w:30,h:26, wx:196,wy:162, hx:202,hy:132,
       act(){
         sfxTalk();
-        if (!F.coin && !F.wished) say('The frog regards you with ancient calm. “Rrrribbit. The scarecrow in the orchard, far to the EAST, keeps more than crows away. Check his coat.”');
-        else say('“The pond is deep, traveler,” says the frog. “So, in the end, is everything.” It bows, slightly.');
+        if (!F.coin && !F.wished) say('“Rrrribbit,” says the frog. “Check the scarecrow’s coat, in the orchard far to the EAST.”');
+        else say('“The pond is deep, traveler,” says the frog, and bows.');
       } },
     { x:120,y:104,w:80,h:26, wx:160,wy:136, hint:false,
-      act(){ sfxTalk(); say('Will-o-wisps drift like slow green sparks. They pay you no mind whatsoever.'); } },
+      act(){ sfxTalk(); say('Will-o-wisps drift by like slow green sparks.'); } },
   ],
 },
 
@@ -1678,7 +1674,7 @@ hamlet: {
         if (F.cat){
           F.cat = false; F.catHome = true;
           addScore(1); sfxPickup(); hud(); save();
-          say('“BISCUIT!” Tilly scoops her up, laughing, and presses a warm honey-bun into your hands. “Bless you! And listen — our well grants one TRUE wish, for an old copper coin…” (+1)');
+          say('“BISCUIT!” Tilly hugs her tight. “Bless you! Psst — our well grants one TRUE wish, for an old copper coin…” (+1)');
           return;
         }
         if (F.catHome){
@@ -1686,7 +1682,7 @@ hamlet: {
                        : 'Tilly leans in: “Don’t forget — one copper coin, one true wish. That old well never lies.”');
           return;
         }
-        say('Tilly wrings her floury apron: “My cat Biscuit chased a butterfly into the old orchard, EAST of here. Please, adventurer — bring her home!”');
+        say('Tilly cries: “My cat Biscuit ran into the orchard, EAST of here! Please bring her home!”');
       } },
     { x:182,y:112,w:36,h:36, wx:200,wy:158, hx:200,hy:114,
       act(){
@@ -1695,11 +1691,11 @@ hamlet: {
           F.coin = false; F.wished = true;
           for (const k in MINFO) seen[k] = 1;
           addScore(1); sfxUnlock(); hud(); save();
-          say('You drop the coin and whisper: “I wish to know the land.” The water flashes gold — every road and realm of Aldermere unfurls in your mind! (Your 🗺 map is complete.) (+1)');
+          say('You wish to know the land. The water flashes gold — your 🗺 map fills in! (+1)');
           return;
         }
         if (F.wished){ say('The well hums contentedly, keeping its change.'); return; }
-        say('A wishing well, deep and patient. It wants a coin — a real, old, story-book coin.');
+        say('A wishing well. It wants an old story-book coin.');
       } },
     { x:196,y:150,w:36,h:22, wx:212,wy:178, hint:false,
       act(){ sfxTalk(); say('Bok. Bok-bok. The chicken has nothing further to add.'); } },
@@ -1739,20 +1735,20 @@ orchard: {
       vis(){ return !F.cat && !F.catHome; },
       act(){
         F.cat = true; addScore(1); sfxPickup(); hud(); save();
-        say('“Biscuit?” Mrrp! She pours down the trunk and settles on your shoulders, purring like a tiny engine. (+1)');
+        say('Mrrp! Biscuit climbs onto your shoulders, purring like a tiny engine. (+1)');
       } },
     { x:212,y:96,w:38,h:52, wx:230,wy:162, hx:229,hy:94,
       act(){
         sfxTalk();
         if (!F.coin && !F.wished){
           F.coin = true; hud(); save();
-          say('The crow caws indignantly as you pat down the scarecrow’s coat. In one pocket: an old copper coin, warm from the sun.');
+          say('You check the scarecrow’s pocket… an old copper coin! The crow is outraged.');
           return;
         }
         say('The scarecrow stares at the horizon. The crow stares at you. Nobody blinks.');
       } },
     { x:130,y:150,w:44,h:30, wx:150,wy:184, hint:false,
-      act(){ sfxTalk(); say('Windfall apples, sweet and bruised. The wasps are delighted with the arrangement.'); } },
+      act(){ sfxTalk(); say('Fallen apples, sweet and bruised. The wasps are delighted.'); } },
   ],
 },
 
@@ -1795,9 +1791,9 @@ cliffs: {
   block(x, y){ return y > 144; },
   spots: [
     { x:284,y:86,w:30,h:62, wx:280,wy:140, hx:299,hy:84,
-      act(){ sfxTalk(); say('The lighthouse keeper is out. The lamp turns all the same — patient as the tide, bright as a small sun.'); } },
+      act(){ sfxTalk(); say('The keeper is out, but the lamp keeps turning.'); } },
     { x:-0,y:150,w:320,h:50, wx:160,wy:138, hint:false,
-      act(){ sfxTalk(); say('The sea rolls on forever, bright as beaten silver. Somewhere beyond it wait other shores, and other tales.'); } },
+      act(){ sfxTalk(); say('The sea rolls on forever. Beyond it wait other tales…'); } },
   ],
 },
 
@@ -2055,67 +2051,67 @@ const MPARENT = { throne:'gate', cave:'foothills', lair:'emberpeak' };
 
 // ---------- scene descriptions (the 👁️ button) ----------
 const DESCS = {
-  forest: () => 'You stand in a sunny forest where two dirt paths cross. Tall oak trees rustle all around you, and a wooden signpost points the way to the castle, the meadow, the cottage and the bridge.',
-  meadow: () => 'A wide green meadow full of tiny white, yellow and pink flowers, with butterflies fluttering about.'
-    + (!F.flower && !F.gaveFlower ? ' In the grass to the west, one special flower glows softly pink — the moonpetal.' : '')
-    + (!F.posy && !honeyDone() ? ' On the east side grows a bright patch of wildflowers, perfect for picking.' : ''),
-  cottage: () => 'A cosy cottage with a thatched roof and smoke curling from the chimney. Old Elda stands in her flower garden by the fence.'
-    + (!F.lantern ? ' A little lantern hangs on a hook by the door.' : ''),
-  bridge: () => 'A rushing blue river runs along the east side, crossed by an old wooden bridge, with snowy mountains far beyond.'
-    + (F.gaveFish ? ' Grukk the troll sits happily beside the bridge, patting his round belly.'
-                  : ' Grukk, a big green troll, stands right on the bridge guarding the way — a shiny brass key hangs at his chest.'),
-  lake: () => 'A great silver lake sparkles in the sun. A little wooden pier reaches out over the water and reeds sway at the shore.'
-    + (!F.fish && !F.gaveFish ? ' Every now and then, a fat trout leaps out and splashes back in.' : ''),
-  gate: () => 'A grey stone castle with two tall towers, red flags flapping in the wind.'
-    + (F.gateOpen ? ' The great wooden doors stand open onto a dark hall.' : ' Its great wooden doors are shut tight, with a brass keyhole.'),
-  throne: () => 'A grand stone hall with blue glass windows, flickering torches, and a red carpet leading up to a golden throne.'
-    + (F.crown ? ' The stone pedestal beside it stands empty — because the crown is on your head.'
-               : ' Beside the throne stands a stone pedestal, empty, marked with soot and claw scratches.'),
-  darkwoods: () => 'A gloomy wood of bare, dead trees with grey fog drifting between them. Red mushrooms grow in a ring, and high on the tallest snag perches a black raven'
-    + (!F.gaveGeode ? ', clutching a little leather book.' : ', admiring its shiny geode.'),
-  foothills: () => 'Rocky foothills dotted with boulders beneath snowy peaks. A dark cave mouth opens in the hillside, breathing cold air, and to the east the ground splits into a deep, misty gorge.',
-  cave: () => 'A glittering crystal cave, deep and dark. Blue and purple crystals glow softly, bats flit near the ceiling, and your lantern makes a little circle of warm light.'
-    + (!F.geode ? ' Something sparkly and purple glints on the cave floor.' : ''),
+  forest: () => 'A sunny forest where two paths cross. A signpost points the way.',
+  meadow: () => 'A green meadow full of flowers and butterflies.'
+    + (!F.flower && !F.gaveFlower ? ' One flower glows pink — the moonpetal!' : '')
+    + (!F.posy && !honeyDone() ? ' Bright wildflowers grow to the east.' : ''),
+  cottage: () => 'Elda’s cosy cottage, smoke curling from the chimney. She waits in her garden.'
+    + (!F.lantern ? ' A lantern hangs by the door.' : ''),
+  bridge: () => 'A wooden bridge over a rushing river.'
+    + (F.gaveFish ? ' Grukk the troll sits nearby, belly full and happy.'
+                  : ' Grukk the troll blocks the way — a shiny key at his chest.'),
+  lake: () => 'The silver lake sparkles, with a little fishing pier.'
+    + (!F.fish && !F.gaveFish ? ' Fat trout leap and splash.' : ''),
+  gate: () => 'A stone castle with two towers and red flags.'
+    + (F.gateOpen ? ' The doors stand open.' : ' The doors are locked tight.'),
+  throne: () => 'A grand hall with torches, a red carpet and a golden throne.'
+    + (F.crown ? ' The crown is on your head, where it belongs.'
+               : ' Beside the throne: an empty pedestal with claw marks.'),
+  darkwoods: () => 'A gloomy wood of dead trees and drifting fog. A raven perches up high'
+    + (!F.gaveGeode ? ', clutching a little book.' : ', admiring its shiny geode.'),
+  foothills: () => 'Rocky hills with a dark cave mouth — and a deep gorge to the east.',
+  cave: () => 'A crystal cave glowing blue and purple. Bats flit above your lantern light.'
+    + (!F.geode ? ' Something purple sparkles on the floor.' : ''),
   pass: () => F.warm
-    ? 'A snowy mountain pass, calm and quiet now. The narrow way north lies open, and Ember Peak glows red in the distance. The snowman looks pleased for you.'
-    : 'A freezing mountain pass deep in snow. A wild, howling blizzard swirls across the narrow path to the north, and even the snowman looks cold.',
-  emberpeak: () => 'A dark, burnt mountain under an ash-grey sky. Orange fire glows in cracks in the black rock, and smoke drifts from a big cave mouth — the dragon’s lair.',
+    ? 'The snowy pass is calm. The way NORTH is open — Ember Peak glows red ahead.'
+    : 'A frozen pass. A howling blizzard blocks the path NORTH!',
+  emberpeak: () => 'A burnt black mountain. Fire glows in the rocks, and smoke drifts from the dragon’s lair.',
   lair: () => F.crown
-    ? 'Inside the dragon’s lair, Cinder dozes contentedly on her mountain of gold. She does not mind about the crown one bit.'
+    ? 'Cinder dozes happily on her gold. She doesn’t mind about the crown.'
     : (F.honeyOut
-      ? 'Cinder the huge red dragon is over at the flat stone, happily slurping honey. Her mountain of gold — with the crown on top — stands unguarded!'
-      : 'Inside the dragon’s lair, Cinder the huge red dragon lies sleeping, smoke rings puffing from her nose. Behind her rises a mountain of gold — and on top of it, the golden crown.'),
-  marsh: () => 'A misty green marsh with dark, still pools and lily pads. Ghostly green lights drift slowly over the water, and a wise old frog sits on a log, watching you.',
-  hamlet: () => 'A tiny village of two cottages with smoking chimneys. Chickens peck about the grass, Tilly the baker stands in her floury apron, and in the middle waits an old stone wishing well.',
-  orchard: () => 'Rows of apple trees heavy with red apples. A scarecrow in a straw hat stands watch with a grumpy crow on its arm'
-    + (!F.cat && !F.catHome ? ' — and up in one of the trees, a little white cat meows for help.' : '.'),
-  cliffs: () => 'Green cliffs high above a wide silver sea. Waves roll far below, seagulls wheel overhead, a little sailboat drifts past, and a lighthouse blinks its patient lamp.',
+      ? 'Cinder is busy slurping honey — her gold and the crown are unguarded!'
+      : 'Cinder the dragon sleeps by her mountain of gold. The crown glitters on top.'),
+  marsh: () => 'A misty marsh with glowing lights and a wise frog on a log.',
+  hamlet: () => 'A tiny village: cottages, chickens, Tilly the baker — and a wishing well.',
+  orchard: () => 'Apple trees and a scarecrow with a grumpy crow.'
+    + (!F.cat && !F.catHome ? ' A little white cat meows up a tree!' : ''),
+  cliffs: () => 'High green cliffs above a silver sea — gulls, a sailboat, and a lighthouse.',
 };
 function goalHint(){
   if (!F.gaveFlower) return F.flower
-    ? 'Old Elda at her cottage would love this moonpetal.'
-    : 'Old Elda needs a glowing moonpetal — they grow in the meadow, west of the forest.';
+    ? 'Take the moonpetal to Elda, at her cottage.'
+    : 'Pick Elda a moonpetal from the meadow, WEST of the forest.';
   if (!F.gaveFish) return F.fish
-    ? 'That fat trout might tempt a certain hungry troll at the bridge.'
-    : 'Catch a fat trout at the Silver Lake, east of the cottage.';
-  if (F.key && !F.gateOpen) return 'The brass key should fit the castle gate, north of the forest.';
-  if (!F.quest) return 'Step through the castle gate and see what waits in the hall.';
+    ? 'Give the trout to Grukk at the bridge.'
+    : 'Catch a trout at the lake for the hungry troll.';
+  if (F.key && !F.gateOpen) return 'Open the castle gate, NORTH of the forest.';
+  if (!F.quest) return 'Go inside the castle and look around.';
   if (!F.crown){
-    if (F.honeyOut) return 'The hoard stands unguarded — take the crown!';
-    if (F.honey) return 'Carry the honeycomb to Ember Peak, north of the high pass, and set it somewhere a dragon will smell it.';
+    if (F.honeyOut) return 'Grab the crown!';
+    if (F.honey) return 'Take the honey to the dragon’s lair at Ember Peak.';
     if (F.warm) return F.posy
-      ? 'The bee queen of the western glade would adore those wildflowers.'
-      : 'Dragons love sweetness: the bees of the Bee Glade trade honey for wildflowers from the meadow.';
-    if (F.book) return 'Fenwick the wizard, at his tower south of the pass, wants his spellbook back.';
-    if (F.geode) return 'The raven of the Dark Woods, in the far north-west, trades for shiny things.';
-    if (F.lantern) return 'Something glittering hides deep in the crystal cave of the foothills.';
-    if (F.sawCave) return 'Old Elda keeps Bertram’s lantern on a hook by her cottage door.';
-    return 'The trail leads east over Grukk’s bridge toward the mountains — and a dark cave waits in the stony foothills.';
+      ? 'Give the flowers to the bee queen in the Bee Glade.'
+      : 'The bees of the Bee Glade trade honey for wildflowers.';
+    if (F.book) return 'Return the spellbook to Fenwick at his tower.';
+    if (F.geode) return 'Trade the geode to the raven in the Dark Woods.';
+    if (F.lantern) return 'Explore the crystal cave in the foothills.';
+    if (F.sawCave) return 'Fetch Elda’s lantern from her cottage door.';
+    return 'Cross Grukk’s bridge and explore EAST — and check the cave in the foothills.';
   }
-  if (!F.throne) return 'The throne of Aldermere awaits in the castle hall — go and be crowned!';
-  if (F.cat && !F.catHome) return 'Biscuit purrs on your shoulders — Tilly of Thistledown misses her.';
-  if (F.coin && !F.wished) return 'The wishing well of Thistledown hums for that copper coin.';
-  return 'You are the Sovereign of Aldermere! Explore your kingdom.';
+  if (!F.throne) return 'Go sit your throne in the castle!';
+  if (F.cat && !F.catHome) return 'Bring Biscuit home to Tilly in the hamlet.';
+  if (F.coin && !F.wished) return 'Toss the coin in the wishing well.';
+  return 'You are the Sovereign! Explore your kingdom.';
 }
 document.getElementById('eye').addEventListener('click', ()=>{
   let d = DESCS[cur] ? DESCS[cur]() : rooms[cur].title;
@@ -2142,7 +2138,7 @@ mapEl.addEventListener('click', ()=> mapEl.classList.add('hidden'));
 
 function showWin(){
   document.getElementById('winText').textContent =
-    'You followed the crown from a silent castle to a dragon’s hoard and back, and now you sit the throne of Aldermere — with Cinder herself purring at the gates as witness. Final score: ' + score + '/' + MAX + '.';
+    'You found the crown in a dragon’s hoard and won the throne of Aldermere — with Cinder purring at the gates. Final score: ' + score + '/' + MAX + '.';
   winEl.classList.remove('hidden');
 }
 function applyState(s){
@@ -2158,7 +2154,7 @@ function newGame(){
   winEl.classList.add('hidden');
   hud();
   gotoRoom('forest', 160, 152);
-  say('Rumor holds that the old king’s crown waits in the silent castle to the NORTH. Claim it, and the throne of Aldermere is yours! (Tap the signpost for directions — golden arrows at the screen edges lead onward.)');
+  say('The king’s crown waits in the castle to the NORTH. Claim it, and the throne is yours! (Golden arrows lead the way.)');
 }
 function goFull(){
   try {
