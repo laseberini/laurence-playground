@@ -57,6 +57,13 @@
     font-size:15px; font-weight:bold; padding:10px 22px; margin:4px;
   }
   .card button.ghost { background:#2c3050; color:#f4e3b2; }
+  #voiceList { max-height:44vh; overflow-y:auto; margin:10px 0; display:flex; flex-direction:column; gap:6px; }
+  .vrow {
+    background:#1b1e33; border:1px solid #2c3050; border-radius:8px; color:#f4e3b2;
+    font-family:inherit; font-size:12px; padding:8px 10px; text-align:left; width:100%;
+  }
+  .vrow.sel { border-color:#ffd54f; color:#ffd54f; }
+  .vrow small { color:#8b90ad; display:block; font-size:10px; margin-top:2px; }
   #mapGrid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin:10px 0 14px; }
   .mc {
     background:#1b1e33; border:1px solid #2c3050; border-radius:6px;
@@ -93,8 +100,9 @@
          <b>Golden arrows</b> at the screen edges lead to the sixteen lands —
          tap an arrow to travel. Sparkles ✦ mark things worth a look,
          🗺 shows your map, tap an item in your pack to inspect it,
-         🎵 toggles the music — and the story reads itself aloud
-         (🗣️ turns the narrator on and off).</p>
+         🎵 rotates the music (two tunes, then silence) — and the story
+         reads itself aloud: tap 🗣️ to pick the narrator’s voice or turn
+         the narrator off.</p>
       <button id="begin">▶ Begin</button>
     </div>
   </div>
@@ -104,6 +112,15 @@
       <h1>🗺 Aldermere</h1>
       <div id="mapGrid"></div>
       <p style="font-size:11px;color:#8b90ad">Tap anywhere to close</p>
+    </div>
+  </div>
+
+  <div id="nar" class="overlay hidden">
+    <div class="card" style="width:min(92vw,440px)">
+      <h1>🗣️ Narrator</h1>
+      <button id="autoBtn"></button>
+      <div id="voiceList"></div>
+      <p style="font-size:11px;color:#8b90ad">Tap a voice to hear it — “HD” voices sound best.<br>Tap outside this card to close.</p>
     </div>
   </div>
 
@@ -205,10 +222,24 @@ const THEMES = {
   dark: { step:.21,
     mel:[69,0,0,0,72,0,0,0, 71,0,0,0,64,0,0,0, 69,0,0,0,72,0,76,0, 74,0,71,0,0,0,0,0],
     bass:[45,0,0,0,0,0,0,0, 40,0,0,0,0,0,0,0, 45,0,0,0,0,0,0,0, 43,0,0,0,40,0,0,0] },
+  lull: { step:.2, wave:'triangle', mvol:.026,
+    mel:[79,0,0,76,0,0, 74,0,0,76,0,0, 72,0,0,0,0,0, 69,0,0,72,0,0,
+         76,0,0,74,0,0, 71,0,0,0,0,0, 74,0,0,79,0,0, 76,0,0,72,0,0],
+    bass:[48,0,0,0,0,0, 43,0,0,0,0,0, 45,0,0,0,0,0, 48,0,0,0,0,0,
+          41,0,0,0,0,0, 43,0,0,0,0,0, 45,0,0,0,0,0, 48,0,0,0,0,0] },
 };
+const TUNESETS = [
+  { icon:'🎵', bright:THEMES.bright, dark:THEMES.dark },
+  { icon:'🎶', bright:THEMES.lull, dark:THEMES.dark },
+];
 const DARKROOMS = { cave:1, lair:1, darkwoods:1, emberpeak:1 };
-let musicOn = true;
-try { musicOn = localStorage.getItem('kq-music') !== '0'; } catch(e){}
+let tune = 0; // index into TUNESETS, -1 = music off
+try {
+  const m = localStorage.getItem('kq-music2');
+  if (m === 'off') tune = -1;
+  else if (m != null) tune = Math.min(TUNESETS.length-1, parseInt(m,10) || 0);
+  else if (localStorage.getItem('kq-music') === '0') tune = -1;
+} catch(e){}
 let nextNote = 0, mstep = 0;
 let speaking = false; // music ducks while the narrator reads aloud
 function midi(n){ return 440 * Math.pow(2, (n-69)/12); }
@@ -223,22 +254,25 @@ function note(f, t, d, type, vol){
 }
 function musicLoop(){
   const a = AC;
-  if (!a || !musicOn || speaking || a.state !== 'running') return;
+  if (!a || tune < 0 || speaking || a.state !== 'running') return;
   if (nextNote < a.currentTime - 1) nextNote = a.currentTime + .05;
   while (nextNote < a.currentTime + .6){
-    const th = THEMES[DARKROOMS[cur] ? 'dark' : 'bright'];
+    const th = TUNESETS[tune][DARKROOMS[cur] ? 'dark' : 'bright'];
     const i = mstep % th.mel.length;
-    if (th.mel[i]) note(midi(th.mel[i]), nextNote, th.step*2.2, 'square', .014);
+    if (th.mel[i]) note(midi(th.mel[i]), nextNote, th.step*2.2, th.wave || 'square', th.mvol || .014);
     if (th.bass[i]) note(midi(th.bass[i]), nextNote, th.step*3.6, 'triangle', .032);
     nextNote += th.step; mstep++;
   }
 }
 setInterval(musicLoop, 120);
-function musBtnIcon(){ document.getElementById('musBtn').textContent = musicOn ? '🎵' : '🔇'; }
+function musBtnIcon(){
+  document.getElementById('musBtn').textContent = tune < 0 ? '🔇' : TUNESETS[tune].icon;
+}
 document.getElementById('musBtn').addEventListener('click', ()=>{
-  musicOn = !musicOn;
-  try { localStorage.setItem('kq-music', musicOn ? '1' : '0'); } catch(e){}
-  if (musicOn){ ac(); const a = AC; if (a) nextNote = a.currentTime + .05; }
+  // rotate: tune 1 -> tune 2 -> off -> tune 1 ...
+  tune = tune === -1 ? 0 : (tune === TUNESETS.length - 1 ? -1 : tune + 1);
+  try { localStorage.setItem('kq-music2', tune === -1 ? 'off' : String(tune)); } catch(e){}
+  if (tune >= 0){ ac(); const a = AC; if (a) nextNote = a.currentTime + .05; mstep = 0; }
   musBtnIcon();
 });
 
@@ -251,26 +285,47 @@ try { autoRead = localStorage.getItem('kq-autoread') !== '0'; } catch(e){}
 let speakBtnActive = null, curU = null, speakSeq = 0, speakStart = 0;
 
 // pick the best storyteller voice the device offers — neural/enhanced/network
-// voices sound far better than the default, but are never chosen automatically
+// voices sound far better than the default, but are never chosen automatically.
+// Android exposes Google's HD voices as cryptic ids ending in "-network".
 let voice = null;
+function vid(v){ return v.voiceURI || v.name; }
+function vrank(v){
+  const id = ((v.voiceURI || '') + ' ' + v.name).toLowerCase();
+  let s = 0;
+  if (/network/.test(id)) s += 90;            // Android Google HD voices
+  if (/natural|neural/.test(id)) s += 100;    // Edge neural voices
+  if (/enhanced|premium/.test(id)) s += 80;   // iOS enhanced voices
+  if (/google uk english female|google uk english male|google us english/.test(id)) s += 60;
+  if (/samantha|serena|karen|martha|daniel|moira|stephanie/.test(id)) s += 40;
+  if (!v.localService) s += 15;
+  if (/^en-(gb|us)/i.test(v.lang)) s += 5;
+  if (/female/.test(id)) s += 2;
+  return s;
+}
+function allVoices(){
+  const vs = (speechSynthesis.getVoices() || []).filter(v => /^en/i.test(v.lang));
+  vs.sort((a,b) => vrank(b) - vrank(a));
+  return vs;
+}
+function voiceLabel(v){
+  const id = ((v.voiceURI || '') + ' ' + v.name).toLowerCase();
+  const m = id.match(/en-([a-z]{2})-x-[a-z0-9]+(?:#([a-z]+)_(\d))?[-#]?(network|local)/);
+  if (m){
+    return 'English ' + m[1].toUpperCase()
+      + (m[2] ? ' — ' + m[2][0].toUpperCase() + m[2].slice(1) + ' ' + m[3] : '')
+      + (m[4] === 'network' ? '  ✨HD' : '  (compact)');
+  }
+  let n = v.name;
+  if (/natural|neural|enhanced|premium/i.test(id)) n += '  ✨HD';
+  return n;
+}
 function pickVoice(){
   if (!hasTTS) return;
-  const vs = (speechSynthesis.getVoices() || []).filter(v => /^en/i.test(v.lang));
+  const vs = allVoices();
   if (!vs.length) return;
-  const rank = v => {
-    const n = v.name.toLowerCase();
-    let s = 0;
-    if (/natural|neural/.test(n)) s += 100;
-    if (/enhanced|premium/.test(n)) s += 80;
-    if (/google uk english female|google uk english male|google us english/.test(n)) s += 60;
-    if (/samantha|serena|karen|martha|daniel|moira|stephanie/.test(n)) s += 40;
-    if (!v.localService) s += 15;
-    if (/^en-(gb|us)/i.test(v.lang)) s += 5;
-    if (/female/.test(n)) s += 2;
-    return s;
-  };
-  vs.sort((a,b) => rank(b) - rank(a));
-  voice = vs[0];
+  let stored = null;
+  try { stored = localStorage.getItem('kq-voice'); } catch(e){}
+  voice = (stored && vs.find(v => vid(v) === stored)) || vs[0];
 }
 if (hasTTS){
   pickVoice();
@@ -320,12 +375,49 @@ if (!hasTTS){
   }, 600);
 }
 function narBtnIcon(){ document.getElementById('narBtn').textContent = autoRead ? '🗣️' : '💬'; }
+const narEl = document.getElementById('nar');
+function refreshAutoBtn(){
+  document.getElementById('autoBtn').textContent = autoRead ? '🗣️ Auto-narrate: ON' : '💬 Auto-narrate: OFF';
+}
+function buildNarMenu(){
+  refreshAutoBtn();
+  const list = document.getElementById('voiceList');
+  const vs = allVoices();
+  if (!vs.length){
+    list.innerHTML = '<div class="vrow">No English voices found on this device yet — try again in a moment.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  vs.slice(0, 16).forEach(v => {
+    const b = document.createElement('button');
+    b.className = 'vrow' + (voice && vid(v) === vid(voice) ? ' sel' : '');
+    const sm = document.createElement('small');
+    sm.textContent = v.name + (v.voiceURI && v.voiceURI !== v.name ? ' · ' + v.voiceURI : '');
+    b.textContent = voiceLabel(v);
+    b.appendChild(sm);
+    b.addEventListener('click', e => {
+      e.stopPropagation();
+      voice = v;
+      try { localStorage.setItem('kq-voice', vid(v)); } catch(e2){}
+      buildNarMenu();
+      startSpeech('Once upon a time, in the kingdom of Aldermere, a brave adventurer set out to find a crown.', speakBtn);
+    });
+    list.appendChild(b);
+  });
+}
 document.getElementById('narBtn').addEventListener('click', ()=>{
+  buildNarMenu();
+  narEl.classList.remove('hidden');
+});
+document.getElementById('autoBtn').addEventListener('click', e => {
+  e.stopPropagation();
   autoRead = !autoRead;
-  try { localStorage.setItem('kq-autoread', autoRead ? '1' : '0'); } catch(e){}
+  try { localStorage.setItem('kq-autoread', autoRead ? '1' : '0'); } catch(e2){}
   if (!autoRead) stopSpeak();
-  else startSpeech(msgTxtEl.textContent, speakBtn);
-  narBtnIcon();
+  narBtnIcon(); refreshAutoBtn();
+});
+narEl.addEventListener('click', e => {
+  if (e.target === narEl) narEl.classList.add('hidden');
 });
 speakBtn.addEventListener('click', ()=> speakText(msgTxtEl.textContent, speakBtn));
 document.getElementById('speakItem').addEventListener('click', e => {
@@ -1787,7 +1879,7 @@ function goFull(){
 function begin(){
   introEl.classList.add('hidden');
   goFull();
-  if (musicOn){ ac(); if (AC) nextNote = AC.currentTime + .1; }
+  if (tune >= 0){ ac(); if (AC) nextNote = AC.currentTime + .1; }
   const s = loadSave();
   if (s){ applyState(s); say(rooms[cur].title + '  (welcome back, adventurer)'); }
   else newGame();
