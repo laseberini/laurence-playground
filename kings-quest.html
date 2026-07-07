@@ -52,6 +52,11 @@
   .card h1 { color:#ffd54f; font-size:22px; margin-bottom:10px; }
   .card p { font-size:13px; line-height:1.5; margin-bottom:12px; }
   .card .big { font-size:44px; margin-bottom:8px; }
+  #close .card { animation: pop .28s ease-out; }
+  @keyframes pop {
+    from { transform: scale(.72); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
   .card button {
     background:#ffd54f; color:#141625; border:0; border-radius:8px; font-family:inherit;
     font-size:15px; font-weight:bold; padding:10px 22px; margin:4px;
@@ -172,6 +177,7 @@ const OV = 400;    // decorative overdraw beyond world edges for wide screens
 const cv = document.getElementById('cv'), dctx = cv.getContext('2d');
 const os = document.createElement('canvas');
 let ctx = os.getContext('2d'); // reassigned briefly when rendering close-ups
+let DETAIL = false; // true while rendering close-ups: sprites add fine features
 let DW = W, OX = 0; // display width in logical px, world x-offset
 const msgEl = document.getElementById('msg');
 const invEl = document.getElementById('inv');
@@ -534,6 +540,13 @@ function signpost(x, y){
   R(x+10, y-28, 4, 28, '#8a6238');
   R(x, y-34, 26, 9, '#b08a52'); R(x+2, y-31, 20, 1, '#6d4c28');
   R(x, y-22, 26, 9, '#b08a52'); R(x+2, y-19, 20, 1, '#6d4c28');
+  if (DETAIL){
+    for (let i=0;i<3;i++){
+      R(x+3+i*7, y-33, 4, 1, '#6d4c28'); R(x+4+i*7, y-29, 3, 1, '#6d4c28');
+      R(x+3+i*7, y-21, 4, 1, '#6d4c28'); R(x+4+i*7, y-17, 3, 1, '#6d4c28');
+    }
+    R(x+10, y-6, 4, 1, '#5d3a1c'); R(x+11, y-14, 1, 6, '#a3773f');
+  }
 }
 function shadow(x, y, rx){
   ctx.fillStyle = 'rgba(0,0,0,.25)';
@@ -571,6 +584,15 @@ function drawElda(x, y, t){
   q(-3,-22,7,6,'#efc9a6');
   q(-4,-25,9,4,'#cfd8dc'); q(-1,-27,4,3,'#cfd8dc');
   q(8,-13,2,13,'#8a6238');
+  if (DETAIL){
+    q(-2,-20,1,1,'#4a3428'); q(1,-20,1,1,'#4a3428');
+    q(-1,-18,2,1,'#c97b6a');
+    q(-3,-19,1,1,'#e8a5a0'); q(2,-19,1,1,'#e8a5a0');
+    q(-4,-11,8,1,'#d8d2c2');
+    q(-2,-8,4,4,'#e8e2d2'); q(-2,-8,4,1,'#c9c2b2');
+    q(8,-14,2,2,'#6d4c28');
+    q(-4,-24,1,3,'#b9c2cf'); q(3,-24,1,3,'#b9c2cf');
+  }
   ctx.restore();
 }
 function drawTroll(x, y, t){
@@ -590,6 +612,14 @@ function drawTroll(x, y, t){
   if (!F.gaveFish){
     q(-1,-19,2,5,'#ffd54f'); disc(0,-19,2,'#ffd54f'); disc(0,-19,1,'#8a6b1f');
   }
+  if (DETAIL){
+    q(-3,-20,2,2,'#f2ecd0'); q(2,-20,2,2,'#f2ecd0');
+    q(-6,-29,3,1,'#3f6330'); q(4,-29,3,1,'#3f6330');
+    q(-7,-25,2,1,'#4e7a3a'); q(6,-24,1,1,'#4e7a3a'); q(3,-31,1,1,'#4e7a3a');
+    q(-1,-5,1,1,'#4e7a3a');
+    q(-12,-10,2,1,'#e8e0c0'); q(11,-10,2,1,'#e8e0c0');
+    q(-8,-4,16,1,'#5d4037');
+  }
   ctx.restore();
 }
 function drawWiz(x, y, t){
@@ -606,6 +636,14 @@ function drawWiz(x, y, t){
   q(9,-31,2,31,'#8a6238');
   const g = .5 + Math.sin(t*4)*.3;
   disc(10,-32,3,'rgba(130,220,255,'+g+')');
+  if (DETAIL){
+    q(-2,-23,1,1,'#33427a'); q(2,-23,1,1,'#33427a');
+    q(-5,-27,10,1,'#4a5ac9');
+    q(-1,-30,1,1,'#ffd54f'); q(1,-33,1,1,'#ffd54f');
+    q(-2,-16,6,1,'#d8dce2'); q(-1,-13,4,1,'#d8dce2');
+    q(9,-20,2,1,'#6d4c28');
+    q(-3,-6,2,1,'#2c3a8a'); q(2,-4,2,1,'#2c3a8a');
+  }
   ctx.restore();
 }
 function drawRaven(x, y, t){
@@ -618,6 +656,11 @@ function drawRaven(x, y, t){
   q(x-8, y-4+b, 4, 3, '#16161c');
   if (!F.gaveGeode) q(x-2, y-1+b, 5, 3, '#7e57c2');
   else { q(x-2, y-1+b, 4, 3, '#b388ff'); if (Math.sin(t*5)>0) q(x-1, y-2+b, 1, 1, '#fff'); }
+  if (DETAIL){
+    q(x-3, y-4+b, 5, 1, '#2c2c3a');
+    q(x+4, y-8+b, 1, 1, '#8ab4ff');
+    if (!F.gaveGeode){ q(x-1, y+b, 3, 1, '#5e35b1'); }
+  }
 }
 function drawQueen(x, y, t){
   const yy = y + Math.sin(t*5)*2;
@@ -628,6 +671,11 @@ function drawQueen(x, y, t){
   q(x-4, yy-2, 2, 5, '#3a2f10'); q(x, yy-3, 2, 6, '#3a2f10');
   q(x+3, yy-3, 2, 2, '#222');
   q(x-2, yy-8, 5, 2, '#ffd54f'); q(x-2, yy-10, 1, 2, '#ffd54f'); q(x+2, yy-10, 1, 2, '#ffd54f');
+  if (DETAIL){
+    q(x+4, yy-4, 1, 1, '#fff');
+    q(x+2, yy+2, 2, 1, '#8a6b1f');
+    q(x-1, yy-12, 1, 2, '#3a2f10'); q(x+1, yy-13, 1, 1, '#3a2f10');
+  }
 }
 function drawTilly(x, y, t){
   const b = Math.sin(t*2.2)*.5;
@@ -639,6 +687,13 @@ function drawTilly(x, y, t){
   q(-3,-22,7,6,'#efc9a6');
   q(-4,-25,9,4,'#8a5a3b'); q(-1,-27,4,3,'#8a5a3b');
   q(1,-20,1,1,'#222');
+  if (DETAIL){
+    q(-2,-20,1,1,'#4a3428');
+    q(-1,-18,2,1,'#c96a6a');
+    q(-1,-10,2,1,'#e8e2d2'); q(2,-7,1,1,'#e8e2d2');
+    q(-6,-11,1,3,'#a84a68'); q(5,-11,1,3,'#a84a68');
+    q(-4,-12,8,1,'#d8d2c2');
+  }
   ctx.restore();
 }
 function drawFrog(x, y, t){
@@ -650,6 +705,11 @@ function drawFrog(x, y, t){
   q(-1+x-4, y-10, 2, 2, '#fff'); q(-1+x+4, y-10, 2, 2, '#fff');
   q(x-4, y-10, 1, 1, '#222'); q(x+4, y-10, 1, 1, '#222');
   q(x-6, y+1, 4, 2, '#4a7a30'); q(x+3, y+1, 4, 2, '#4a7a30');
+  if (DETAIL){
+    q(x-3, y-6, 1, 1, '#4a7a30'); q(x+2, y-5, 1, 1, '#4a7a30'); q(x, y-7, 1, 1, '#4a7a30');
+    q(x-2, y-2, 4, 1, '#3f6b28');
+    q(x-5, y-11, 1, 1, '#d0e8c0'); q(x+3, y-11, 1, 1, '#d0e8c0');
+  }
 }
 function drawCatInTree(x, y, t){
   const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
@@ -660,6 +720,11 @@ function drawCatInTree(x, y, t){
   q(x+5, y-3, 2, 1, '#e8a0a8');
   const tw = Math.sin(t*4)*3;
   q(x-7, y-2+tw*.5, 3, 2, '#f5f5f5'); q(x-9, y-4+tw, 3, 2, '#f5f5f5');
+  if (DETAIL){
+    q(x+4, y-9, 1, 1, '#e8a0a8'); q(x+7, y-9, 1, 1, '#e8a0a8');
+    q(x+9, y-4, 3, 1, '#e0e0e0'); q(x+9, y-2, 3, 1, '#e0e0e0');
+    q(x-2, y-2, 2, 1, '#d8d8d8'); q(x+1, y+1, 2, 1, '#d8d8d8');
+  }
 }
 function gorge(xEdge, dir, seed, t){
   ctx.fillStyle = '#221d1a';
@@ -704,6 +769,14 @@ function drawDragon(x, y, t, mode){
   R(x-49, hy+4, 9, 6, '#c34a2e');
   R(x-49, hy+8, 8, 1, '#7e2d1a');
   R(x-28, hy-4, 3, 5, '#e8c245'); R(x-33, hy-3, 3, 4, '#e8c245');
+  if (DETAIL){
+    for (let i=0;i<6;i++){ R(x-19+i*7, y-17+(i%2)*3+br*.4, 3, 1, '#a03a22'); }
+    for (let i=0;i<5;i++){ R(x-15+i*7, y-11, 3, 1, '#a03a22'); }
+    R(x-46, hy+2, 2, 1, '#7e2d1a');
+    R(x-27, hy-4, 1, 2, '#fff8d0');
+    R(x-40, hy+9, 4, 1, '#7e2d1a');
+    R(x+30, y-9, 2, 1, '#7e2d1a'); R(x+37, y-13, 2, 1, '#7e2d1a');
+  }
   if (mode === 'sleep'){
     R(x-39, hy+3, 5, 1, '#5c1f10');
     for (let i=0;i<2;i++){
@@ -772,6 +845,12 @@ meadow: {
       disc(57,130,3,'#f48fb1'); disc(65,130,3,'#f48fb1');
       disc(61,126,3,'#f48fb1'); disc(61,134,3,'#f48fb1');
       disc(61,130,2,'#ffd54f');
+      if (DETAIL){
+        R(57,129,1,1,'#c2185b'); R(64,129,1,1,'#c2185b');
+        R(60,126,1,1,'#c2185b'); R(60,133,1,1,'#c2185b');
+        disc(61,130,1,'#fff8d0');
+        R(59,138,1,2,'#3c9142'); R(62,140,2,1,'#3c9142');
+      }
     }
     if (!F.posy && !honeyDone()){
       for (let i=0;i<14;i++){
@@ -820,6 +899,12 @@ cottage: {
     if (!F.lantern){
       R(172,88,1,5,'#5d4037');
       R(170,93,5,7,'#c9a227'); R(171,95,3,3,'#ffe082');
+      if (DETAIL){
+        R(171,95,1,1,'#fff8d0'); R(170,100,5,1,'#8a6b1f');
+        R(169,92,7,1,'#8a6b1f');
+        const lg = .2 + Math.sin(t*3)*.1;
+        disc(172.5,96.5,5,'rgba(255,224,130,' + lg + ')');
+      }
     }
     for (let x=-395; x<100; x+=13){ R(x,126,3,15,'#b08a56'); }
     R(-397,130,500,2,'#b08a56'); R(-397,136,500,2,'#b08a56');
@@ -998,6 +1083,11 @@ gate: {
       ctx.fillStyle = '#6d4522';
       ctx.beginPath(); ctx.arc(160,86,20,Math.PI,0); ctx.fill();
       R(140,86,40,2,'#6d4522');
+      if (DETAIL){
+        for (let i=0;i<4;i++){ R(142, 90+i*8, 16, 1, '#7a4c24'); R(162, 92+i*8, 16, 1, '#7a4c24'); }
+        disc(166,104,1,'#8a6b1f');
+        R(143,90,3,3,'#3c2814'); R(174,90,3,3,'#3c2814'); R(143,113,3,3,'#3c2814'); R(174,113,3,3,'#3c2814');
+      }
     } else {
       R(140,88,40,32,'#14100c');
       ctx.fillStyle = '#141016';
@@ -1191,6 +1281,10 @@ cave: {
       disc(210,152,10,'rgba(200,150,255,' + g + ')');
       disc(210,153,6,'#5e4a7a'); disc(210,153,4,'#8e6bbf');
       R(207,151,2,2,'#e1bee7'); R(211,153,2,2,'#f3e5f5'); R(209,155,1,1,'#fff');
+      if (DETAIL){
+        R(206,153,1,1,'#b388ff'); R(212,151,1,1,'#b388ff'); R(210,150,1,1,'#e1bee7');
+        R(208,157,3,1,'#4a3a5e'); R(213,155,1,2,'#4a3a5e');
+      }
     }
     for (let i=0;i<2;i++){
       const bx = 160 + Math.sin(t*.9 + i*2.6)*(80+i*30), by = 42 + Math.sin(t*2.1 + i)*12;
@@ -1368,6 +1462,12 @@ beeglade: {
     disc(89,96,8,'#d9a441'); disc(89,102,9,'#d9a441'); disc(89,108,8,'#d9a441');
     R(81,98,16,2,'#a8752c'); R(81,104,16,2,'#a8752c');
     R(86,112,6,4,'#5c4319');
+    if (DETAIL){
+      for (let hy2=94; hy2<110; hy2+=4){
+        for (let hx2=83; hx2<95; hx2+=4){ R(hx2, hy2, 2, 2, '#c2913a'); }
+      }
+      R(85,113,2,2,'#f2b90d'); R(88,115,1,2,'#f2b90d');
+    }
     for (let i=0;i<8;i++){
       const bx = 89 + Math.cos(t*2 + i*.8)*(12 + hash(i,19)*10);
       const by = 102 + Math.sin(t*2.7 + i*1.1)*(8 + hash(i,22)*6);
@@ -1429,6 +1529,16 @@ lair: {
       ctx.beginPath(); ctx.moveTo(254,136); ctx.lineTo(257,129); ctx.lineTo(260,136); ctx.fill();
       ctx.beginPath(); ctx.moveTo(260,136); ctx.lineTo(263,129); ctx.lineTo(264,136); ctx.fill();
       R(251,138,2,2,'#c62828'); R(257,138,2,2,'#2f55c4');
+      if (DETAIL){
+        R(249,141,14,1,'#c9a227');
+        R(250,137,1,1,'#fff8d0'); R(255,140,1,1,'#fff8d0'); R(261,138,1,1,'#fff8d0');
+      }
+    }
+    if (DETAIL){
+      for (let i=0;i<10;i++){
+        const gx2 = 236 + hash(i,86)*60, gy2 = 154 + hash(i,87)*30;
+        disc(gx2, gy2, 1.5, '#f2d060'); R(gx2, gy2-1, 1, 1, '#fff8d0');
+      }
     }
     const mode = (F.honeyOut && !F.crown) ? 'eat' : 'sleep';
     drawDragon(mode === 'eat' ? 128 : 176, 160, t, F.crown ? 'content' : mode);
@@ -1543,6 +1653,12 @@ hamlet: {
     ctx.fillStyle = '#2c3040';
     ctx.beginPath(); ctx.ellipse(200,141,10,4,0,0,7); ctx.fill();
     R(198,118,4,3,'#6d4522'); R(199,121,2,14,'#4a3a28');
+    if (DETAIL){
+      for (let i=0;i<7;i++){
+        R(188+i*4, 138+Math.round(Math.sin(i*1.1)*2), 3, 2, '#7a7f8c');
+      }
+      R(196,120,8,1,'#b9bdc9'); R(202,124,2,6,'#6d747f');
+    }
     [[212,164],[92,172]].forEach((c,i)=>{
       const peck = Math.sin(t*5 + i*2) > .5 ? 2 : 0;
       const cwx = c[0] + Math.sin(t*.6 + i*3)*8;
@@ -1717,7 +1833,7 @@ function gotoRoom(id, px, py){
   player.y = player.ty = Math.max(r.walkTop, Math.min(196, py));
   player.moving = false; pending = null;
   seen[id] = 1;
-  closeEl.classList.add('hidden');
+  hideCloseup();
   say(r.title, true); // scene entry shows the title silently — 👁️ describes on demand
   save();
 }
@@ -1739,34 +1855,76 @@ function arrowPos(dir){
   return dir === 'W' ? [7, my] : dir === 'E' ? [313, my]
        : dir === 'N' ? [160, r.walkTop + 6] : [160, 191];
 }
-// close-up: render the room at full 1:1 detail and crop around the tapped thing
+// close-up: a live, animated view of the room at full 1:1 detail, cropped
+// around the tapped thing. World state is frozen at the moment of the tap so
+// picked things stay in view, but time keeps flowing — everything animates.
 const ccv = document.getElementById('ccv');
 const tmpC = document.createElement('canvas');
 tmpC.width = W; tmpC.height = H;
+let closeSpot = null, closeRect = null, closeT0 = 0, closeF = null;
 function showCloseup(s){
-  const prev = ctx;
-  try {
-    ctx = tmpC.getContext('2d');
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    rooms[cur].draw(last);
-  } catch(e){} finally { ctx = prev; }
+  closeSpot = s;
+  closeT0 = last;
+  closeF = Object.assign({}, F); // freeze the world as it looks right now
   const cw = Math.min(170, Math.max(56, s.w + 22));
   const ch = Math.round(cw * .72);
-  const rx = Math.max(0, Math.min(W - cw, s.x + s.w/2 - cw/2));
-  const ry = Math.max(0, Math.min(H - ch, s.y + s.h/2 - ch/2));
+  closeRect = {
+    cw, ch,
+    rx: Math.max(0, Math.min(W - cw, s.x + s.w/2 - cw/2)),
+    ry: Math.max(0, Math.min(H - ch, s.y + s.h/2 - ch/2)),
+  };
   ccv.width = cw; ccv.height = ch;
-  const g = ccv.getContext('2d');
-  g.imageSmoothingEnabled = false;
-  g.drawImage(tmpC, rx, ry, cw, ch, 0, 0, cw, ch);
   closeTxtEl.textContent = '';
   closeEl.classList.remove('hidden');
+  const card = closeEl.querySelector('.card');
+  card.style.animation = 'none'; void card.offsetWidth; card.style.animation = '';
+  renderCloseup(last);
 }
-closeEl.addEventListener('click', ()=> closeEl.classList.add('hidden'));
+function renderCloseup(t){
+  if (!closeSpot || !closeRect) return;
+  const prev = ctx, Freal = F;
+  try {
+    F = closeF || F;
+    DETAIL = true;
+    ctx = tmpC.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    rooms[cur].draw(t);
+  } catch(e){} finally { ctx = prev; F = Freal; DETAIL = false; }
+  const R0 = closeRect;
+  // cinematic zoom: start wide, ease in to the subject
+  const p = Math.min(1, (t - closeT0) / .5);
+  const e = 1 - Math.pow(1 - p, 3);
+  const z = 1.9 - .9 * e;
+  const cw = Math.min(W, R0.cw * z), ch = Math.min(H, R0.ch * z);
+  const rx = Math.max(0, Math.min(W - cw, R0.rx + R0.cw/2 - cw/2));
+  const ry = Math.max(0, Math.min(H - ch, R0.ry + R0.ch/2 - ch/2));
+  const g = ccv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.drawImage(tmpC, rx, ry, cw, ch, 0, 0, R0.cw, R0.ch);
+  // storybook vignette
+  const vg = g.createRadialGradient(R0.cw/2, R0.ch/2, R0.ch*.4, R0.cw/2, R0.ch/2, R0.cw*.78);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(8,6,20,.42)');
+  g.fillStyle = vg; g.fillRect(0, 0, R0.cw, R0.ch);
+  // little glints of wonder
+  for (let i=0;i<5;i++){
+    const a = Math.sin(t*3 + i*2.1);
+    if (a > .55){
+      g.fillStyle = 'rgba(255,255,230,' + (a - .5) + ')';
+      const sx = R0.cw*(.28 + hash(i,7)*.44), sy = R0.ch*(.22 + hash(i,8)*.5);
+      g.fillRect(sx-2, sy, 5, 1); g.fillRect(sx, sy-2, 1, 5);
+    }
+  }
+}
+function hideCloseup(){
+  closeSpot = null; closeF = null;
+  closeEl.classList.add('hidden');
+}
+closeEl.addEventListener('click', hideCloseup);
 function interact(s){
   const room0 = cur;
-  showCloseup(s); // snapshot BEFORE acting, so picked things are still in view
+  showCloseup(s); // freeze BEFORE acting, so picked things are still in view
   s.act();
-  if (cur !== room0) closeEl.classList.add('hidden'); // acts that travel skip the card
+  if (cur !== room0) hideCloseup(); // acts that travel skip the card
   else closeTxtEl.textContent = msgTxtEl.textContent;
 }
 function tapAt(lx, ly){
@@ -2064,6 +2222,7 @@ function frame(ts){
   dctx.setTransform(1, 0, 0, 1, 0, 0);
   dctx.imageSmoothingEnabled = false;
   dctx.drawImage(os, 0, 0, os.width, os.height, 0, 0, cv.width, cv.height);
+  if (closeSpot && !closeEl.classList.contains('hidden')) renderCloseup(t);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
