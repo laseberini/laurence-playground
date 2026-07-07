@@ -126,6 +126,7 @@
       <h1>🗣️ Narrator</h1>
       <button id="autoBtn"></button>
       <div id="voiceList"></div>
+      <p id="aiDiag" style="font-size:10px;color:#585d7d"></p>
       <p style="font-size:11px;color:#8b90ad;text-align:left">These voices come from your phone. <b>Android tip:</b> the game follows the
       Google engine’s default voice — to upgrade it, open your phone’s
       <i>Text-to-speech</i> settings → tap the ⚙ beside the Google engine →
@@ -295,6 +296,8 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
+const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
+const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
 // Android does not support — models silently failed to save and re-downloaded
 // every session. We intercept the model/runtime downloads and keep them in
@@ -313,7 +316,7 @@ async function aiCachePut(c, url, res){
     status: clone.status, statusText: clone.statusText, headers,
   }));
 }
-if ('caches' in window && location.protocol.indexOf('http') === 0){
+if ('caches' in window && IS_WEB){
   const origFetch = window.fetch.bind(window);
   window.fetch = async function(input, init){
     const url = typeof input === 'string' ? input : (input && input.url) || '';
@@ -547,10 +550,29 @@ function aiRow(label, small, cls, onTap){
   if (onTap) b.addEventListener('click', e => { e.stopPropagation(); onTap(); });
   return b;
 }
+async function aiDiag(){
+  const bits = [];
+  bits.push(IS_WEB ? 'web page ✓' : '⚠ opened as a FILE — downloads cannot be kept');
+  try {
+    const saved = await cacheVoices();
+    bits.push('saved on phone: ' + (saved.length ? saved.map(v => v.split('-')[1]).join(', ') : 'none'));
+  } catch(e){ bits.push('saved on phone: unknown'); }
+  try {
+    if (navigator.storage && navigator.storage.persisted)
+      bits.push('protected: ' + ((await navigator.storage.persisted()) ? 'yes' : 'no'));
+  } catch(e){}
+  return bits.join('  •  ');
+}
 function buildNarMenu(){
   refreshAutoBtn();
   const list = document.getElementById('voiceList');
   list.innerHTML = '';
+  // not on the web = throwaway storage; give a one-tap way to the real thing
+  if (!IS_WEB){
+    list.appendChild(aiRow('🌐 Open the web version',
+      'Required for the AI voice to stay on your phone. Tap to switch — then add it to your home screen.',
+      '', ()=>{ location.href = KQ_WEB; }));
+  }
   // --- AI Storyteller section ---
   if (AI.state === 'off'){
     if (AI.storedIds && AI.storedIds.length){
@@ -568,7 +590,7 @@ function buildNarMenu(){
     } else {
       list.appendChild(aiRow('✨ Get the AI Storyteller voice',
         'Natural, not robotic. ~60 MB download, kept on your phone. Wi-Fi recommended.'
-        + (location.protocol === 'file:' ? ' Tip: open the game via its web link so the download is remembered.' : ''),
+        + (!IS_WEB ? ' Tip: open the game via its web link so the download is remembered.' : ''),
         '', ()=> loadAI(AIVOICES[0][0])));
     }
   } else if (AI.state === 'loading'){
@@ -618,6 +640,7 @@ function buildNarMenu(){
 document.getElementById('narBtn').addEventListener('click', ()=>{
   buildNarMenu();
   narEl.classList.remove('hidden');
+  aiDiag().then(t => { const d = document.getElementById('aiDiag'); if (d) d.textContent = t; });
 });
 document.getElementById('autoBtn').addEventListener('click', e => {
   e.stopPropagation();
