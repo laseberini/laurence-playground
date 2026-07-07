@@ -385,6 +385,7 @@ async function loadAI(voiceId){
     if (AI.storedIds.indexOf(voiceId) < 0) AI.storedIds.push(voiceId);
     try { localStorage.setItem('kq-aivoice', voiceId); } catch(e){}
     try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e){}
+    try { schedulePregen(); } catch(e){}
   } catch(e){
     AI.state = 'error'; AI.err = String(e && e.message || e).slice(0, 90);
     AI.session = null; AI.voiceId = null;
@@ -403,15 +404,41 @@ function aiParts(text){
   }
   return out;
 }
+// generation scheduler: user speech runs at high priority, scene pre-generation
+// at low priority (and only while the narrator is quiet), all through ONE
+// serialized pipeline so the model never runs two jobs at once
+const aiHi = [], aiLo = [];
+let aiPumping = false;
+async function aiPump(){
+  if (aiPumping) return;
+  aiPumping = true;
+  try {
+    while (aiHi.length || aiLo.length){
+      if (!AI.session || !AI.voiceId){ aiLo.length = 0; break; }
+      if (!aiHi.length && (speaking || document.hidden)){
+        await new Promise(r => setTimeout(r, 250));
+        continue;
+      }
+      const hij = aiHi.shift();
+      const line = hij ? hij.line : aiLo.shift();
+      const key = AI.voiceId + '|' + line;
+      let blob = aiCache.get(key);
+      if (!blob){
+        try {
+          blob = await AI.session.predict(line);
+          aiCache.set(key, blob);
+          if (aiCache.size > 64) aiCache.delete(aiCache.keys().next().value);
+        } catch(e){ if (hij) hij.rej(e); continue; }
+      }
+      if (hij) hij.res(blob);
+    }
+  } finally { aiPumping = false; }
+}
 function aiGen(line){
   const key = AI.voiceId + '|' + line;
   const hit = aiCache.get(key);
   if (hit) return Promise.resolve(hit);
-  return AI.session.predict(line).then(blob => {
-    aiCache.set(key, blob);
-    if (aiCache.size > 48) aiCache.delete(aiCache.keys().next().value);
-    return blob;
-  });
+  return new Promise((res, rej) => { aiHi.push({ line, res, rej }); aiPump(); });
 }
 function trimBuf(a, buf){
   // cut the model's leading/trailing silence — the main cause of long pauses
@@ -492,15 +519,18 @@ function stopSpeak(){
   if (speakBtnActive) speakBtnActive.textContent = speakBtnActive.id === 'speak' ? '🔊' : '🔊 Listen';
   speakBtnActive = null;
 }
-function startSpeech(raw, btn){
-  stopSpeak();
-  if (!raw) return;
-  const text = raw
+function cleanSpeech(raw){
+  return (raw || '')
     .replace(/\(\+\d+\)/g, '')
     .replace(/[🗺✦🎵⛄]/g, '')
     .replace(/^[—\s]+|[—\s]+$/g, '')
     .replace(/—/g, ', ')
     .trim();
+}
+function startSpeech(raw, btn){
+  stopSpeak();
+  if (!raw) return;
+  const text = cleanSpeech(raw);
   if (!text) return;
   if (AI.session && AI.voiceId){ aiSpeak(text, btn); return; }
   if (!hasTTS) return;
@@ -2045,6 +2075,7 @@ function gotoRoom(id, px, py){
   if (firstVisit && typeof DESCS !== 'undefined' && DESCS[id]) say(DESCS[id]());
   else say(r.title, true);
   save();
+  schedulePregen(); // warm this room's lines so taps speak instantly
 }
 function walkTo(x, y, p){
   const r = rooms[cur];
@@ -2140,7 +2171,10 @@ function interact(s){
   showCloseup(s); // freeze BEFORE acting, so picked things are still in view
   s.act();
   if (cur !== room0) hideCloseup(); // acts that travel skip the card
-  else closeTxtEl.textContent = msgTxtEl.textContent;
+  else {
+    closeTxtEl.textContent = msgTxtEl.textContent;
+    schedulePregen(); // flags may have changed — re-warm the room's lines
+  }
 }
 function tapAt(lx, ly){
   const r = rooms[cur];
@@ -2311,6 +2345,58 @@ document.getElementById('eye').addEventListener('click', ()=>{
   msgTxtEl.textContent = d;
   startSpeech(d, speakBtn);
 });
+
+// ---------- speech pre-generation ----------
+// Discover what each visible hotspot WOULD say by dry-running its act()
+// against throwaway copies of the game state, with every side effect stubbed.
+function spotLines(){
+  const lines = [];
+  const savedF = F, savedSeen = seen, wasFishing = fishing;
+  const o = { say, addScore, hud, save, gotoRoom, showWin, hideCloseup,
+              sfxTalk, sfxPickup, sfxUnlock, sfxFanfare, sfxGrowl };
+  const st = window.setTimeout;
+  try {
+    say = t => { if (t) lines.push(t); };
+    addScore = hud = save = gotoRoom = showWin = hideCloseup = function(){};
+    sfxTalk = sfxPickup = sfxUnlock = sfxFanfare = sfxGrowl = function(){};
+    window.setTimeout = function(){ return 0; };
+    seen = Object.assign({}, savedSeen);
+    for (const s of rooms[cur].spots){
+      if (s.vis && !s.vis()) continue;
+      F = Object.assign({}, savedF); // fresh copy per spot — mutations vanish
+      try { s.act(); } catch(e){}
+    }
+  } finally {
+    F = savedF; seen = savedSeen; fishing = wasFishing;
+    say = o.say; addScore = o.addScore; hud = o.hud; save = o.save;
+    gotoRoom = o.gotoRoom; showWin = o.showWin; hideCloseup = o.hideCloseup;
+    sfxTalk = o.sfxTalk; sfxPickup = o.sfxPickup; sfxUnlock = o.sfxUnlock;
+    sfxFanfare = o.sfxFanfare; sfxGrowl = o.sfxGrowl;
+    window.setTimeout = st;
+  }
+  return lines;
+}
+// queue this room's likely lines for background voice generation
+function schedulePregen(){
+  if (!AI.session || !AI.voiceId) return;
+  const texts = [];
+  try {
+    if (DESCS[cur]) texts.push(DESCS[cur]());
+    texts.push.apply(texts, spotLines());
+  } catch(e){}
+  aiLo.length = 0;
+  const queued = {};
+  texts.forEach(raw => {
+    aiParts(cleanSpeech(raw)).forEach(part => {
+      if (!part) return;
+      if (aiCache.has(AI.voiceId + '|' + part) || queued[part]) return;
+      queued[part] = 1;
+      aiLo.push(part);
+    });
+  });
+  if (aiLo.length > 24) aiLo.length = 24;
+  if (aiLo.length) aiPump();
+}
 function openMap(){
   const here = MPARENT[cur] || cur;
   document.getElementById('mapGrid').innerHTML = MAPGRID.map(row =>
