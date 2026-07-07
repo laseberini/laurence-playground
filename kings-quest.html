@@ -65,6 +65,10 @@
   }
   .card button.vrow.sel { border-color:#ffd54f; color:#ffd54f; background:#26240f; }
   .card button.vrow small { color:#8b90ad; display:block; font-size:10px; margin-top:2px; }
+  #ccv {
+    width:min(74vw, 330px); image-rendering:pixelated; image-rendering:crisp-edges;
+    border:3px solid #2c3050; border-radius:10px; background:#000;
+  }
   #mapGrid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin:10px 0 14px; }
   .mc {
     background:#1b1e33; border:1px solid #2c3050; border-radius:6px;
@@ -130,6 +134,14 @@
     </div>
   </div>
 
+  <div id="close" class="overlay hidden">
+    <div class="card">
+      <canvas id="ccv" width="120" height="90"></canvas>
+      <p id="closeTxt" style="margin-top:10px"></p>
+      <p style="font-size:11px;color:#8b90ad">Tap anywhere to close</p>
+    </div>
+  </div>
+
   <div id="item" class="overlay hidden">
     <div class="card">
       <div class="big" id="itIc"></div>
@@ -159,7 +171,7 @@ const PX = 2;      // chunk size: scene renders at half res, upscaled for fat pi
 const OV = 400;    // decorative overdraw beyond world edges for wide screens
 const cv = document.getElementById('cv'), dctx = cv.getContext('2d');
 const os = document.createElement('canvas');
-const ctx = os.getContext('2d');
+let ctx = os.getContext('2d'); // reassigned briefly when rendering close-ups
 let DW = W, OX = 0; // display width in logical px, world x-offset
 const msgEl = document.getElementById('msg');
 const invEl = document.getElementById('inv');
@@ -436,9 +448,12 @@ document.getElementById('speakItem').addEventListener('click', e => {
 });
 
 // ---------- ui ----------
-function say(t){
+const closeEl = document.getElementById('close');
+const closeTxtEl = document.getElementById('closeTxt');
+function say(t, silent){
   msgTxtEl.textContent = t;
-  if (autoRead && t) startSpeech(t, speakBtn);
+  if (!closeEl.classList.contains('hidden')) closeTxtEl.textContent = t;
+  if (!silent && autoRead && t) startSpeech(t, speakBtn);
 }
 const ITEMS = {
   flower:['🌸','Moonpetal','A glowing meadow flower that hums in your hand. Old Elda needs one for her aching-bones potion.'],
@@ -1702,7 +1717,8 @@ function gotoRoom(id, px, py){
   player.y = player.ty = Math.max(r.walkTop, Math.min(196, py));
   player.moving = false; pending = null;
   seen[id] = 1;
-  say(r.title);
+  closeEl.classList.add('hidden');
+  say(r.title, true); // scene entry shows the title silently — 👁️ describes on demand
   save();
 }
 function walkTo(x, y, p){
@@ -1723,6 +1739,36 @@ function arrowPos(dir){
   return dir === 'W' ? [7, my] : dir === 'E' ? [313, my]
        : dir === 'N' ? [160, r.walkTop + 6] : [160, 191];
 }
+// close-up: render the room at full 1:1 detail and crop around the tapped thing
+const ccv = document.getElementById('ccv');
+const tmpC = document.createElement('canvas');
+tmpC.width = W; tmpC.height = H;
+function showCloseup(s){
+  const prev = ctx;
+  try {
+    ctx = tmpC.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    rooms[cur].draw(last);
+  } catch(e){} finally { ctx = prev; }
+  const cw = Math.min(170, Math.max(56, s.w + 22));
+  const ch = Math.round(cw * .72);
+  const rx = Math.max(0, Math.min(W - cw, s.x + s.w/2 - cw/2));
+  const ry = Math.max(0, Math.min(H - ch, s.y + s.h/2 - ch/2));
+  ccv.width = cw; ccv.height = ch;
+  const g = ccv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.drawImage(tmpC, rx, ry, cw, ch, 0, 0, cw, ch);
+  closeTxtEl.textContent = '';
+  closeEl.classList.remove('hidden');
+}
+closeEl.addEventListener('click', ()=> closeEl.classList.add('hidden'));
+function interact(s){
+  const room0 = cur;
+  showCloseup(s); // snapshot BEFORE acting, so picked things are still in view
+  s.act();
+  if (cur !== room0) closeEl.classList.add('hidden'); // acts that travel skip the card
+  else closeTxtEl.textContent = msgTxtEl.textContent;
+}
 function tapAt(lx, ly){
   const r = rooms[cur];
   // arrows first: tapping one guarantees the transition
@@ -1740,7 +1786,7 @@ function tapAt(lx, ly){
   for (const s of r.spots){
     if ((!s.vis || s.vis()) && lx >= s.x && lx <= s.x + s.w && ly >= s.y && ly <= s.y + s.h){
       if (Math.hypot(player.x - s.wx, player.y - s.wy) < 14){
-        player.moving = false; pending = null; s.act();
+        player.moving = false; pending = null; interact(s);
       } else {
         walkTo(s.wx, s.wy, { spot: s });
       }
@@ -1762,7 +1808,7 @@ function update(dt){
       player.x = player.tx; player.y = player.ty; player.moving = false;
       if (pending){
         const p = pending; pending = null;
-        if (p.exit) doExit(p.exit); else p.spot.act();
+        if (p.exit) doExit(p.exit); else interact(p.spot);
       }
     } else {
       player.x += dx/d * sp; player.y += dy/d * sp;
@@ -1881,8 +1927,36 @@ const DESCS = {
     + (!F.cat && !F.catHome ? ' — and up in one of the trees, a little white cat meows for help.' : '.'),
   cliffs: () => 'Green cliffs high above a wide silver sea. Waves roll far below, seagulls wheel overhead, a little sailboat drifts past, and a lighthouse blinks its patient lamp.',
 };
+function goalHint(){
+  if (!F.gaveFlower) return F.flower
+    ? 'Old Elda at her cottage would love this moonpetal.'
+    : 'Old Elda needs a glowing moonpetal — they grow in the meadow, west of the forest.';
+  if (!F.gaveFish) return F.fish
+    ? 'That fat trout might tempt a certain hungry troll at the bridge.'
+    : 'Catch a fat trout at the Silver Lake, east of the cottage.';
+  if (F.key && !F.gateOpen) return 'The brass key should fit the castle gate, north of the forest.';
+  if (!F.quest) return 'Step through the castle gate and see what waits in the hall.';
+  if (!F.crown){
+    if (F.honeyOut) return 'The hoard stands unguarded — take the crown!';
+    if (F.honey) return 'Carry the honeycomb to Ember Peak, north of the high pass, and set it somewhere a dragon will smell it.';
+    if (F.warm) return F.posy
+      ? 'The bee queen of the western glade would adore those wildflowers.'
+      : 'Dragons love sweetness: the bees of the Bee Glade trade honey for wildflowers from the meadow.';
+    if (F.book) return 'Fenwick the wizard, at his tower south of the pass, wants his spellbook back.';
+    if (F.geode) return 'The raven of the Dark Woods, in the far north-west, trades for shiny things.';
+    if (F.lantern) return 'Something glittering hides deep in the crystal cave of the foothills.';
+    if (F.sawCave) return 'Old Elda keeps Bertram’s lantern on a hook by her cottage door.';
+    return 'The trail leads east over Grukk’s bridge toward the mountains — and a dark cave waits in the stony foothills.';
+  }
+  if (!F.throne) return 'The throne of Aldermere awaits in the castle hall — go and be crowned!';
+  if (F.cat && !F.catHome) return 'Biscuit purrs on your shoulders — Tilly of Thistledown misses her.';
+  if (F.coin && !F.wished) return 'The wishing well of Thistledown hums for that copper coin.';
+  return 'You are the Sovereign of Aldermere! Explore your kingdom.';
+}
 document.getElementById('eye').addEventListener('click', ()=>{
-  const d = DESCS[cur] ? DESCS[cur]() : rooms[cur].title;
+  let d = DESCS[cur] ? DESCS[cur]() : rooms[cur].title;
+  const h = goalHint();
+  if (h) d += ' Your quest: ' + h;
   msgTxtEl.textContent = d;
   startSpeech(d, speakBtn);
 });
@@ -1934,7 +2008,7 @@ function begin(){
   goFull();
   if (tune >= 0){ ac(); if (AC) nextNote = AC.currentTime + .1; }
   const s = loadSave();
-  if (s){ applyState(s); say(rooms[cur].title + '  (welcome back, adventurer)'); }
+  if (s){ applyState(s); say(rooms[cur].title + '  (welcome back, adventurer)', true); }
   else newGame();
 }
 document.getElementById('begin').addEventListener('click', begin);
