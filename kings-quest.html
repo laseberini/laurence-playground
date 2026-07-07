@@ -84,6 +84,12 @@
   .mc.cur { border-color:#ffd54f; color:#ffd54f; }
   .mc .ic { font-size:16px; display:block; }
   .hidden { display:none !important; }
+  #updBtn {
+    position:fixed; right:10px; top:48px; z-index:30;
+    background:#ffd54f; color:#141625; border:0; border-radius:8px;
+    font-family:inherit; font-size:12px; font-weight:bold; padding:8px 12px;
+    box-shadow:0 2px 10px rgba(0,0,0,.5);
+  }
 </style>
 </head>
 <body>
@@ -110,6 +116,7 @@
          👁️ describes the scene, 🗺 shows the map,
          🗣️ picks the storyteller’s voice.</p>
       <button id="begin">▶ Begin</button>
+      <p style="font-size:10px;color:#585d7d;margin-top:12px">King’s Quest <span id="ver"></span></p>
     </div>
   </div>
 
@@ -296,6 +303,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
+const KQ_VER = 'v21';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -422,15 +430,22 @@ async function aiPump(){
       const hij = aiHi.shift();
       const line = hij ? hij.line : aiLo.shift();
       const key = AI.voiceId + '|' + line;
-      let blob = aiCache.get(key);
-      if (!blob){
+      let ent = aiCache.get(key);
+      if (!ent){
         try {
-          blob = await AI.session.predict(line);
-          aiCache.set(key, blob);
+          const blob = await AI.session.predict(line);
+          ent = { blob, buf: null };
+          aiCache.set(key, ent);
           if (aiCache.size > 64) aiCache.delete(aiCache.keys().next().value);
         } catch(e){ if (hij) hij.rej(e); continue; }
+        // background jobs also pre-decode, so playback needs zero work at tap time
+        if (!hij && AC && AC.state === 'running'){
+          try {
+            ent.buf = trimBuf(AC, await AC.decodeAudioData(await ent.blob.arrayBuffer()));
+          } catch(e){}
+        }
       }
-      if (hij) hij.res(blob);
+      if (hij) hij.res(ent);
     }
   } finally { aiPumping = false; }
 }
@@ -456,17 +471,21 @@ function trimBuf(a, buf){
     return out;
   } catch(err){ return buf; }
 }
-async function playAIBlob(blob, seq){
+async function playAIBlob(ent, seq){
   const a = ac();
   if (a && a.state === 'running'){
     try {
-      const ab = await blob.arrayBuffer();
-      if (seq !== speakSeq) return;
-      const buf = await a.decodeAudioData(ab);
+      let buf = ent.buf;
+      if (!buf){
+        const ab = await ent.blob.arrayBuffer();
+        if (seq !== speakSeq) return;
+        buf = trimBuf(a, await a.decodeAudioData(ab));
+        ent.buf = buf; // decode once, replay instantly forever after
+      }
       if (seq !== speakSeq) return;
       await new Promise(res => {
         const src = a.createBufferSource();
-        src.buffer = trimBuf(a, buf);
+        src.buffer = buf;
         src.connect(a.destination);
         aiSrc = src; src.onended = res;
         src.start();
@@ -474,7 +493,7 @@ async function playAIBlob(blob, seq){
       return;
     } catch(e){}
   }
-  const url = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(ent.blob);
   await new Promise(res => {
     aiAudio = new Audio(url);
     aiAudio.onended = aiAudio.onerror = () => res();
@@ -581,7 +600,7 @@ function aiRow(label, small, cls, onTap){
   return b;
 }
 async function aiDiag(){
-  const bits = [];
+  const bits = [KQ_VER];
   bits.push(IS_WEB ? 'web page ✓' : '⚠ opened as a FILE — downloads cannot be kept');
   try {
     const saved = await cacheVoices();
@@ -2578,6 +2597,25 @@ function frame(ts){
 requestAnimationFrame(frame);
 
 if (new URLSearchParams(location.search).has('play')) begin();
+
+// ---------- version display & update check ----------
+document.getElementById('ver').textContent = KQ_VER;
+if (IS_WEB){
+  setTimeout(async ()=>{
+    try {
+      const res = await fetch(location.href.split('#')[0].split('?')[0], { cache: 'no-cache' });
+      if (!res.ok) return;
+      const m = (await res.text()).match(/KQ_VER = '([^']+)'/);
+      if (m && m[1] !== KQ_VER){
+        const btn = document.createElement('button');
+        btn.id = 'updBtn';
+        btn.textContent = '⬆ Update to ' + m[1];
+        btn.addEventListener('click', ()=> location.reload());
+        document.body.appendChild(btn);
+      }
+    } catch(e){}
+  }, 2500);
+}
 </script>
 </body>
 </html>
