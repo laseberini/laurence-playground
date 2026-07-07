@@ -79,7 +79,7 @@
     background:#1b1e33; border:1px solid #2c3050; border-radius:6px;
     padding:7px 2px; font-size:10px; color:#585d7d; min-width:66px; line-height:1.5;
   }
-  .mc.on { color:#f4e3b2; }
+  .mc.on { color:#f4e3b2; cursor:pointer; background:#232744; }
   .mc.cur { border-color:#ffd54f; color:#ffd54f; }
   .mc .ic { font-size:16px; display:block; }
   .hidden { display:none !important; }
@@ -117,7 +117,7 @@
     <div class="card">
       <h1>🗺 Aldermere</h1>
       <div id="mapGrid"></div>
-      <p style="font-size:11px;color:#8b90ad">Tap anywhere to close</p>
+      <p style="font-size:11px;color:#8b90ad">Tap an explored land to travel there • Tap outside to close</p>
     </div>
   </div>
 
@@ -2128,12 +2128,23 @@ function openMap(){
       const cls = 'mc' + (v ? ' on' : '') + (id === here ? ' cur' : '');
       const body = v ? '<span class="ic">' + MINFO[id][0] + '</span>' + MINFO[id][1]
                      : '<span class="ic">•</span>?';
-      return '<div class="' + cls + '">' + body + '</div>';
+      return '<div class="' + cls + '" data-id="' + id + '">' + body + '</div>';
     }).join('')
   ).join('');
   mapEl.classList.remove('hidden');
 }
 document.getElementById('mapBtn').addEventListener('click', openMap);
+function sfxTravel(){ beep(700,.07); beep(520,.07,.06); beep(390,.1,.12); }
+document.getElementById('mapGrid').addEventListener('click', e => {
+  const cell = e.target.closest ? e.target.closest('.mc') : null;
+  if (!cell) return;
+  const id = cell.getAttribute('data-id');
+  // fast travel — but only to lands already explored
+  if (id && seen[id] && rooms[id] && id !== (MPARENT[cur] || cur)){
+    sfxTravel();
+    gotoRoom(id, 160, rooms[id].walkTop + 30);
+  }
+});
 mapEl.addEventListener('click', ()=> mapEl.classList.add('hidden'));
 
 function showWin(){
