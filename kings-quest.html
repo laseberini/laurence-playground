@@ -314,7 +314,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v27';
+const KQ_VER = 'v28';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -896,19 +896,30 @@ function drawElda(x, y, t){
   ctx.save(); ctx.translate(x|0, (y+b)|0);
   const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
   ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0,1,6,2,0,0,7); ctx.fill();
-  q(-6,-16,12,16,'#7e57c2');
-  q(-4,-11,8,10,'#f5f0e6');
-  q(-3,-22,7,6,'#efc9a6');
-  q(-4,-25,9,4,'#cfd8dc'); q(-1,-27,4,3,'#cfd8dc');
-  q(8,-13,2,13,'#8a6238');
+  // purple robe with shaded sides
+  q(-6,-16,12,16,'#7e57c2'); q(-6,-16,3,16,'#674aa5'); q(3,-16,3,16,'#9370d0');
+  q(-6,-2,12,2,'#5e3f96');                       // hem shadow
+  // white apron with seam
+  q(-4,-11,8,10,'#f5f0e6'); q(-1,-11,1,10,'#e2dcce');
+  // shawl across the shoulders
+  q(-6,-15,12,3,'#5e3f96'); q(-6,-15,12,1,'#9c7fd8');
+  // arms + a hand
+  q(-7,-13,2,7,'#674aa5'); q(-7,-7,2,2,'#efc9a6'); q(5,-13,2,7,'#674aa5');
+  // face with features
+  q(-3,-22,7,6,'#efc9a6'); q(3,-22,1,6,'#e0b48c');
+  q(-2,-20,1,1,'#4a3428'); q(1,-20,1,1,'#4a3428');   // eyes
+  q(0,-19,1,1,'#e0b48c');                             // nose
+  q(-1,-18,2,1,'#c97b6a');                            // kindly smile
+  // silver hair + top bun
+  q(-4,-25,9,4,'#d3dae0'); q(-1,-27,4,3,'#d3dae0');
+  q(-4,-25,9,1,'#e8eef2'); q(-4,-23,1,4,'#c2cdd6'); q(4,-23,1,4,'#c2cdd6');
+  // gnarled cane with a rounded handle
+  q(8,-14,2,14,'#8a6238'); q(7,-15,4,2,'#6d4c28'); q(6,-14,1,2,'#a3825a');
   if (DETAIL){
-    q(-2,-20,1,1,'#4a3428'); q(1,-20,1,1,'#4a3428');
-    q(-1,-18,2,1,'#c97b6a');
-    q(-3,-19,1,1,'#e8a5a0'); q(2,-19,1,1,'#e8a5a0');
-    q(-4,-11,8,1,'#d8d2c2');
-    q(-2,-8,4,4,'#e8e2d2'); q(-2,-8,4,1,'#c9c2b2');
-    q(8,-14,2,2,'#6d4c28');
-    q(-4,-24,1,3,'#b9c2cf'); q(3,-24,1,3,'#b9c2cf');
+    q(-3,-21,3,1,'#3a2a1a'); q(1,-21,3,1,'#3a2a1a');   // spectacle frames
+    q(-3,-19,1,1,'#f2d8bc'); q(2,-19,1,1,'#f2d8bc');   // cheek highlights
+    q(-2,-8,4,4,'#e8e2d2'); q(-2,-8,4,1,'#c9c2b2');    // apron pocket
+    q(-5,-24,1,2,'#eef2f6');                           // hair shine
   }
   ctx.restore();
 }
@@ -917,24 +928,32 @@ function drawTroll(x, y, t){
   ctx.save(); ctx.translate(x|0, y|0);
   const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
   ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(0,1,11,3,0,0,7); ctx.fill();
-  q(-10,-22,20,22,'#71a55a');
-  disc(0,-9,7,'#8ec070');
-  q(-8,-30+(b|0),16,11,'#7fb069');
-  q(-12,-28,3,5,'#71a55a'); q(9,-28,3,5,'#71a55a');
-  q(-5,-27,2,2,'#fff'); q(3,-27,2,2,'#fff');
-  q(-4,-26,1,1,'#222'); q(4,-26,1,1,'#222');
-  q(-3,-22,7,2,'#5d4037');
-  q(-13,-19,3,10,'#71a55a'); q(10,-19,3,10,'#71a55a');
-  q(-8,-6,16,6,'#795548');
+  // hulking body with shaded sides + belly highlight
+  q(-10,-22,20,22,'#71a55a'); q(-10,-22,4,22,'#5c8a48'); q(6,-22,4,22,'#84b869');
+  disc(0,-9,7,'#8ec070'); disc(-1,-10,4,'#9ecd80');   // rounded belly
+  q(-2,-8,1,1,'#5c8a48');                              // navel
+  // heavy brow + head
+  q(-8,-30+(b|0),16,11,'#7fb069'); q(-8,-30+(b|0),16,2,'#93c47c');
+  q(-12,-28,3,5,'#71a55a'); q(9,-28,3,5,'#71a55a');   // ears
+  q(-5,-27,2,2,'#fff'); q(3,-27,2,2,'#fff');          // eye whites
+  q(-4,-26,1,1,'#222'); q(4,-26,1,1,'#222');          // pupils
+  q(-6,-28,3,1,'#5c7d42'); q(3,-28,3,1,'#5c7d42');    // heavy brow ridge
+  q(-1,-24,2,2,'#5c8a48');                            // snout
+  q(-3,-22,7,2,'#5d4037');                            // mouth
+  q(-3,-21,2,2,'#f2ecd0'); q(2,-21,2,2,'#f2ecd0');    // tusks (always visible now)
+  // arms with knuckles + loincloth
+  q(-13,-19,3,10,'#71a55a'); q(-13,-10,3,2,'#84b869'); // left arm + fist
+  q(10,-19,3,10,'#71a55a'); q(10,-10,3,2,'#84b869');   // right arm + fist
+  q(-8,-6,16,6,'#795548'); q(-8,-6,16,1,'#8d6748');    // loincloth
+  // warts
+  q(-7,-16,2,2,'#5c8a48'); q(5,-13,2,2,'#5c8a48'); q(-9,-24,1,1,'#5c8a48');
   if (!F.gaveFish){
-    q(-1,-19,2,5,'#ffd54f'); disc(0,-19,2,'#ffd54f'); disc(0,-19,1,'#8a6b1f');
+    q(-1,-19,2,5,'#ffd54f'); disc(0,-19,2,'#ffd54f'); disc(0,-19,1,'#8a6b1f'); // gold tooth
   }
   if (DETAIL){
-    q(-3,-20,2,2,'#f2ecd0'); q(2,-20,2,2,'#f2ecd0');
-    q(-6,-29,3,1,'#3f6330'); q(4,-29,3,1,'#3f6330');
-    q(-7,-25,2,1,'#4e7a3a'); q(6,-24,1,1,'#4e7a3a'); q(3,-31,1,1,'#4e7a3a');
+    q(-6,-29,3,1,'#3f6330'); q(4,-29,3,1,'#3f6330');   // brow tufts
     q(-1,-5,1,1,'#4e7a3a');
-    q(-12,-10,2,1,'#e8e0c0'); q(11,-10,2,1,'#e8e0c0');
+    q(-12,-10,2,1,'#e8e0c0'); q(11,-10,2,1,'#e8e0c0'); // claws
     q(-8,-4,16,1,'#5d4037');
   }
   ctx.restore();
@@ -944,54 +963,75 @@ function drawWiz(x, y, t){
   ctx.save(); ctx.translate(x|0, (y+b)|0);
   const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
   ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0,1,7,2,0,0,7); ctx.fill();
-  q(-7,-18,14,18,'#3949ab');
-  q(-7,-18,14,3,'#5c6bc0');
-  q(-3,-25,7,7,'#f0c8a0');
-  q(-3,-19,7,7,'#eceff1');
-  q(-6,-27,12,3,'#303f9f');
-  q(-2,-31,6,4,'#303f9f'); q(0,-34,3,3,'#303f9f');
-  q(9,-31,2,31,'#8a6238');
+  // deep-blue robe with shaded sides + gold trim
+  q(-7,-18,14,18,'#3949ab'); q(-7,-18,3,18,'#2c3a8a'); q(4,-18,3,18,'#4a5ac9');
+  q(-7,-18,14,2,'#5c6bc0'); q(-7,-2,14,2,'#2c3a8a');
+  // little stars scattered on the robe
+  q(-4,-14,1,1,'#ffd54f'); q(2,-11,1,1,'#ffd54f'); q(-2,-7,1,1,'#ffe9a0'); q(3,-15,1,1,'#ffe9a0');
+  // face + long white beard
+  q(-3,-25,7,6,'#f0c8a0');
+  q(-4,-19,8,9,'#eceff1'); q(-4,-19,8,1,'#d8dce2'); q(-1,-10,2,2,'#eceff1'); // beard taper
+  q(-2,-23,1,1,'#33427a'); q(2,-23,1,1,'#33427a');   // eyes
+  q(0,-22,1,1,'#e0b48c');                            // nose
+  // pointed hat with brim + star
+  q(-7,-27,14,3,'#303f9f'); q(-7,-27,14,1,'#4a5ac9');   // brim
+  q(-4,-31,8,4,'#2f3d97'); q(-1,-35,4,4,'#2f3d97');     // cone
+  q(0,-34,1,1,'#ffd54f');                               // hat star
+  // hands gripping the staff
+  q(6,-16,2,2,'#f0c8a0'); q(6,-11,2,2,'#f0c8a0');
+  q(9,-31,2,31,'#8a6238'); q(9,-31,1,31,'#6d4c28');     // staff with shade
   const g = .5 + Math.sin(t*4)*.3;
-  disc(10,-32,3,'rgba(130,220,255,'+g+')');
+  glow(10,-32,7,'rgba(130,220,255,.5)','rgba(130,220,255,0)');
+  disc(10,-32,3,'rgba(150,230,255,'+g+')'); disc(10,-32,1.5,'#eaffff');
   if (DETAIL){
-    q(-2,-23,1,1,'#33427a'); q(2,-23,1,1,'#33427a');
-    q(-5,-27,10,1,'#4a5ac9');
-    q(-1,-30,1,1,'#ffd54f'); q(1,-33,1,1,'#ffd54f');
-    q(-2,-16,6,1,'#d8dce2'); q(-1,-13,4,1,'#d8dce2');
-    q(9,-20,2,1,'#6d4c28');
-    q(-3,-6,2,1,'#2c3a8a'); q(2,-4,2,1,'#2c3a8a');
+    q(-5,-24,10,1,'#4a5ac9');                          // hat band
+    q(-2,-16,6,1,'#d8dce2'); q(-1,-13,4,1,'#d8dce2');  // beard strands
+    q(-1,-33,1,1,'#fff');                              // star sparkle
   }
   ctx.restore();
 }
 function drawRaven(x, y, t){
   const b = Math.sin(t*2.4)*.6;
   const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
-  q(x-5, y-5+b, 10, 5, '#16161c');
-  q(x+3, y-9+b, 5, 5, '#16161c');
-  q(x+8, y-7+b, 3, 2, '#e8912b');
-  q(x+5, y-8+b, 1, 1, '#fff');
-  q(x-8, y-4+b, 4, 3, '#16161c');
-  if (!F.gaveGeode) q(x-2, y-1+b, 5, 3, '#7e57c2');
-  else { q(x-2, y-1+b, 4, 3, '#b388ff'); if (Math.sin(t*5)>0) q(x-1, y-2+b, 1, 1, '#fff'); }
+  // glossy black body + head with a blue-black sheen
+  q(x-5, y-5+b, 10, 5, '#16161c'); q(x-5, y-5+b, 10, 1, '#33333f');   // back sheen
+  q(x+3, y-9+b, 5, 5, '#16161c'); q(x+3, y-9+b, 5, 1, '#33333f');
+  q(x+8, y-7+b, 3, 2, '#e8912b'); q(x+8, y-6+b, 3, 1, '#c9741f');     // beak + shade
+  q(x+5, y-8+b, 1, 1, '#fff'); q(x+5, y-8+b, 1, 1, '#fff');           // eye
+  // folded wing + a raised tail
+  q(x-8, y-4+b, 4, 3, '#16161c'); q(x-6, y-3+b, 3, 1, '#2c2c3a');     // wing edge
+  q(x-9, y-6+b, 3, 2, '#16161c');                                     // tail
+  q(x-2, y+b, 1, 2, '#c9741f'); q(x+1, y+b, 1, 2, '#c9741f');         // little feet
+  if (!F.gaveGeode) q(x-2, y-1+b, 5, 3, '#7e57c2');                   // clutched book
+  else { q(x-2, y-1+b, 4, 3, '#b388ff'); if (Math.sin(t*5)>0) q(x-1, y-2+b, 1, 1, '#fff'); } // or shiny geode
   if (DETAIL){
-    q(x-3, y-4+b, 5, 1, '#2c2c3a');
-    q(x+4, y-8+b, 1, 1, '#8ab4ff');
-    if (!F.gaveGeode){ q(x-1, y+b, 3, 1, '#5e35b1'); }
+    q(x+4, y-8+b, 1, 1, '#8ab4ff');                                   // eye glint
+    q(x-4, y-4+b, 6, 1, '#2c2c3a');                                   // wing feather line
+    if (!F.gaveGeode){ q(x-1, y+b, 3, 1, '#5e35b1'); }               // book pages
   }
 }
 function drawQueen(x, y, t){
   const yy = y + Math.sin(t*5)*2;
   const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
-  const w = Math.sin(t*28) > 0 ? 4 : 2;
-  q(x-3, yy-8, w, 4, 'rgba(220,240,255,.8)'); q(x+1, yy-8, w, 4, 'rgba(220,240,255,.8)');
-  disc(x, yy, 5, '#f2b90d');
-  q(x-4, yy-2, 2, 5, '#3a2f10'); q(x, yy-3, 2, 6, '#3a2f10');
-  q(x+3, yy-3, 2, 2, '#222');
-  q(x-2, yy-8, 5, 2, '#ffd54f'); q(x-2, yy-10, 1, 2, '#ffd54f'); q(x+2, yy-10, 1, 2, '#ffd54f');
+  // blurred beating wings
+  const wsp = Math.sin(t*28) > 0 ? 5 : 3;
+  q(x-4, yy-9, wsp, 5, 'rgba(220,240,255,.7)'); q(x+1, yy-9, wsp, 5, 'rgba(220,240,255,.7)');
+  q(x-3, yy-8, 3, 1, 'rgba(255,255,255,.8)'); q(x+2, yy-8, 3, 1, 'rgba(255,255,255,.8)');
+  // fuzzy striped body
+  disc(x, yy, 5, '#f2b90d'); disc(x-1, yy-1, 3, '#ffce3a');   // lit top
+  q(x-4, yy-2, 2, 5, '#3a2f10'); q(x, yy-3, 2, 6, '#3a2f10'); q(x+3, yy-2, 1, 4, '#3a2f10'); // stripes
+  // face: eyes + tiny smile
+  q(x+3, yy-3, 1, 1, '#222'); q(x+1, yy-3, 1, 1, '#222');
+  q(x+2, yy-1, 2, 1, '#8a6b1f');
+  // legs + stinger
+  q(x-3, yy+3, 1, 2, '#3a2f10'); q(x, yy+4, 1, 1, '#3a2f10'); q(x+2, yy+3, 1, 2, '#3a2f10');
+  q(x+5, yy, 2, 1, '#3a2f10');
+  // little crown
+  q(x-2, yy-8, 5, 2, '#ffd54f'); q(x-2, yy-10, 1, 2, '#ffd54f'); q(x, yy-11, 1, 3, '#ffd54f'); q(x+2, yy-10, 1, 2, '#ffd54f');
+  q(x, yy-8, 1, 1, '#c62828'); // crown jewel
   if (DETAIL){
     q(x+4, yy-4, 1, 1, '#fff');
-    q(x+2, yy+2, 2, 1, '#8a6b1f');
-    q(x-1, yy-12, 1, 2, '#3a2f10'); q(x+1, yy-13, 1, 1, '#3a2f10');
+    q(x-2, yy-11, 1, 1, '#ffe9a0'); q(x+2, yy-11, 1, 1, '#ffe9a0');
   }
 }
 function drawTilly(x, y, t){
@@ -999,48 +1039,63 @@ function drawTilly(x, y, t){
   ctx.save(); ctx.translate(x|0, (y+b)|0);
   const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
   ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0,1,6,2,0,0,7); ctx.fill();
-  q(-6,-16,12,16,'#c05a7a');
-  q(-4,-12,8,11,'#f5f0e6');
-  q(-3,-22,7,6,'#efc9a6');
-  q(-4,-25,9,4,'#8a5a3b'); q(-1,-27,4,3,'#8a5a3b');
-  q(1,-20,1,1,'#222');
+  // pink dress with shaded sides
+  q(-6,-16,12,16,'#c05a7a'); q(-6,-16,3,16,'#a5486a'); q(3,-16,3,16,'#d6708e');
+  q(-6,-2,12,2,'#a5486a');
+  // flour-dusted apron
+  q(-4,-12,8,11,'#f5f0e6'); q(-4,-12,8,1,'#d8d2c2'); q(-1,-12,1,11,'#e2dcce');
+  q(-3,-6,1,1,'#ffffff'); q(2,-4,1,1,'#ffffff');       // flour smudges
+  // apron ties over the shoulders
+  q(-6,-15,12,2,'#a5486a'); q(-2,-14,1,4,'#a5486a'); q(1,-14,1,4,'#a5486a');
+  // arms + a hand
+  q(-7,-13,2,7,'#a5486a'); q(-7,-7,2,2,'#efc9a6'); q(5,-13,2,7,'#a5486a');
+  // face
+  q(-3,-22,7,6,'#efc9a6'); q(3,-22,1,6,'#e0b48c');
+  q(-2,-20,1,1,'#4a3428'); q(1,-20,1,1,'#4a3428');    // eyes
+  q(0,-19,1,1,'#e0b48c');                             // nose
+  q(-1,-18,2,1,'#c96a6a');                            // smile
+  // brown hair, parted, with a bun
+  q(-4,-25,9,4,'#8a5a3b'); q(-1,-27,4,3,'#7a4d30');
+  q(-4,-25,9,1,'#9c6a45'); q(-4,-23,1,4,'#7a4d30'); q(4,-23,1,4,'#7a4d30');
   if (DETAIL){
-    q(-2,-20,1,1,'#4a3428');
-    q(-1,-18,2,1,'#c96a6a');
-    q(-1,-10,2,1,'#e8e2d2'); q(2,-7,1,1,'#e8e2d2');
-    q(-6,-11,1,3,'#a84a68'); q(5,-11,1,3,'#a84a68');
-    q(-4,-12,8,1,'#d8d2c2');
+    q(-3,-19,1,1,'#f2d8bc'); q(2,-19,1,1,'#f2d8bc');   // cheeks
+    q(-1,-10,2,1,'#ffffff');                           // more flour
   }
   ctx.restore();
 }
 function drawFrog(x, y, t){
   const puff = Math.sin(t*3.5) > .4 ? 2 : 0;
   const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
-  disc(x, y-4, 6, '#5a8f3c');
-  disc(x, y-1+puff*.5, 4+puff, '#7aa855');
-  disc(x-4, y-9, 2.5, '#5a8f3c'); disc(x+4, y-9, 2.5, '#5a8f3c');
+  disc(x, y-4, 6, '#5a8f3c'); disc(x-1, y-5, 4, '#6ba046');    // body + lit back
+  disc(x, y-1+puff*.5, 4+puff, '#8fbf68');                     // pale throat, puffs
+  disc(x-4, y-9, 2.5, '#5a8f3c'); disc(x+4, y-9, 2.5, '#5a8f3c'); // eye bumps
   q(-1+x-4, y-10, 2, 2, '#fff'); q(-1+x+4, y-10, 2, 2, '#fff');
-  q(x-4, y-10, 1, 1, '#222'); q(x+4, y-10, 1, 1, '#222');
-  q(x-6, y+1, 4, 2, '#4a7a30'); q(x+3, y+1, 4, 2, '#4a7a30');
+  q(x-4, y-10, 1, 1, '#222'); q(x+4, y-10, 1, 1, '#222');       // pupils
+  q(x-3, y-3, 6, 1, '#3f6b28');                                 // wide mouth
+  q(x-6, y+1, 4, 2, '#4a7a30'); q(x+3, y+1, 4, 2, '#4a7a30');   // webbed feet
+  q(x-2, y-6, 1, 1, '#4a7a30'); q(x+1, y-7, 1, 1, '#4a7a30');   // back spots
+  q(x-3, y-6, 1, 1, '#6ba046');
   if (DETAIL){
-    q(x-3, y-6, 1, 1, '#4a7a30'); q(x+2, y-5, 1, 1, '#4a7a30'); q(x, y-7, 1, 1, '#4a7a30');
     q(x-2, y-2, 4, 1, '#3f6b28');
-    q(x-5, y-11, 1, 1, '#d0e8c0'); q(x+3, y-11, 1, 1, '#d0e8c0');
+    q(x-5, y-11, 1, 1, '#d0e8c0'); q(x+3, y-11, 1, 1, '#d0e8c0'); // eye shine
+    q(x, y-2+puff*.5, 2, 1, '#a5cd80');                          // throat pulse
   }
 }
 function drawCatInTree(x, y, t){
   const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
-  disc(x, y, 5, '#f5f5f5');
-  disc(x+5, y-4, 3.5, '#f5f5f5');
-  q(x+3, y-9, 2, 3, '#f5f5f5'); q(x+6, y-9, 2, 3, '#f5f5f5');
-  q(x+4, y-5, 1, 1, '#3fa34d'); q(x+7, y-5, 1, 1, '#3fa34d');
-  q(x+5, y-3, 2, 1, '#e8a0a8');
+  disc(x, y, 5, '#f5f5f5'); disc(x-1, y-1, 3, '#ffffff');       // body + highlight
+  disc(x+5, y-4, 3.5, '#f5f5f5');                               // head
+  q(x+3, y-9, 2, 3, '#f5f5f5'); q(x+6, y-9, 2, 3, '#f5f5f5');   // ears
+  q(x+3, y-8, 1, 1, '#e8a0a8'); q(x+6, y-8, 1, 1, '#e8a0a8');   // inner ears
+  q(x+4, y-5, 1, 1, '#3fa34d'); q(x+7, y-5, 1, 1, '#3fa34d');   // green eyes
+  q(x+5, y-3, 2, 1, '#e8a0a8');                                 // nose
+  q(x+2, y-2, 2, 1, '#d8d8d8'); q(x+2, y+1, 3, 1, '#e0e0e0');   // ginger patches
   const tw = Math.sin(t*4)*3;
-  q(x-7, y-2+tw*.5, 3, 2, '#f5f5f5'); q(x-9, y-4+tw, 3, 2, '#f5f5f5');
+  q(x-7, y-2+tw*.5, 3, 2, '#f5f5f5'); q(x-9, y-4+tw, 3, 2, '#f5f5f5'); q(x-10, y-6+tw, 2, 2, '#f5f5f5'); // curling tail
   if (DETAIL){
     q(x+4, y-9, 1, 1, '#e8a0a8'); q(x+7, y-9, 1, 1, '#e8a0a8');
-    q(x+9, y-4, 3, 1, '#e0e0e0'); q(x+9, y-2, 3, 1, '#e0e0e0');
-    q(x-2, y-2, 2, 1, '#d8d8d8'); q(x+1, y+1, 2, 1, '#d8d8d8');
+    q(x+3, y-5, 1, 1, '#2e7d3a'); q(x+6, y-5, 1, 1, '#2e7d3a'); // eye shine
+    q(x+8, y-3, 2, 1, '#b7b7b7');                               // whiskers
   }
 }
 function gorge(xEdge, dir, seed, t){
@@ -1071,27 +1126,46 @@ function drawZ(x, y, a){
 function drawDragon(x, y, t, mode){
   const br = Math.sin(t*1.1)*1.2;
   shadow(x-6, y, 30);
+  // curling tail with a spiked tip
   disc(x+28, y-8, 6, '#b2432a'); disc(x+36, y-12, 4, '#b2432a'); disc(x+42, y-17, 3, '#b2432a');
+  ctx.fillStyle = '#e8c245';
+  ctx.beginPath(); ctx.moveTo(x+42,y-20); ctx.lineTo(x+47,y-19); ctx.lineTo(x+43,y-15); ctx.fill();
+  // body with a lit upper ridge
   ctx.fillStyle = '#c34a2e';
   ctx.beginPath(); ctx.ellipse(x, y-13+br*.4, 26, 13, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#d75e3e';
+  ctx.beginPath(); ctx.ellipse(x, y-18+br*.4, 22, 7, 0, 0, 7); ctx.fill();       // sunlit back
+  // pale scaled belly
   ctx.fillStyle = '#e8916d';
   ctx.beginPath(); ctx.ellipse(x-2, y-7, 18, 6, 0, 0, 7); ctx.fill();
+  for (let i=0;i<5;i++) R(x-14+i*7, y-8, 5, 1, 'rgba(255,200,170,.45)');          // belly plates
+  // scale rows across the back (always visible now)
+  for (let i=0;i<6;i++){ R(x-19+i*7, y-17+(i%2)*3+br*.4, 3, 1, '#a83c22'); }
+  // folded wing: membrane + bones
   ctx.fillStyle = '#a03a22';
   ctx.beginPath(); ctx.moveTo(x-6, y-24+br); ctx.lineTo(x+18, y-30+br); ctx.lineTo(x+20, y-14); ctx.fill();
+  ctx.fillStyle = '#b8492c';
+  ctx.beginPath(); ctx.moveTo(x-4, y-23+br); ctx.lineTo(x+14, y-27+br); ctx.lineTo(x+16, y-16); ctx.fill();
+  ctx.strokeStyle = '#7e2d1a'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x-5, y-23+br); ctx.lineTo(x+15, y-19); ctx.moveTo(x+4, y-27+br); ctx.lineTo(x+8, y-16); ctx.stroke();
+  // spined back ridge
   R(x-12, y-28+br, 4, 4, '#7e2d1a'); R(x-3, y-30+br, 4, 4, '#7e2d1a'); R(x+6, y-28+br, 4, 4, '#7e2d1a');
+  // legs with claws
   R(x-18, y-6, 7, 6, '#b2432a'); R(x+9, y-6, 7, 6, '#b2432a');
+  R(x-18, y-1, 1, 1, '#e8c245'); R(x-15, y-1, 1, 1, '#e8c245'); R(x-12, y-1, 1, 1, '#e8c245');
+  R(x+9, y-1, 1, 1, '#e8c245'); R(x+12, y-1, 1, 1, '#e8c245'); R(x+15, y-1, 1, 1, '#e8c245');
   const hd = mode === 'eat' ? 7 + Math.sin(t*7)*2 : br;
   const hy = y - 21 + hd;
-  R(x-42, hy, 18, 11, '#c34a2e');
-  R(x-49, hy+4, 9, 6, '#c34a2e');
-  R(x-49, hy+8, 8, 1, '#7e2d1a');
-  R(x-28, hy-4, 3, 5, '#e8c245'); R(x-33, hy-3, 3, 4, '#e8c245');
+  // head with lit brow, nostril, and shining horns
+  R(x-42, hy, 18, 11, '#c34a2e'); R(x-42, hy, 18, 2, '#d75e3e');
+  R(x-49, hy+4, 9, 6, '#c34a2e'); R(x-49, hy+8, 8, 1, '#7e2d1a');
+  R(x-47, hy+5, 2, 1, '#7e2d1a');                                                  // nostril
+  R(x-28, hy-4, 3, 5, '#e8c245'); R(x-33, hy-3, 3, 4, '#e8c245');                  // horns
+  R(x-28, hy-4, 1, 3, '#fff2b0'); R(x-33, hy-3, 1, 2, '#fff2b0');                  // horn shine
+  R(x-24, hy+2, 4, 1, '#a83c22');                                                  // cheek scale
   if (DETAIL){
-    for (let i=0;i<6;i++){ R(x-19+i*7, y-17+(i%2)*3+br*.4, 3, 1, '#a03a22'); }
     for (let i=0;i<5;i++){ R(x-15+i*7, y-11, 3, 1, '#a03a22'); }
     R(x-46, hy+2, 2, 1, '#7e2d1a');
-    R(x-27, hy-4, 1, 2, '#fff8d0');
-    R(x-40, hy+9, 4, 1, '#7e2d1a');
     R(x+30, y-9, 2, 1, '#7e2d1a'); R(x+37, y-13, 2, 1, '#7e2d1a');
   }
   if (mode === 'sleep'){
