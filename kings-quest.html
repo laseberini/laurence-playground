@@ -32,7 +32,13 @@
   #msg {
     min-height:3.4em; padding:8px 14px; font-size:13px; line-height:1.35;
     background:#141625; border-top:2px solid #2c3050; color:#f4e3b2;
+    display:flex; align-items:flex-start; gap:10px;
   }
+  #speak {
+    background:#2c3050; color:#f4e3b2; border:0; border-radius:6px;
+    font-size:15px; padding:4px 9px; flex:0 0 auto; font-family:inherit;
+  }
+  #msgTxt { flex:1; }
   @media (orientation: landscape) and (max-height: 520px) {
     #hdr { padding:4px 10px; font-size:12px; }
     #inv { font-size:14px; }
@@ -73,7 +79,7 @@
     <button id="reset" title="New game">↺</button>
   </div>
   <div id="stage"><canvas id="cv" width="320" height="200"></canvas></div>
-  <div id="msg"></div>
+  <div id="msg"><button id="speak" title="Read aloud">🔊</button><span id="msgTxt"></span></div>
 
   <div id="intro" class="overlay">
     <div class="card">
@@ -104,6 +110,7 @@
       <div class="big" id="itIc"></div>
       <h1 id="itName"></h1>
       <p id="itDesc"></p>
+      <button id="speakItem" class="ghost">🔊 Listen</button>
       <p style="font-size:11px;color:#8b90ad">Tap anywhere to close</p>
     </div>
   </div>
@@ -201,6 +208,7 @@ const DARKROOMS = { cave:1, lair:1, darkwoods:1, emberpeak:1 };
 let musicOn = true;
 try { musicOn = localStorage.getItem('kq-music') !== '0'; } catch(e){}
 let nextNote = 0, mstep = 0;
+let speaking = false; // music ducks while the narrator reads aloud
 function midi(n){ return 440 * Math.pow(2, (n-69)/12); }
 function note(f, t, d, type, vol){
   const a = AC; if (!a) return;
@@ -213,7 +221,7 @@ function note(f, t, d, type, vol){
 }
 function musicLoop(){
   const a = AC;
-  if (!a || !musicOn || a.state !== 'running') return;
+  if (!a || !musicOn || speaking || a.state !== 'running') return;
   if (nextNote < a.currentTime - 1) nextNote = a.currentTime + .05;
   while (nextNote < a.currentTime + .6){
     const th = THEMES[DARKROOMS[cur] ? 'dark' : 'bright'];
@@ -232,8 +240,48 @@ document.getElementById('musBtn').addEventListener('click', ()=>{
   musBtnIcon();
 });
 
+// ---------- read-aloud (for adventurers who can't read yet) ----------
+const msgTxtEl = document.getElementById('msgTxt');
+const speakBtn = document.getElementById('speak');
+let speakBtnActive = null;
+function stopSpeak(){
+  try { speechSynthesis.cancel(); } catch(e){}
+  speaking = false;
+  if (speakBtnActive) speakBtnActive.textContent = speakBtnActive.id === 'speak' ? '🔊' : '🔊 Listen';
+  speakBtnActive = null;
+}
+function speakText(raw, btn){
+  if (speaking){ stopSpeak(); return; }
+  if (!raw || !('speechSynthesis' in window)) return;
+  const text = raw
+    .replace(/\(\+\d+\)/g, '')
+    .replace(/[🗺✦🎵⛄]/g, '')
+    .replace(/—/g, ', ');
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = .95; u.pitch = 1.05; u.lang = 'en';
+    u.onend = stopSpeak; u.onerror = stopSpeak;
+    speaking = true;
+    speakBtnActive = btn;
+    btn.textContent = btn.id === 'speak' ? '⏹' : '⏹ Stop';
+    speechSynthesis.speak(u);
+  } catch(e){ stopSpeak(); }
+}
+if (!('speechSynthesis' in window)){
+  speakBtn.style.display = 'none';
+} else {
+  setInterval(()=>{ if (speaking && !speechSynthesis.speaking && !speechSynthesis.pending) stopSpeak(); }, 600);
+}
+speakBtn.addEventListener('click', ()=> speakText(msgTxtEl.textContent, speakBtn));
+document.getElementById('speakItem').addEventListener('click', e => {
+  e.stopPropagation();
+  speakText(document.getElementById('itName').textContent + '. ' + document.getElementById('itDesc').textContent,
+            document.getElementById('speakItem'));
+});
+
 // ---------- ui ----------
-function say(t){ msgEl.textContent = t; }
+function say(t){ msgTxtEl.textContent = t; }
 const ITEMS = {
   flower:['🌸','Moonpetal','A glowing meadow flower that hums in your hand. Old Elda needs one for her aching-bones potion.'],
   fish:['🐟','Silver trout','Fat, fresh and still flapping. Grukk the bridge troll looks awfully hungry…'],
@@ -263,7 +311,10 @@ invEl.addEventListener('click', e => {
   document.getElementById('itDesc').textContent = ITEMS[k][2];
   document.getElementById('item').classList.remove('hidden');
 });
-document.getElementById('item').addEventListener('click', ()=> document.getElementById('item').classList.add('hidden'));
+document.getElementById('item').addEventListener('click', ()=>{
+  document.getElementById('item').classList.add('hidden');
+  if (speakBtnActive && speakBtnActive.id === 'speakItem') stopSpeak();
+});
 function addScore(n){ score += n; hud(); }
 
 // ---------- drawing helpers ----------
