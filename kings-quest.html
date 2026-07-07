@@ -184,6 +184,14 @@ const OV = 400;    // decorative overdraw beyond world edges for wide screens
 const cv = document.getElementById('cv'), dctx = cv.getContext('2d');
 const os = document.createElement('canvas');
 let ctx = os.getContext('2d'); // reassigned briefly when rendering close-ups
+// "HD grade" post-processing: a small blurred copy of the scene is added back
+// as bloom, colours are deepened, and the corners darken into a vignette.
+const bl = document.createElement('canvas'), blctx = bl.getContext('2d');
+const HD = {
+  color: 'saturate(1.16) contrast(1.06) brightness(1.02)', // richer, deeper colour
+  bloom: .28,   // strength of the soft glow on bright things (0 = off)
+  vignette: .26, // darkness of the corners (0 = off)
+};
 let DETAIL = false; // true while rendering close-ups: sprites add fine features
 let DW = W, OX = 0; // display width in logical px, world x-offset
 const msgEl = document.getElementById('msg');
@@ -306,7 +314,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v22';
+const KQ_VER = 'v23';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -2645,6 +2653,7 @@ function fit(){
   DW = Math.max(W, Math.min(W + 2*OV, Math.round(sw / sh * H)));
   OX = Math.floor((DW - W) / 2 / PX) * PX;
   os.width = Math.ceil(DW / PX); os.height = H / PX;
+  bl.width = os.width; bl.height = os.height; // bloom is blurred at scene res (cheap)
   const s = Math.min(sw / DW, sh / H);
   const cssW = Math.floor(DW * s), cssH = Math.floor(H * s);
   cv.style.width = cssW + 'px'; cv.style.height = cssH + 'px';
@@ -2659,19 +2668,52 @@ fit();
 hud();
 say('');
 
+// canvas colour/blur filters are needed for the grade; skip it where unsupported
+const CANVAS_FILTER = (()=>{
+  try { const c = document.createElement('canvas').getContext('2d');
+    c.filter = 'blur(1px)'; return c.filter === 'blur(1px)'; } catch(e){ return false; }
+})();
+let _vig = null, _vigW = 0, _vigH = 0;
+function vignette(){
+  if (_vig && _vigW === cv.width && _vigH === cv.height) return _vig;
+  const w = cv.width, h = cv.height;
+  const g = dctx.createRadialGradient(w/2, h/2, Math.min(w,h)*.34, w/2, h/2, Math.max(w,h)*.62);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, 'rgba(6,5,16,' + HD.vignette + ')');
+  _vig = g; _vigW = w; _vigH = h;
+  return g;
+}
 let last = 0;
 function frame(ts){
   const t = ts / 1000;
   const dt = Math.min(.05, t - (last || t));
   last = t;
   if (introEl.classList.contains('hidden')) update(dt);
-  // scene renders at half res into the offscreen buffer, then upscales
-  // nearest-neighbor onto the device-pixel display canvas for fat, sharp pixels
+  // scene renders into the offscreen buffer (full res on desktop, half on phones)
   ctx.setTransform(1/PX, 0, 0, 1/PX, OX/PX, 0);
   drawFrame(t);
   dctx.setTransform(1, 0, 0, 1, 0, 0);
+  // base: crisp nearest-neighbour upscale, colours deepened for a 32-bit feel
+  dctx.globalCompositeOperation = 'source-over'; dctx.globalAlpha = 1;
   dctx.imageSmoothingEnabled = false;
+  dctx.filter = CANVAS_FILTER ? HD.color : 'none';
   dctx.drawImage(os, 0, 0, os.width, os.height, 0, 0, cv.width, cv.height);
+  dctx.filter = 'none';
+  // bloom: blur a copy of the scene and add it back so bright things glow softly
+  if (CANVAS_FILTER && HD.bloom > 0){
+    blctx.setTransform(1, 0, 0, 1, 0, 0);
+    blctx.clearRect(0, 0, bl.width, bl.height);
+    blctx.filter = 'blur(1.4px) brightness(1.18)';
+    blctx.drawImage(os, 0, 0);
+    blctx.filter = 'none';
+    dctx.globalCompositeOperation = 'lighter';
+    dctx.globalAlpha = HD.bloom;
+    dctx.imageSmoothingEnabled = true;
+    dctx.drawImage(bl, 0, 0, bl.width, bl.height, 0, 0, cv.width, cv.height);
+    dctx.globalCompositeOperation = 'source-over'; dctx.globalAlpha = 1;
+  }
+  // vignette: gently darken the corners for a storybook frame
+  if (HD.vignette > 0){ dctx.fillStyle = vignette(); dctx.fillRect(0, 0, cv.width, cv.height); }
   if (closeSpot && !closeEl.classList.contains('hidden')) renderCloseup(t);
   requestAnimationFrame(frame);
 }
