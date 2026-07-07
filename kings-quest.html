@@ -1253,6 +1253,25 @@ function dTree(x, y, sc, i){
   R(x - 9*sc, y - h + 3, 6*sc, 1, 'rgba(158,163,186,.3)');
 }
 
+// lush grass ground (no path): gradient + sun dapples + grass blades
+function fGrass(top, c0, c1){
+  gradFill(-OV, top, W+2*OV, H-top, top, H, [[0, c0||'#4fa855'],[1, c1||'#2c743a']]);
+  for (let i=0;i<42;i++)
+    disc(-OV + hash(i,3)*(W+2*OV), top + 4 + hash(i,4)*(H-top-6), 2 + hash(i,5)*4, 'rgba(255,255,205,.05)');
+  for (let i=0;i<200;i++)
+    R(-OV + hash(i,1)*(W+2*OV), top + 3 + hash(i,2)*(H-top-4), 1, 2,
+      hash(i,6) > .5 ? 'rgba(24,84,36,.5)' : 'rgba(120,200,120,.35)');
+}
+// shimmering water with depth gradient and drifting ripples
+function fWater(x, y, w, h, t, seed){
+  gradFill(x, y, w, h, y, y+h, [[0,'#4a9adf'],[.5,'#2f74c4'],[1,'#234f96']]);
+  for (let i=0;i<18;i++){
+    const wy = y + ((i*13 + t*15 + hash(i,seed)*h) % h);
+    const a = Math.max(0, .38 - (wy - y)/h*.24);
+    R(x + 3 + hash(i,seed+1)*(w-14), wy, 6 + hash(i,seed+3)*4, 1, 'rgba(224,242,255,' + a.toFixed(2) + ')');
+  }
+}
+
 // ---------- rooms ----------
 const honeyDone = () => F.honey || F.honeyOut || F.crown || F.throne;
 const rooms = {
@@ -1282,11 +1301,16 @@ forest: {
 meadow: {
   title: '— Moonpetal Meadow —', gx:0, gy:1, walkTop:100,
   draw(t){
-    sky(); clouds(t); hills(90);
-    ground(100, '#54b25c', '#3f9446');
-    for (let i=0;i<110;i++){
-      const fx = -OV + hash(i,7)*(W+2*OV), fy = 104 + hash(i,8)*(H-110);
-      R(fx, fy, 2, 2, ['#ffffff','#ffd54f','#f48fb1'][i%3]);
+    fSky(t); fClouds(t); fFar();
+    fGrass(100, '#57b25c', '#357f42');
+    // layered wildflowers: tall stems behind, bright heads in front
+    for (let i=0;i<120;i++){
+      const fx = -OV + hash(i,7)*(W+2*OV), fy = 106 + hash(i,8)*(H-112);
+      const c = ['#ffffff','#ffd54f','#f48fb1','#c98be0'][i%4];
+      const sway = Math.sin(t*1.2 + i) * 0.8;
+      R(fx, fy, 1, 3, '#2e7d32');
+      R(fx - 1 + sway, fy - 2, 3, 2, c);
+      R(fx + sway|0, fy - 2, 1, 1, '#fff8d0');
     }
     if (!F.flower && !F.gaveFlower){
       const g = .22 + Math.sin(t*3)*.1;
@@ -1313,6 +1337,7 @@ meadow: {
     const bx = 170 + Math.sin(t*.7)*70, by = 112 + Math.sin(t*1.3)*8;
     const fl = Math.sin(t*12) > 0 ? 3 : 1;
     R(bx-fl, by, fl, 2, '#ff8a65'); R(bx+1, by, fl, 2, '#ff8a65'); R(bx, by, 1, 2, '#4e342e');
+    fMotes(t);
   },
   spots: [
     { x:48,y:118,w:26,h:28, wx:70,wy:142, hx:61,hy:118,
@@ -1333,20 +1358,35 @@ meadow: {
 cottage: {
   title: '— Elda’s Cottage —', gx:1, gy:2, walkTop:104,
   draw(t){
-    sky(); clouds(t); hills(94);
-    ground(104, '#4aa050', '#38853e');
-    R(115,58,92,54,'#e8d9b8');
+    fSky(t); fClouds(t); fFar();
+    fGrass(104, '#54ac54', '#327c3d');
+    fTree(376, 118, 1.2, t, 3); fTree(430, 126, 1.0, t, 5); // orchard behind on the right
+    // plastered wall with soft vertical shading + timber frame
+    gradFill(115, 58, 92, 54, 58, 112, [[0,'#efe1c2'],[1,'#d8c49c']]);
     R(115,58,92,3,'#c9b083'); R(129,58,3,54,'#8a6b45'); R(190,58,3,54,'#8a6b45');
+    R(115,110,92,2,'#b89b6c');
+    // thatched roof with gradient + straw texture + ridge
     ctx.fillStyle = '#a9762f';
     ctx.beginPath(); ctx.moveTo(106,60); ctx.lineTo(216,60); ctx.lineTo(161,22); ctx.fill();
-    R(184,30,11,18,'#8d6e63');
+    ctx.save(); ctx.beginPath(); ctx.moveTo(106,60); ctx.lineTo(216,60); ctx.lineTo(161,22); ctx.clip();
+    gradFill(106,22,110,38, 22, 60, [[0,'#c28f45'],[1,'#8a5f26']]);
+    for (let i=0;i<40;i++){ const rx=110+hash(i,60)*100, ry=26+hash(i,61)*32; R(rx,ry,3,1,'rgba(90,60,20,.4)'); }
+    ctx.restore();
+    R(159,22,4,4,'#6d4c28'); // ridge cap
+    R(184,30,11,18,'#8d6e63'); R(184,30,11,2,'#a3846f'); // chimney
     for (let i=0;i<3;i++){
       const sy = ((t*9 + i*15) % 44);
       disc(189 + Math.sin(t*2+i)*3, 30 - sy, 3, 'rgba(230,230,230,' + Math.max(0, .5 - sy/90) + ')');
     }
-    R(150,82,18,30,'#7a5230'); disc(165,97,1.5,'#ffd54f');
-    R(126,78,15,13,'#ffe08a'); R(126,78,15,2,'#8a6b45'); R(132,78,2,13,'#8a6b45');
-    R(178,78,15,13,'#ffe08a'); R(178,78,15,2,'#8a6b45'); R(184,78,2,13,'#8a6b45');
+    // door with plank shading + warm sill glow
+    gradFill(150,82,18,30, 0, 0, [[0,'#7a5230'],[1,'#7a5230']]);
+    R(150,82,18,30,'#7a5230'); R(152,84,6,28,'#8a5f38'); R(160,84,6,28,'#6b4526');
+    disc(165,97,1.5,'#ffd54f');
+    // windows with frames + glow
+    glow(133,84,9,'rgba(255,224,130,.5)','rgba(255,224,130,0)');
+    glow(185,84,9,'rgba(255,224,130,.5)','rgba(255,224,130,0)');
+    R(126,78,15,13,'#ffe08a'); R(126,78,15,2,'#8a6b45'); R(132,78,2,13,'#8a6b45'); R(126,84,15,1,'#c9a860');
+    R(178,78,15,13,'#ffe08a'); R(178,78,15,2,'#8a6b45'); R(184,78,2,13,'#8a6b45'); R(178,84,15,1,'#c9a860');
     if (!F.lantern){
       R(172,88,1,5,'#5d4037');
       R(170,93,5,7,'#c9a227'); R(171,95,3,3,'#ffe082');
@@ -1357,10 +1397,16 @@ cottage: {
         disc(172.5,96.5,5,'rgba(255,224,130,' + lg + ')');
       }
     }
-    for (let x=-395; x<100; x+=13){ R(x,126,3,15,'#b08a56'); }
-    R(-397,130,500,2,'#b08a56'); R(-397,136,500,2,'#b08a56');
-    tree(376,118); tree(430,126);
-    for (let i=0;i<10;i++){ R(112 + i*10, 118, 2, 2, ['#f48fb1','#ffd54f'][i%2]); }
+    // picket fence with shaded posts and two rails
+    for (let x=-395; x<100; x+=13){ R(x,126,3,15,'#c2a066'); R(x,126,1,15,'#a5854e'); R(x,124,3,2,'#d0b478'); }
+    R(-397,130,500,2,'#b08a56'); R(-397,136,500,2,'#9c7a48');
+    // garden flower bed along the wall
+    for (let i=0;i<14;i++){
+      const gx2 = 112 + i*7, gy2 = 118 + (i%2);
+      R(gx2, gy2, 1, 2, '#2e7d32');
+      R(gx2-1, gy2-2, 3, 2, ['#f48fb1','#ffd54f','#ff8a65'][i%3]);
+    }
+    fMotes(t);
     drawElda(226, 152, t);
   },
   spots: [
@@ -1406,21 +1452,30 @@ cottage: {
 bridge: {
   title: '— Grukk’s Bridge —', gx:2, gy:1, walkTop:100,
   draw(t){
-    sky(); clouds(t);
-    ctx.fillStyle = '#8b93a5';
-    ctx.beginPath(); ctx.moveTo(240,100); ctx.lineTo(268,64); ctx.lineTo(296,100); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(280,100); ctx.lineTo(306,72); ctx.lineTo(330,100); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(336,100); ctx.lineTo(372,58); ctx.lineTo(408,100); ctx.fill();
-    R(262,68,12,6,'#e8ecf2'); R(300,76,10,5,'#e8ecf2'); R(366,62,13,6,'#e8ecf2');
-    hills(90);
-    ground(100, '#3f9e46', '#2e7a33');
-    water(240, 100, 80, 100, t, 3);
-    R(236,100,4,100,'#8d6e63'); R(316,100,4,100,'#8d6e63');
-    R(224,124,116,16,'#8a5a2b');
-    for (let x=226; x<338; x+=8){ R(x,124,1,16,'#6d4522'); }
-    R(224,118,116,3,'#a9762f');
-    R(224,118,3,22,'#6d4522'); R(258,118,3,22,'#6d4522'); R(294,118,3,22,'#6d4522'); R(330,118,3,22,'#6d4522');
-    tree(392,124); tree(-44,118); tree(-92,128);
+    fSky(t); fClouds(t);
+    // snow-capped mountains with shaded flanks
+    const mtn = (ax,ay,bx,cx) => {
+      ctx.fillStyle = '#8b93a5';
+      ctx.beginPath(); ctx.moveTo(bx,100); ctx.lineTo(ax,ay); ctx.lineTo(cx,100); ctx.fill();
+      ctx.fillStyle = '#767e90';
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(cx,100); ctx.lineTo((ax+cx)/2,100); ctx.fill();
+      ctx.fillStyle = '#eef2f8';
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(ax-7,ay+9); ctx.lineTo(ax+2,ay+7); ctx.lineTo(ax+8,ay+9); ctx.fill();
+    };
+    mtn(268,64,240,296); mtn(306,72,280,330); mtn(372,58,336,408);
+    fFar();
+    fGrass(100, '#46974a', '#276e30');
+    // river gorge
+    fWater(240, 100, 80, 100, t, 3);
+    R(236,100,4,100,'#7a5c48'); R(316,100,4,100,'#7a5c48'); // banks
+    R(238,100,2,100,'rgba(0,0,0,.15)');
+    // planked bridge with gradient boards + posts
+    gradFill(224,118,116,22, 118, 140, [[0,'#a9762f'],[1,'#6d4522']]);
+    for (let x=226; x<338; x+=8){ R(x,118,1,22,'#5a3a1c'); R(x+3,118,2,22,'rgba(210,170,110,.25)'); }
+    R(224,118,116,2,'#c99a52');
+    R(224,118,3,22,'#5a3a1c'); R(258,118,3,22,'#5a3a1c'); R(294,118,3,22,'#5a3a1c'); R(330,118,3,22,'#5a3a1c');
+    fTree(392,124,1.1,t,2); fTree(-44,118,1.2,t,4); fTree(-92,128,1.0,t,6);
+    fMotes(t);
     drawTroll(F.gaveFish ? 198 : 218, F.gaveFish ? 164 : 152, t);
   },
   block(x, y){
@@ -1454,37 +1509,48 @@ bridge: {
 lake: {
   title: '— The Silver Lake —', gx:2, gy:2, walkTop:100,
   draw(t){
-    sky(); clouds(t); hills(90);
-    ground(100, '#4aa050', '#38853e');
-    ctx.fillStyle = '#d7b877';
+    fSky(t); fClouds(t); fFar();
+    fGrass(100, '#46974a', '#276e30');
+    // sandy shore ring
+    ctx.fillStyle = '#d9bd82';
     ctx.beginPath(); ctx.ellipse(216,176,164,58,0,0,7); ctx.fill();
-    ctx.fillStyle = '#2f6fd0';
-    ctx.beginPath(); ctx.ellipse(216,176,156,52,0,0,7); ctx.fill();
-    for (let i=0;i<12;i++){
-      const wx2 = 100 + hash(i,11)*200, wy2 = 140 + hash(i,12)*50;
+    ctx.fillStyle = '#c7a86a';
+    ctx.beginPath(); ctx.ellipse(216,176,164,58,0,0,7); ctx.ellipse(216,176,156,52,0,0,7); ctx.fill('evenodd');
+    // water: depth gradient + sun glint, clipped to the lake ellipse
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(216,176,156,52,0,0,7); ctx.clip();
+    gradFill(60,124,312,104, 124, 200, [[0,'#63a8e6'],[.5,'#3277c8'],[1,'#234f96']]);
+    glow(286, 150, 46, 'rgba(255,247,205,.28)', 'rgba(255,247,205,0)');
+    ctx.restore();
+    for (let i=0;i<14;i++){
+      const wx2 = 100 + hash(i,11)*220, wy2 = 138 + hash(i,12)*54;
       const ph = (t*1.4 + i) % 2;
-      if (ph < 1) R(wx2, wy2, 6, 2, 'rgba(210,235,255,' + (.4 - ph*.3) + ')');
+      if (ph < 1) R(wx2, wy2, 7, 1, 'rgba(224,242,255,' + (.4 - ph*.3).toFixed(2) + ')');
     }
     const p = (t % 3.4) / 3.4;
     if (!F.fish && !F.gaveFish && p < .42){
       const fp = p/.42, fx = 236 + fp*30, fy = 150 - Math.sin(fp*Math.PI)*17;
       ctx.save(); ctx.translate(fx,fy);
-      disc(0,0,3,'#cfd8dc'); ctx.fillStyle='#cfd8dc';
+      disc(0,0,3,'#cfd8dc'); disc(-1,-1,1,'#eef4f8'); ctx.fillStyle='#cfd8dc';
       ctx.beginPath(); ctx.moveTo(-3,0); ctx.lineTo(-7,-3); ctx.lineTo(-7,3); ctx.fill();
+      glow(fx, fy, 8, 'rgba(255,255,255,.3)', 'rgba(255,255,255,0)');
       ctx.restore();
     }
-    R(42,146,46,8,'#8a5a2b');
-    for (let x=44; x<86; x+=7){ R(x,146,1,8,'#6d4522'); }
-    R(44,154,3,10,'#6d4522'); R(80,154,3,12,'#6d4522');
-    for (let i=0;i<5;i++){
-      const rx = 110 + i*14 + hash(i,20)*6;
-      R(rx,128,1,16,'#2e7d32'); R(rx-1,124,3,6,'#795548');
+    // fishing pier with plank shading
+    gradFill(42,146,46,8, 146, 154, [[0,'#9c6a36'],[1,'#6d4522']]);
+    for (let x=44; x<86; x+=7){ R(x,146,1,8,'#5a3a1c'); }
+    R(44,154,3,12,'#5a3a1c'); R(80,154,3,14,'#5a3a1c'); R(42,146,46,1,'#b98a4e');
+    // reeds along the near shore
+    for (let i=0;i<6;i++){
+      const rx = 108 + i*13 + hash(i,20)*6, sw = Math.sin(t*1.4 + i)*1.5;
+      R(rx+sw*.4,128,1,16,'#2e7d32'); R(rx-1+sw,124,3,6,'#7a8a3a');
     }
     for (let i=0;i<3;i++){
       const rx = 384 + i*15 + hash(i,21)*6;
-      R(rx,126,1,16,'#2e7d32'); R(rx-1,122,3,6,'#795548');
+      R(rx,126,1,16,'#2e7d32'); R(rx-1,122,3,6,'#7a8a3a');
     }
-    tree(-48,122); tree(-104,112);
+    fTree(-48,122,1.2,t,3); fTree(-104,112,1.0,t,7);
+    fMotes(t);
   },
   block(x, y){
     const dx = (x-216)/150, dy = (y-176)/48;
@@ -1820,16 +1886,24 @@ pass: {
   title: '— The High Pass —', gx:3, gy:1, walkTop:104,
   exitOk(d){ return d !== 'N' || F.warm; },
   draw(t){
-    R(-OV,0,W+2*OV,H,'#9fb4cc'); R(-OV,0,W+2*OV,52,'#8aa3c0'); R(-OV,0,W+2*OV,24,'#7b93b5');
-    ctx.fillStyle = '#6b7484';
-    ctx.beginPath(); ctx.moveTo(200,86); ctx.lineTo(252,26); ctx.lineTo(310,86); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(280,86); ctx.lineTo(330,34); ctx.lineTo(390,86); ctx.fill();
-    R(246,30,13,6,'#eef2f8'); R(324,38,13,6,'#eef2f8');
-    const rg = .3 + Math.sin(t*2)*.15;
-    disc(252,30,5,'rgba(255,110,60,' + rg + ')');
-    ground(104, '#e8edf4', '#c9d4e2');
-    R(-OV,86,W+2*OV,20,'#77808f'); R(-OV,84,W+2*OV,4,'#eef2f8');
-    R(148,86,28,20,'#9fb4cc'); R(146,86,3,20,'#5d6673'); R(175,86,3,20,'#5d6673');
+    // cold winter sky + pale sun
+    gradFill(-OV,0,W+2*OV,110, 0, 110, [[0,'#8ba3c2'],[.55,'#aec2d8'],[1,'#d4dfea']]);
+    glow(252,28,34,'rgba(255,242,222,.7)','rgba(255,242,222,0)'); disc(252,28,7,'#fdeecb');
+    // snow-capped peaks with shaded flanks
+    const mtn = (ax,ay,bx,cx) => {
+      ctx.fillStyle = '#6b7484';
+      ctx.beginPath(); ctx.moveTo(bx,104); ctx.lineTo(ax,ay); ctx.lineTo(cx,104); ctx.fill();
+      ctx.fillStyle = '#59616e';
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(cx,104); ctx.lineTo((ax+cx)/2,104); ctx.fill();
+      ctx.fillStyle = '#eef2f8';
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(ax-9,ay+13); ctx.lineTo(ax+3,ay+10); ctx.lineTo(ax+11,ay+13); ctx.fill();
+    };
+    mtn(252,26,200,310); mtn(330,34,280,390);
+    // snowfield ground with sparkle
+    gradFill(-OV,104,W+2*OV,H-104, 104, H, [[0,'#eef3fa'],[1,'#c2d1e2']]);
+    for (let i=0;i<80;i++) R(-OV+hash(i,31)*(W+2*OV), 108+hash(i,32)*(H-110), 1, 1, 'rgba(255,255,255,.7)');
+    R(-OV,100,W+2*OV,6,'#dbe6f2'); R(-OV,100,W+2*OV,2,'#ffffff'); // snow bank ridge
+    R(148,86,28,20,'#8fa6c0'); R(146,86,3,20,'#5d6673'); R(175,86,3,20,'#5d6673'); R(146,84,32,3,'#f4f8fc'); // arch + snow cap
     if (!F.warm){
       for (let i=0;i<9;i++){
         R(146 + hash(i,80)*30, 84 + ((t*44 + i*13) % 30), 3, 7, 'rgba(255,255,255,.75)');
@@ -1921,22 +1995,33 @@ emberpeak: {
 tower: {
   title: '— Fenwick’s Tower —', gx:3, gy:2, walkTop:102,
   draw(t){
-    sky(); clouds(t); hills(92);
-    ground(102, '#4aa050', '#38853e');
-    R(192,28,44,92,'#a8a2b8');
+    fSky(t); fClouds(t); fFar();
+    fGrass(102, '#4aa050', '#2c743a');
+    fTree(-40,120,1.2,t,1); fTree(-96,134,1.0,t,3); fTree(380,124,1.15,t,5); fTree(430,110,1.0,t,7);
+    // stone tower with shaded curve + course lines
+    gradFill(192,28,44,92, 0, 0, [[0,'#b4aec6'],[1,'#b4aec6']]);
+    R(192,28,44,92,'#b4aec6'); R(192,28,10,92,'#9990ab'); R(226,28,10,92,'#c7c1d6'); // shading
     for (let y2=40; y2<120; y2+=13){ R(192,y2,44,2,'#8f8aa3'); }
+    for (let y2=46; y2<120; y2+=13){ R(206,y2,3,2,'#8f8aa3'); R(220,y2-6,3,2,'#8f8aa3'); } // brick offset
+    // conical purple roof with highlight
     ctx.fillStyle = '#5e35b1';
     ctx.beginPath(); ctx.moveTo(186,30); ctx.lineTo(242,30); ctx.lineTo(214,2); ctx.fill();
-    R(186,28,56,3,'#7e57c2');
+    ctx.fillStyle = '#7e57c2';
+    ctx.beginPath(); ctx.moveTo(214,2); ctx.lineTo(224,30); ctx.lineTo(242,30); ctx.fill();
+    R(186,28,56,3,'#8f6bd0');
+    // glowing star window
+    glow(214,60,10,'rgba(255,224,130,.6)','rgba(255,224,130,0)');
     const g = .5 + Math.sin(t*3)*.3;
     disc(214,60,6,'rgba(255,224,130,' + g + ')');
     R(212,56,4,8,'#ffe082'); R(210,58,8,4,'#ffe082');
-    ctx.fillStyle = '#4a3b62';
+    // arched door
+    ctx.fillStyle = '#3a2d4e';
     ctx.beginPath(); ctx.arc(214,106,9,Math.PI,0); ctx.fill();
-    R(205,106,18,14,'#4a3b62');
-    R(112,128,6,3,'#c9a227'); R(117,125,6,3,'#c9a227'); R(122,122,6,3,'#c9a227');
-    R(113,131,2,8,'#6d5a3a'); R(124,125,2,14,'#6d5a3a');
-    tree(-40,120); tree(-96,134); tree(380,124); tree(430,110);
+    R(205,106,18,14,'#3a2d4e'); R(213,100,2,20,'#2a2038');
+    // telescope on its tripod
+    R(112,128,6,3,'#d4b02f'); R(117,125,6,3,'#c9a227'); R(122,122,6,3,'#b8931f');
+    R(113,131,2,10,'#6d5a3a'); R(124,125,2,16,'#6d5a3a'); R(118,133,2,8,'#6d5a3a');
+    fMotes(t);
     drawWiz(170,152,t);
   },
   spots: [
@@ -1965,14 +2050,17 @@ tower: {
 beeglade: {
   title: '— The Bee Glade —', gx:0, gy:2, walkTop:100,
   draw(t){
-    sky(); clouds(t); hills(90);
-    ground(100, '#57ad5f', '#41924b');
-    for (let i=0;i<130;i++){
-      const fx = -OV + hash(i,17)*(W+2*OV), fy = 104 + hash(i,18)*(H-110);
-      R(fx, fy, 2, 2, ['#ffffff','#ffd54f','#f48fb1','#ba68c8'][i%4]);
+    fSky(t); fClouds(t); fFar();
+    fGrass(100, '#5aad5f', '#3a8a48');
+    // dense layered wildflowers, gently swaying
+    for (let i=0;i<140;i++){
+      const fx = -OV + hash(i,17)*(W+2*OV), fy = 106 + hash(i,18)*(H-112);
+      const c = ['#ffffff','#ffd54f','#f48fb1','#ba68c8'][i%4], sway = Math.sin(t*1.1 + i)*0.7;
+      R(fx, fy, 1, 3, '#2e7d32'); R(fx-1+sway, fy-2, 3, 2, c);
     }
-    R(74,74,10,52,'#6b4a2b');
-    disc(79,66,20,'#2e7d32'); disc(62,76,13,'#2e7d32'); disc(96,74,14,'#2e7d32'); disc(74,54,12,'#3c9142');
+    R(74,74,10,52,'#6b4a2b'); R(74,74,3,52,'#573a20'); R(80,74,2,52,'#815b36');
+    disc(79,66,20,'#20612a'); disc(62,76,13,'#2e7d32'); disc(96,74,14,'#2e7d32'); disc(74,54,12,'#3fa046');
+    disc(70,60,7,'#63bd5c'); // sun highlight on canopy
     R(88,82,2,8,'#5d4037');
     disc(89,96,8,'#d9a441'); disc(89,102,9,'#d9a441'); disc(89,108,8,'#d9a441');
     R(81,98,16,2,'#a8752c'); R(81,104,16,2,'#a8752c');
@@ -1988,7 +2076,8 @@ beeglade: {
       const by = 102 + Math.sin(t*2.7 + i*1.1)*(8 + hash(i,22)*6);
       R(bx, by, 2, 1, '#f2b90d');
     }
-    tree(290,116); tree(346,104); tree(-52,120); tree(-110,108);
+    fTree(290,116,1.1,t,2); fTree(346,104,1.0,t,4); fTree(-52,120,1.2,t,6); fTree(-110,108,1.0,t,8);
+    fMotes(t);
     drawQueen(204,138,t);
   },
   spots: [
