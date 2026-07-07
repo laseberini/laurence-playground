@@ -132,6 +132,7 @@
     <div class="card" style="width:min(92vw,440px)">
       <h1>🗣️ Narrator</h1>
       <button id="autoBtn"></button>
+      <button id="sndBtn"></button>
       <div id="voiceList"></div>
       <p id="aiDiag" style="font-size:10px;color:#585d7d"></p>
       <p style="font-size:11px;color:#8b90ad;text-align:left">These voices come from your phone. <b>Android tip:</b> the game follows the
@@ -252,6 +253,281 @@ function sfxUnlock(){ beep(330,.08); beep(440,.08,.09); beep(587,.16,.18); }
 function sfxFanfare(){ [523,659,784,1047].forEach((f,i)=>beep(f,.22,i*.13,'square',.05)); }
 function sfxGrowl(){ beep(72,.5,0,'sawtooth',.09); beep(54,.55,.12,'sawtooth',.09); }
 
+// ---------- ambient scene sound ----------
+// Each land gets a quiet living soundscape, synthesised on the fly (no audio
+// files, so the game stays one offline page). A looping "bed" (wind, water,
+// fire…) plus occasional one-shot "critters" (birds, gulls, a dozing dragon).
+// Music was deliberately dropped — these are environment sounds, never a tune.
+let ambNodes = [];    // looping sources/LFOs to stop when the scene changes
+let ambGain = null;   // master tap for all ambience (lets us mute in one place)
+let ambGen = 0;       // bumped on every scene change to cancel stale schedules
+let ambScene = null;
+let ambOn = true;
+try { ambOn = localStorage.getItem('kq-amb') !== '0'; } catch(e){}
+
+function ambMaster(){
+  const a = ac(); if (!a) return null;
+  if (!ambGain){ ambGain = a.createGain(); ambGain.gain.value = ambOn ? 1 : 0; ambGain.connect(a.destination); }
+  return ambGain;
+}
+let _noiseBuf = null;
+function noiseBuf(){
+  const a = ac(); if (!a) return null;
+  if (!_noiseBuf){
+    const n = (a.sampleRate * 2) | 0;
+    _noiseBuf = a.createBuffer(1, n, a.sampleRate);
+    const d = _noiseBuf.getChannelData(0);
+    for (let i=0;i<n;i++) d[i] = Math.random()*2 - 1;
+  }
+  return _noiseBuf;
+}
+// self-cancelling scheduler: reschedules itself until the scene changes
+function schedule(fn, minMs, maxMs){
+  const gen = ambGen;
+  const tick = ()=>{
+    if (gen !== ambGen || !ambOn) return;
+    fn();
+    setTimeout(tick, minMs + Math.random()*(maxMs-minMs));
+  };
+  setTimeout(tick, minMs + Math.random()*(maxMs-minMs));
+}
+
+// --- looping beds ---
+function bWind(a, level, cut){
+  const m = ambMaster(); if (!m) return;
+  const s = a.createBufferSource(); s.buffer = noiseBuf(); s.loop = true;
+  const bp = a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = cut||500; bp.Q.value = .6;
+  const g = a.createGain(); g.gain.value = level;
+  const lfo = a.createOscillator(); lfo.frequency.value = .07 + Math.random()*.06;
+  const lg = a.createGain(); lg.gain.value = level*.7;
+  lfo.connect(lg); lg.connect(g.gain);
+  s.connect(bp); bp.connect(g); g.connect(m);
+  s.start(); lfo.start(); ambNodes.push(s, lfo);
+}
+function bWater(a, level, cut, swell){
+  const m = ambMaster(); if (!m) return;
+  const s = a.createBufferSource(); s.buffer = noiseBuf(); s.loop = true;
+  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = cut||600;
+  const g = a.createGain(); g.gain.value = level;
+  const lfo = a.createOscillator(); lfo.frequency.value = swell||.18;
+  const lg = a.createGain(); lg.gain.value = level*.8;
+  lfo.connect(lg); lg.connect(g.gain);
+  s.connect(lp); lp.connect(g); g.connect(m);
+  s.start(); lfo.start(); ambNodes.push(s, lfo);
+}
+function bFire(a, level){
+  const m = ambMaster(); if (!m) return;
+  const s = a.createBufferSource(); s.buffer = noiseBuf(); s.loop = true;
+  const hp = a.createBiquadFilter(); hp.type='highpass'; hp.frequency.value = 700;
+  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 3200;
+  const g = a.createGain(); g.gain.value = level;
+  s.connect(hp); hp.connect(lp); lp.connect(g); g.connect(m);
+  s.start(); ambNodes.push(s);
+  schedule(()=>firePop(level*4), 180, 850);
+}
+function firePop(peak){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime;
+  const s = a.createBufferSource(); s.buffer = noiseBuf();
+  const bp = a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = 1400+Math.random()*2600; bp.Q.value = 3;
+  const g = a.createGain();
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(peak,t+.004); g.gain.exponentialRampToValueAtTime(.0001,t+.06);
+  s.connect(bp); bp.connect(g); g.connect(m); s.start(t); s.stop(t+.08);
+}
+function bBees(a, level){
+  const m = ambMaster(); if (!m) return;
+  const g = a.createGain(); g.gain.value = level; g.connect(m);
+  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 900; lp.connect(g);
+  [148,151,224,229].forEach(f=>{
+    const o = a.createOscillator(); o.type='sawtooth'; o.frequency.value = f;
+    const vib = a.createOscillator(); vib.frequency.value = 5 + Math.random()*5;
+    const vg = a.createGain(); vg.gain.value = 4;
+    vib.connect(vg); vg.connect(o.frequency);
+    o.connect(lp); o.start(); vib.start(); ambNodes.push(o, vib);
+  });
+}
+function bShimmer(a, level){
+  const m = ambMaster(); if (!m) return;
+  [1210, 1809, 2417].forEach((f,i)=>{
+    const o = a.createOscillator(); o.type='sine'; o.frequency.value = f;
+    const g = a.createGain(); g.gain.value = level*.5;
+    const lfo = a.createOscillator(); lfo.frequency.value = .09 + i*.05;
+    const lg = a.createGain(); lg.gain.value = level*.5;
+    lfo.connect(lg); lg.connect(g.gain);
+    o.connect(g); g.connect(m);
+    o.start(); lfo.start(); ambNodes.push(o, lfo);
+  });
+}
+function bRumble(a, level, cut){
+  const m = ambMaster(); if (!m) return;
+  const s = a.createBufferSource(); s.buffer = noiseBuf(); s.loop = true;
+  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = cut||180;
+  const g = a.createGain(); g.gain.value = level;
+  s.connect(lp); lp.connect(g); g.connect(m);
+  s.start(); ambNodes.push(s);
+}
+
+// --- one-shot critters (short, so they can finish after a scene change) ---
+function cBird(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t0 = a.currentTime, n = 2 + ((Math.random()*3)|0);
+  for (let i=0;i<n;i++){
+    const s = t0 + i*.09, f = 2200 + Math.random()*1800;
+    const o = a.createOscillator(); o.type='sine'; const g = a.createGain();
+    o.frequency.setValueAtTime(f,s); o.frequency.linearRampToValueAtTime(f*1.4,s+.05);
+    g.gain.setValueAtTime(.0001,s); g.gain.linearRampToValueAtTime(.045,s+.01); g.gain.exponentialRampToValueAtTime(.0001,s+.08);
+    o.connect(g); g.connect(m); o.start(s); o.stop(s+.1);
+  }
+}
+function cGull(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime;
+  const o = a.createOscillator(); o.type='sawtooth';
+  const bp = a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = 1200; bp.Q.value = 4;
+  const g = a.createGain();
+  o.frequency.setValueAtTime(880,t); o.frequency.linearRampToValueAtTime(1500,t+.12); o.frequency.linearRampToValueAtTime(1050,t+.3);
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.05,t+.05); g.gain.setValueAtTime(.05,t+.24); g.gain.exponentialRampToValueAtTime(.0001,t+.4);
+  o.connect(bp); bp.connect(g); g.connect(m); o.start(t); o.stop(t+.42);
+}
+function cCrow(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t0 = a.currentTime, reps = 1 + ((Math.random()*2)|0);
+  for (let r=0;r<reps;r++){
+    const t = t0 + r*.24;
+    const o = a.createOscillator(); o.type='sawtooth';
+    const bp = a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = 700; bp.Q.value = 5;
+    const g = a.createGain();
+    o.frequency.setValueAtTime(540,t); o.frequency.linearRampToValueAtTime(410,t+.15);
+    g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.06,t+.02); g.gain.setValueAtTime(.06,t+.11); g.gain.exponentialRampToValueAtTime(.0001,t+.18);
+    o.connect(bp); bp.connect(g); g.connect(m); o.start(t); o.stop(t+.2);
+  }
+}
+function cFrog(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime;
+  const o = a.createOscillator(); o.type='sawtooth'; o.frequency.value = 135;
+  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 520;
+  const g = a.createGain();
+  const trem = a.createOscillator(); trem.type='square'; trem.frequency.value = 24;
+  const tg = a.createGain(); tg.gain.value = .035; trem.connect(tg); tg.connect(g.gain);
+  g.gain.setValueAtTime(.04,t); g.gain.exponentialRampToValueAtTime(.0001,t+.34);
+  o.connect(lp); lp.connect(g); g.connect(m); o.start(t); trem.start(t); o.stop(t+.36); trem.stop(t+.36);
+}
+function cCat(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime;
+  const o = a.createOscillator(); o.type='sawtooth';
+  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 1500;
+  const g = a.createGain();
+  o.frequency.setValueAtTime(520,t); o.frequency.linearRampToValueAtTime(760,t+.18); o.frequency.linearRampToValueAtTime(600,t+.45);
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.055,t+.06); g.gain.setValueAtTime(.045,t+.3); g.gain.exponentialRampToValueAtTime(.0001,t+.5);
+  o.connect(lp); lp.connect(g); g.connect(m); o.start(t); o.stop(t+.52);
+}
+function cHen(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t0 = a.currentTime, n = 2 + ((Math.random()*3)|0);
+  for (let i=0;i<n;i++){
+    const t = t0 + i*.12*(.7+Math.random()*.6), f = 500 + Math.random()*300;
+    const o = a.createOscillator(); o.type='square'; const g = a.createGain();
+    o.frequency.setValueAtTime(f,t); o.frequency.linearRampToValueAtTime(f*.6,t+.05);
+    g.gain.setValueAtTime(.045,t); g.gain.exponentialRampToValueAtTime(.0001,t+.07);
+    o.connect(g); g.connect(m); o.start(t); o.stop(t+.08);
+  }
+}
+function cDrip(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime, f = 800 + Math.random()*1200;
+  const o = a.createOscillator(); o.type='sine'; const g = a.createGain();
+  o.frequency.setValueAtTime(f,t); o.frequency.exponentialRampToValueAtTime(f*.5,t+.12);
+  g.gain.setValueAtTime(.001,t); g.gain.linearRampToValueAtTime(.07,t+.005); g.gain.exponentialRampToValueAtTime(.0001,t+.25);
+  const d = a.createDelay(); d.delayTime.value = .19; const dg = a.createGain(); dg.gain.value = .3;
+  o.connect(g); g.connect(m); g.connect(d); d.connect(dg); dg.connect(m);
+  o.start(t); o.stop(t+.28);
+}
+function cSnore(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime;
+  const o = a.createOscillator(); o.type='sawtooth';
+  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 190;
+  const g = a.createGain();
+  o.frequency.setValueAtTime(46,t); o.frequency.linearRampToValueAtTime(60,t+.8); o.frequency.linearRampToValueAtTime(42,t+1.8);
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.08,t+.6); g.gain.linearRampToValueAtTime(.02,t+1.2); g.gain.exponentialRampToValueAtTime(.0001,t+1.9);
+  o.connect(lp); lp.connect(g); g.connect(m); o.start(t); o.stop(t+2);
+}
+function cFlap(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t0 = a.currentTime, n = 3 + ((Math.random()*3)|0);
+  for (let i=0;i<n;i++){
+    const t = t0 + i*.13;
+    const s = a.createBufferSource(); s.buffer = noiseBuf();
+    const bp = a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = 300+Math.random()*200; bp.Q.value = 1.4;
+    const g = a.createGain();
+    g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.045,t+.03); g.gain.exponentialRampToValueAtTime(.0001,t+.12);
+    s.connect(bp); bp.connect(g); g.connect(m); s.start(t); s.stop(t+.14);
+  }
+}
+function cSplash(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime;
+  const s = a.createBufferSource(); s.buffer = noiseBuf();
+  const lp = a.createBiquadFilter(); lp.type='lowpass';
+  lp.frequency.setValueAtTime(2800,t); lp.frequency.exponentialRampToValueAtTime(400,t+.25);
+  const g = a.createGain(); g.gain.setValueAtTime(.05,t); g.gain.exponentialRampToValueAtTime(.0001,t+.3);
+  s.connect(lp); lp.connect(g); g.connect(m); s.start(t); s.stop(t+.32);
+}
+function cCricket(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t0 = a.currentTime;
+  for (let i=0;i<3;i++){
+    const t = t0 + i*.04;
+    const o = a.createOscillator(); o.type='square'; o.frequency.value = 4500;
+    const g = a.createGain(); g.gain.setValueAtTime(.018,t); g.gain.exponentialRampToValueAtTime(.0001,t+.02);
+    o.connect(g); g.connect(m); o.start(t); o.stop(t+.025);
+  }
+}
+
+// which sounds belong to which land
+const AMB = {
+  forest:    a => { bWind(a,.014,720); schedule(cBird,3000,8000); },
+  meadow:    a => { bWind(a,.011,650); schedule(cBird,3500,9000); schedule(cCricket,5000,12000); },
+  cottage:   a => { bFire(a,.018); schedule(cBird,5000,11000); schedule(cHen,7000,15000); },
+  bridge:    a => { bWater(a,.05,950,.4); },
+  lake:      a => { bWater(a,.03,600,.14); schedule(cGull,6000,13000); schedule(cSplash,7000,16000); },
+  gate:      a => { bWind(a,.018,520); schedule(cFlap,4000,9000); },
+  throne:    a => { bRumble(a,.014,160); bFire(a,.009); },
+  darkwoods: a => { bWind(a,.024,360); schedule(cCrow,5000,11000); },
+  beeglade:  a => { bBees(a,.02); schedule(cBird,6000,13000); },
+  tower:     a => { bShimmer(a,.02); bWind(a,.009,620); },
+  foothills: a => { bWind(a,.024,460); schedule(cBird,7000,15000); },
+  cave:      a => { bRumble(a,.02,150); schedule(cDrip,2500,6000); },
+  pass:      a => { bWind(a, F.warm?.014:.055, F.warm?600:1200); },
+  emberpeak: a => { bFire(a,.032); bRumble(a,.018,130); },
+  lair:      a => { bFire(a,.024); schedule(cSnore,4000,8000); },
+  marsh:     a => { bWater(a,.018,420,.1); schedule(cFrog,3000,7000); schedule(cCricket,4000,9000); },
+  hamlet:    a => { bWind(a,.011,600); schedule(cHen,4000,9000); schedule(cBird,6000,13000); },
+  orchard:   a => { bWind(a,.014,650); schedule(cCrow,6000,12000); schedule(()=>{ if(!F.cat && !F.catHome) cCat(); },5000,11000); },
+  cliffs:    a => { bWater(a,.04,520,.09); bWind(a,.016,720); schedule(cGull,4000,9000); },
+};
+
+function stopAmb(){
+  ambGen++; // cancels every pending schedule() tick
+  ambNodes.forEach(n => { try { n.stop(); } catch(e){} try { n.disconnect(); } catch(e){} });
+  ambNodes.length = 0;
+}
+function sceneAudio(id){
+  ambScene = id;
+  stopAmb();
+  if (!ambOn) return;
+  const a = ac(); if (!a) return;
+  const build = AMB[id];
+  if (build) build(a);
+}
+// on phones/laptops, pause the whole soundscape when the game isn't on screen
+document.addEventListener('visibilitychange', ()=>{
+  if (!AC) return;
+  try { document.hidden ? AC.suspend() : AC.resume(); } catch(e){}
+});
+
 let speaking = false; // true while the narrator reads aloud
 
 // ---------- read-aloud (for adventurers who can't read yet) ----------
@@ -314,7 +590,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v28';
+const KQ_VER = 'v29';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -599,6 +875,9 @@ const narEl = document.getElementById('nar');
 function refreshAutoBtn(){
   document.getElementById('autoBtn').textContent = autoRead ? '🗣️ Auto-narrate: ON' : '💬 Auto-narrate: OFF';
 }
+function refreshSndBtn(){
+  document.getElementById('sndBtn').textContent = ambOn ? '🔊 Scene sounds: ON' : '🔇 Scene sounds: OFF';
+}
 function aiPreview(){
   startSpeech('Once upon a time, in the kingdom of Aldermere, a brave adventurer set out to find a crown.', speakBtn);
 }
@@ -625,6 +904,7 @@ async function aiDiag(){
 }
 function buildNarMenu(){
   refreshAutoBtn();
+  refreshSndBtn();
   const list = document.getElementById('voiceList');
   list.innerHTML = '';
   // not on the web = throwaway storage; give a one-tap way to the real thing
@@ -708,6 +988,14 @@ document.getElementById('autoBtn').addEventListener('click', e => {
   try { localStorage.setItem('kq-autoread', autoRead ? '1' : '0'); } catch(e2){}
   if (!autoRead) stopSpeak();
   narBtnIcon(); refreshAutoBtn();
+});
+document.getElementById('sndBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  ambOn = !ambOn;
+  try { localStorage.setItem('kq-amb', ambOn ? '1' : '0'); } catch(e2){}
+  if (ambGain) ambGain.gain.value = ambOn ? 1 : 0;
+  if (ambOn) sceneAudio(cur); else stopAmb();
+  refreshSndBtn();
 });
 narEl.addEventListener('click', e => {
   if (e.target === narEl) narEl.classList.add('hidden');
@@ -2549,6 +2837,7 @@ function gotoRoom(id, px, py){
   const firstVisit = !been[id];
   seen[id] = 1; been[id] = 1;
   hideCloseup();
+  sceneAudio(id); // swap the soundscape to this land
   // first visit: the narrator introduces the scene; afterwards entry is silent
   if (firstVisit && typeof DESCS !== 'undefined' && DESCS[id]) say(DESCS[id]());
   else say(r.title, true);
