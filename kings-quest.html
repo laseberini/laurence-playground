@@ -616,7 +616,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v31';
+const KQ_VER = 'v32';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -1660,22 +1660,44 @@ function fWater(x, y, w, h, t, seed){
   }
 }
 
+// depth-sorted trees: a room may list `trees` as [x, baseY, scale, seed, kind].
+// They block the walker at the trunk base and occlude him when he steps behind.
+function drawOneTree(tr, t){
+  const x = tr[0], y = tr[1], sc = tr[2], seed = tr[3]|0;
+  fTree(x, y, sc, t, seed);
+  if (tr[4] === 'apple'){
+    const cy = y - 25*sc, sway = Math.sin(t*.7 + (seed+1)*1.9) * 2.2 * sc;
+    [[-9,-2],[4,-7],[9,-1],[-4,3],[6,-10],[0,-5]].forEach(a=>{
+      R(x + a[0]*sc + sway*.5, cy + a[1]*sc, 2, 2, '#d22c2c');
+      R(x + a[0]*sc + sway*.5, cy + a[1]*sc, 1, 1, '#ef6b5c');
+    });
+  }
+}
+function treesBG(list, t){ for (const tr of list) drawOneTree(tr, t); }
+// solid test: room's own block() plus any tree trunks (a small pad at the base)
+function solidAt(r, px, py){
+  if (r.block && r.block(px, py)) return true;
+  if (r.trees){
+    for (const tr of r.trees){
+      const sc = tr[2];
+      if (Math.abs(px - tr[0]) < 2.5*sc + 1.5 && py > tr[1] - 3 && py < tr[1] + 5) return true;
+    }
+  }
+  return false;
+}
+
 // ---------- rooms ----------
 const honeyDone = () => F.honey || F.honeyOut || F.crown || F.throne;
 const rooms = {
 
 forest: {
   title: '— The Whispering Forest —', gx:1, gy:1, walkTop:100,
+  trees: [[118,98,.9,0],[212,98,.92,1],[58,104,1,2],[262,102,1.05,3],[292,118,1.2,4],
+          [-36,124,1.25,5],[-84,106,1,6],[356,120,1.15,7],[404,104,1,8],[24,122,1.4,9]],
   draw(t){
     fSky(t); fClouds(t); fFar(); fGround();
-    // background oaks first, then the foreground grove and the grand left oak
-    fTree(118, 98, .9, t, 0); fTree(212, 98, .92, t, 1);
-    fTree(58, 104, 1.0, t, 2); fTree(262, 102, 1.05, t, 3);
-    fTree(292, 118, 1.2, t, 4);
-    fTree(-36, 124, 1.25, t, 5); fTree(-84, 106, 1.0, t, 6);
-    fTree(356, 120, 1.15, t, 7); fTree(404, 104, 1.0, t, 8);
+    treesBG(this.trees, t);   // trunks block; drawFrame re-draws front trees to occlude
     signpost(56, 150);
-    fTree(24, 122, 1.4, t, 9); // the grand left oak (its hotspot)
     fMotes(t);
   },
   spots: [
@@ -2725,22 +2747,13 @@ hamlet: {
 
 orchard: {
   title: '— The Old Orchard —', gx:2, gy:3, walkTop:100,
+  trees: [[40,118,1,0,'apple'],[110,112,.95,1,'apple'],[180,118,1,2,'apple'],[60,158,1.25,3,'apple'],
+          [150,166,1.3,4,'apple'],[288,112,1,5,'apple'],[-40,130,1.2,6,'apple'],[-100,116,1,7,'apple'],
+          [360,126,1.15,8,'apple'],[416,112,1,9,'apple']],
   draw(t){
     fSky(t); fClouds(t); fFar();
     fGrass(100, '#57a052', '#357f42');
-    let ai = 0;
-    const appleTree = (x,y,sc)=>{
-      sc = sc || 1;
-      fTree(x,y,sc,t,ai++);
-      const cy = y - 20*sc - 5*sc, sway = Math.sin(t*.7 + (ai)*1.9)*2.2*sc;
-      [[-9,-2],[4,-7],[9,-1],[-4,3],[6,-10],[0,-5]].forEach(a=>{
-        R(x + a[0]*sc + sway*.5, cy + a[1]*sc, 2, 2, '#d22c2c');
-        R(x + a[0]*sc + sway*.5, cy + a[1]*sc, 1, 1, '#ef6b5c');
-      });
-    };
-    appleTree(40,118,1.0); appleTree(110,112,.95); appleTree(180,118,1.0); appleTree(60,158,1.25);
-    appleTree(150,166,1.3); appleTree(288,112,1.0);
-    appleTree(-40,130,1.2); appleTree(-100,116,1.0); appleTree(360,126,1.15); appleTree(416,112,1.0);
+    treesBG(this.trees, t);   // apple trees: block at the trunk, occlude when behind
     for (let i=0;i<16;i++){ // windfall apples in the grass
       const ax = -OV/2 + hash(i,27)*(W+OV), ay = 120 + hash(i,28)*70;
       R(ax, ay, 2, 2, '#a83030'); R(ax, ay, 1, 1, '#c94a3a');
@@ -2874,8 +2887,8 @@ function walkTo(x, y, p){
   const r = rooms[cur];
   x = Math.max(4, Math.min(316, x));
   y = Math.max(r.walkTop, Math.min(196, y));
-  if (r.block && r.block(x, y)){
-    for (let k=0; k<50 && r.block(x,y); k++){
+  if (solidAt(r, x, y)){
+    for (let k=0; k<50 && solidAt(r,x,y); k++){
       x += (player.x - x) * .1; y += (player.y - y) * .1;
     }
   }
@@ -3005,9 +3018,9 @@ function stepPlayer(dx, dy){
   const r = rooms[cur];
   let nx = Math.max(4, Math.min(316, player.x + dx));
   let ny = Math.max(r.walkTop, Math.min(196, player.y + dy));
-  if (r.block && r.block(nx, ny)){
-    if (!r.block(nx, player.y)) ny = player.y;       // slide horizontally
-    else if (!r.block(player.x, ny)) nx = player.x;  // slide vertically
+  if (solidAt(r, nx, ny)){
+    if (!solidAt(r, nx, player.y)) ny = player.y;       // slide horizontally
+    else if (!solidAt(r, player.x, ny)) nx = player.x;  // slide vertically
     else { nx = player.x; ny = player.y; }
   }
   if (dx) player.dir = dx > 0 ? 1 : -1;
@@ -3084,6 +3097,11 @@ function drawFrame(t){
   }
   arrows(t);
   drawDude(player.x, player.y);
+  // occlusion: re-draw any tree whose trunk is in front of the walker (its base
+  // lower on screen than his feet), so he vanishes behind it
+  if (r.trees){
+    for (const tr of r.trees){ if (tr[1] > player.y) drawOneTree(tr, t); }
+  }
   if (r.post) r.post(t);
 }
 
