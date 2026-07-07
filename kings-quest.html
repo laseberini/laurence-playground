@@ -512,25 +512,25 @@ function sfxStep(){
 // Only water scenes keep a gently looping bed; everything else is quiet
 // between its occasional critters.
 const AMB = {
-  forest:    { enter:cBird,   every:[[cBird,9000,20000]] },
-  meadow:    { enter:cBird,   every:[[cBird,9000,20000],[cCricket,13000,26000]] },
-  cottage:   { enter:cHen,    every:[[cBird,11000,24000],[cHen,13000,28000],[cCrackle,11000,24000]] },
-  bridge:    { water:[.05,950,.4], every:[[cSplash,11000,24000]] },
-  lake:      { water:[.028,600,.14], enter:cGull, every:[[cGull,11000,24000],[cSplash,13000,28000]] },
-  gate:      { enter:cFlap,   every:[[cFlap,11000,24000],[cGust,13000,28000]] },
-  throne:    { enter:cCrackle,every:[[cCrackle,10000,22000]] },
-  darkwoods: { enter:cCrow,   every:[[cCrow,10000,22000],[cGust,12000,26000]] },
-  beeglade:  { enter:cBuzz,   every:[[cBuzz,6000,15000],[cBird,13000,26000]] },
-  tower:     { enter:cSparkle,every:[[cSparkle,9000,20000]] },
-  foothills: { enter:cBird,   every:[[cBird,11000,24000],[cGust,10000,22000]] },
-  cave:      { enter:cDrip,   every:[[cDrip,4000,10000]] },
-  pass:      { enter:cGust,   every:[[cGust,()=>F.warm?9000:4500,()=>F.warm?20000:11000]] },
-  emberpeak: { enter:cCrackle,every:[[cCrackle,6000,14000],[cRumbleShot,10000,22000]] },
-  lair:      { enter:cSnore,  every:[[cSnore,6500,12000]] },
-  marsh:     { enter:cFrog,   every:[[cFrog,7000,16000],[cCricket,9000,20000]] },
-  hamlet:    { enter:cHen,    every:[[cHen,8000,18000],[cBird,11000,24000]] },
-  orchard:   { enter:cCrow,   every:[[cCrow,11000,24000],[()=>{ if(!F.cat && !F.catHome) cCat(); },9000,20000]] },
-  cliffs:    { water:[.04,520,.09], enter:cGull, every:[[cGull,7000,16000]] },
+  forest:    { enter:cBird,   every:[[cBird,2500,6500],[cCricket,6000,13000]] },
+  meadow:    { enter:cBird,   every:[[cBird,2500,6000],[cCricket,4000,9000]] },
+  cottage:   { enter:cBird,   every:[[cBird,3000,7000],[cHen,4000,9000],[cCrackle,7000,15000]] },
+  bridge:    { water:[.05,950,.4], every:[[cSplash,4500,11000],[cBird,4000,9000]] },
+  lake:      { water:[.028,600,.14], enter:cGull, every:[[cGull,4000,9000],[cSplash,5000,12000]] },
+  gate:      { enter:cFlap,   every:[[cFlap,4500,10000],[cGust,8000,16000]] },
+  throne:    { enter:cCrackle,every:[[cCrackle,5000,11000]] },
+  darkwoods: { enter:cCrow,   every:[[cCrow,3500,8500],[cGust,7000,15000]] },
+  beeglade:  { enter:cBuzz,   every:[[cBuzz,2200,5500],[cBird,5000,11000]] },
+  tower:     { enter:cSparkle,every:[[cSparkle,4500,10000]] },
+  foothills: { enter:cBird,   every:[[cBird,3500,8000],[cGust,7000,15000]] },
+  cave:      { enter:cDrip,   every:[[cDrip,2500,6000]] },
+  pass:      { enter:cGust,   every:[[cGust,()=>F.warm?5500:2800,()=>F.warm?12000:6500]] },
+  emberpeak: { enter:cCrackle,every:[[cCrackle,4000,9000],[cRumbleShot,8000,16000]] },
+  lair:      { enter:cSnore,  every:[[cSnore,4500,8500]] },
+  marsh:     { enter:cFrog,   every:[[cFrog,3000,7000],[cCricket,4000,9000]] },
+  hamlet:    { enter:cHen,    every:[[cHen,3500,8000],[cBird,4000,9000]] },
+  orchard:   { enter:cCrow,   every:[[cCrow,4500,10000],[cBird,4000,9000],[()=>{ if(!F.cat && !F.catHome) cCat(); },6000,13000]] },
+  cliffs:    { water:[.04,520,.09], enter:cGull, every:[[cGull,3500,8000]] },
 };
 
 function stopAmb(){
@@ -616,7 +616,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v30';
+const KQ_VER = 'v31';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
