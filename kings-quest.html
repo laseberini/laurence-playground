@@ -294,7 +294,30 @@ if (hasTTS){
   try { speechSynthesis.onvoiceschanged = pickVoice; } catch(e){}
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
-const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null };
+const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
+// The voice library persists models via OPFS createWritable(), which Chrome on
+// Android does not support — models silently failed to save and re-downloaded
+// every session. We intercept the model/runtime downloads and keep them in
+// Cache Storage ourselves, which works everywhere; repeat loads never hit the
+// network again.
+const AI_CACHEABLE = /huggingface\.co\/[^\s]*piper-voices[^\s]*\.(onnx|json)(\?|$)|piper_phonemize\.(data|wasm)(\?|$)|onnxruntime-web[^\s]*\.wasm(\?|$)/;
+if ('caches' in window && location.protocol.indexOf('http') === 0){
+  const origFetch = window.fetch.bind(window);
+  window.fetch = async function(input, init){
+    const url = typeof input === 'string' ? input : (input && input.url) || '';
+    if (AI_CACHEABLE.test(url) && (!init || !init.method || init.method === 'GET')){
+      try {
+        const c = await caches.open('kq-piper');
+        const hit = await c.match(url);
+        if (hit) return hit;
+        const res = await origFetch(input, init);
+        if (res && res.ok){ try { await c.put(url, res.clone()); } catch(e){} }
+        return res;
+      } catch(e){ return origFetch(input, init); }
+    }
+    return origFetch(input, init);
+  };
+}
 const AIVOICES = [
   ['en_GB-alba-medium', 'Alba — British storyteller'],
   ['en_US-amy-medium', 'Amy — American'],
@@ -310,24 +333,18 @@ async function makeAISession(mod, voiceId, onProgress){
     else if (mod.TtsSession)
       s = new mod.TtsSession({ voiceId, progress: onProgress });
   } catch(e){}
-  // the lib reuses a singleton session — creating with a new voiceId can
-  // silently keep the OLD voice. Force the switch and re-init the model.
-  if (s && s.voiceId !== undefined && s.voiceId !== voiceId){
-    try {
+  if (s && typeof s.predict === 'function'){
+    // The library reuses a singleton and only relabels voiceId when reusing —
+    // the actual model stays the OLD voice. We track which voice WE initialized
+    // and force a real re-init whenever it changes.
+    if (AI.initVoice && AI.initVoice !== voiceId && typeof s.init === 'function'){
       s.voiceId = voiceId;
-      if (typeof s.init === 'function') await s.init();
-    } catch(e){}
-    if (s.voiceId !== voiceId){
-      try {
-        const s2 = new mod.TtsSession({ voiceId, progress: onProgress });
-        if (typeof s2.init === 'function') await s2.init();
-        if (s2 && typeof s2.predict === 'function') s = s2;
-      } catch(e){}
+      await s.init();
     }
-  }
-  if (s && typeof s.predict === 'function' && (s.voiceId === undefined || s.voiceId === voiceId))
+    AI.initVoice = voiceId;
     return s;
-  return { voiceId, predict: t => mod.predict({ text: t, voiceId }) };
+  }
+  return { predict: t => mod.predict({ text: t, voiceId }) };
 }
 async function loadAI(voiceId){
   if (AI.state === 'loading') return;
