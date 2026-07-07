@@ -21,6 +21,7 @@
   }
   #ttl { font-weight:bold; color:#ffd54f; white-space:nowrap; }
   #inv { flex:1; text-align:center; font-size:16px; letter-spacing:3px; min-height:1em; }
+  #inv span { cursor:pointer; padding:1px 2px; }
   #score { color:#ffd54f; white-space:nowrap; }
   #hdr button {
     background:#2c3050; color:#f4e3b2; border:0; border-radius:6px;
@@ -65,7 +66,8 @@
   <div id="hdr">
     <span id="ttl">👑 King’s Quest</span>
     <span id="inv"></span>
-    <span id="score">⭐ 0/15</span>
+    <span id="score">⭐ 0/18</span>
+    <button id="musBtn" title="Music">🎵</button>
     <button id="mapBtn" title="Map">🗺</button>
     <button id="fs" title="Fullscreen">⛶</button>
     <button id="reset" title="New game">↺</button>
@@ -81,9 +83,10 @@
          sits the throne shall rule Aldermere — but the tale is longer, stranger
          and more draconic than the rumors say.</p>
       <p><b>Tap the ground</b> to walk. <b>Tap people and things</b> to talk and use.
-         <b>Golden arrows</b> at the screen edges lead to the twelve lands —
-         tap near an edge to travel. Sparkles ✦ mark things worth a look,
-         and 🗺 shows your map.</p>
+         <b>Golden arrows</b> at the screen edges lead to the sixteen lands —
+         tap an arrow to travel. Sparkles ✦ mark things worth a look,
+         🗺 shows your map, tap an item in your pack to inspect it,
+         and 🎵 toggles the music.</p>
       <button id="begin">▶ Begin</button>
     </div>
   </div>
@@ -92,6 +95,15 @@
     <div class="card">
       <h1>🗺 Aldermere</h1>
       <div id="mapGrid"></div>
+      <p style="font-size:11px;color:#8b90ad">Tap anywhere to close</p>
+    </div>
+  </div>
+
+  <div id="item" class="overlay hidden">
+    <div class="card">
+      <div class="big" id="itIc"></div>
+      <h1 id="itName"></h1>
+      <p id="itDesc"></p>
       <p style="font-size:11px;color:#8b90ad">Tap anywhere to close</p>
     </div>
   </div>
@@ -110,7 +122,7 @@
 
 <script>
 'use strict';
-const W = 320, H = 200, MAX = 15;
+const W = 320, H = 200, MAX = 18;
 const PX = 2;      // chunk size: scene renders at half res, upscaled for fat pixels
 const OV = 400;    // decorative overdraw beyond world edges for wide screens
 const cv = document.getElementById('cv'), dctx = cv.getContext('2d');
@@ -127,6 +139,7 @@ function freshFlags(){
            key:false, gateOpen:false,
            quest:false, sawCave:false, lantern:false, geode:false, gaveGeode:false,
            book:false, warm:false, posy:false, honey:false, honeyOut:false,
+           cat:false, catHome:false, coin:false, wished:false,
            crown:false, throne:false };
 }
 let F = freshFlags();
@@ -173,16 +186,84 @@ function sfxUnlock(){ beep(330,.08); beep(440,.08,.09); beep(587,.16,.18); }
 function sfxFanfare(){ [523,659,784,1047].forEach((f,i)=>beep(f,.22,i*.13,'square',.05)); }
 function sfxGrowl(){ beep(72,.5,0,'sawtooth',.09); beep(54,.55,.12,'sawtooth',.09); }
 
+// ---------- music ----------
+const THEMES = {
+  bright: { step:.17,
+    mel:[76,0,79,0,84,0,79,0, 81,0,79,0,76,0,72,0, 74,0,76,0,79,0,76,0, 72,0,0,0,0,0,0,0,
+         76,0,79,0,84,0,88,0, 86,0,84,0,81,0,79,0, 81,0,79,0,76,0,74,0, 72,0,0,0,0,0,0,0],
+    bass:[48,0,0,0,43,0,0,0, 45,0,0,0,43,0,0,0, 50,0,0,0,52,0,0,0, 48,0,0,0,43,0,0,0,
+          48,0,0,0,43,0,0,0, 50,0,0,0,48,0,0,0, 45,0,0,0,43,0,0,0, 48,0,0,0,48,0,0,0] },
+  dark: { step:.21,
+    mel:[69,0,0,0,72,0,0,0, 71,0,0,0,64,0,0,0, 69,0,0,0,72,0,76,0, 74,0,71,0,0,0,0,0],
+    bass:[45,0,0,0,0,0,0,0, 40,0,0,0,0,0,0,0, 45,0,0,0,0,0,0,0, 43,0,0,0,40,0,0,0] },
+};
+const DARKROOMS = { cave:1, lair:1, darkwoods:1, emberpeak:1 };
+let musicOn = true;
+try { musicOn = localStorage.getItem('kq-music') !== '0'; } catch(e){}
+let nextNote = 0, mstep = 0;
+function midi(n){ return 440 * Math.pow(2, (n-69)/12); }
+function note(f, t, d, type, vol){
+  const a = AC; if (!a) return;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.value = f;
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(.0001, t + d);
+  o.connect(g); g.connect(a.destination);
+  o.start(t); o.stop(t + d);
+}
+function musicLoop(){
+  const a = AC;
+  if (!a || !musicOn || a.state !== 'running') return;
+  if (nextNote < a.currentTime - 1) nextNote = a.currentTime + .05;
+  while (nextNote < a.currentTime + .6){
+    const th = THEMES[DARKROOMS[cur] ? 'dark' : 'bright'];
+    const i = mstep % th.mel.length;
+    if (th.mel[i]) note(midi(th.mel[i]), nextNote, th.step*2.2, 'square', .014);
+    if (th.bass[i]) note(midi(th.bass[i]), nextNote, th.step*3.6, 'triangle', .032);
+    nextNote += th.step; mstep++;
+  }
+}
+setInterval(musicLoop, 120);
+function musBtnIcon(){ document.getElementById('musBtn').textContent = musicOn ? '🎵' : '🔇'; }
+document.getElementById('musBtn').addEventListener('click', ()=>{
+  musicOn = !musicOn;
+  try { localStorage.setItem('kq-music', musicOn ? '1' : '0'); } catch(e){}
+  if (musicOn){ ac(); const a = AC; if (a) nextNote = a.currentTime + .05; }
+  musBtnIcon();
+});
+
 // ---------- ui ----------
 function say(t){ msgEl.textContent = t; }
+const ITEMS = {
+  flower:['🌸','Moonpetal','A glowing meadow flower that hums in your hand. Old Elda needs one for her aching-bones potion.'],
+  fish:['🐟','Silver trout','Fat, fresh and still flapping. Grukk the bridge troll looks awfully hungry…'],
+  key:['🗝️','Brass key','Heavy, cold, and troll-scented. It fits the silent castle’s great gate.'],
+  geode:['💎','Glittering geode','A fist of purple stars from the crystal cave. Something that loves ssshiny things would adore it.'],
+  book:['📖','Fenwick’s spellbook','A dusty grimoire, faintly warm to the touch. The wizard wants it back rather badly.'],
+  posy:['💐','Wildflower posy','A bright armful from Moonpetal Meadow. Somewhere, ten thousand bees approve.'],
+  honey:['🍯','Honeycomb','Dripping gold from the Bee Glade. Rumor has it dragons prefer sweetness to treasure.'],
+  cat:['🐱','Biscuit','Warm, purring, and shedding on your cloak. Tilly of Thistledown misses her terribly.'],
+  coin:['🪙','Old copper coin','Found in a scarecrow’s pocket, warm from the sun. The hamlet’s well grants one true wish.'],
+  crown:['👑','Crown of Aldermere','Recovered from a dragon’s hoard, still warm like fresh bread. It belongs on a monarch’s head — yours.'],
+  warm:['✨','Everwarm charm','Fenwick’s golden fire coils about you. No cold — not even a cursed blizzard — can touch you.'],
+  rod:['🎣','Bertram’s rod','Old Elda’s late husband’s fishing rod. The Silver Lake teems with trout.'],
+  lantern:['🏮','Bertram’s lantern','Casts a warm circle of light in the dark. Mind the bats, dear.'],
+};
+const ITEMORDER = ['flower','fish','key','geode','book','posy','honey','cat','coin','crown','warm','rod','lantern'];
 function hud(){
   scoreEl.textContent = '⭐ ' + score + '/' + MAX;
-  invEl.textContent = [
-    F.flower && '🌸', F.fish && '🐟', F.key && '🗝️', F.geode && '💎',
-    F.book && '📖', F.posy && '💐', F.honey && '🍯', F.crown && '👑',
-    F.rod && '🎣', F.lantern && '🏮'
-  ].filter(Boolean).join(' ');
+  invEl.innerHTML = ITEMORDER.filter(k => F[k])
+    .map(k => '<span data-i="' + k + '">' + ITEMS[k][0] + '</span>').join(' ');
 }
+invEl.addEventListener('click', e => {
+  const k = e.target.getAttribute && e.target.getAttribute('data-i');
+  if (!k || !F[k]) return;
+  document.getElementById('itIc').textContent = ITEMS[k][0];
+  document.getElementById('itName').textContent = ITEMS[k][1];
+  document.getElementById('itDesc').textContent = ITEMS[k][2];
+  document.getElementById('item').classList.remove('hidden');
+});
+document.getElementById('item').addEventListener('click', ()=> document.getElementById('item').classList.add('hidden'));
 function addScore(n){ score += n; hud(); }
 
 // ---------- drawing helpers ----------
@@ -250,6 +331,10 @@ function drawDude(x, y){
   q(-4,-23,9,3,'#c62828');
   q(4,-28,2,5,'#ffd54f');
   if (F.crown){ q(-4,-24,9,2,'#ffd54f'); q(-4,-26,2,2,'#ffd54f'); q(0,-26,2,2,'#ffd54f'); q(3,-26,2,2,'#ffd54f'); }
+  if (F.cat){
+    q(-9,-19,6,4,'#f5f5f5'); q(-9,-21,2,2,'#f5f5f5'); q(-5,-21,2,2,'#f5f5f5');
+    q(-8,-18,1,1,'#3fa34d'); q(-5,-18,1,1,'#3fa34d'); q(-11,-17,2,2,'#f5f5f5');
+  }
   ctx.restore();
 }
 function drawElda(x, y, t){
@@ -319,6 +404,59 @@ function drawQueen(x, y, t){
   q(x-4, yy-2, 2, 5, '#3a2f10'); q(x, yy-3, 2, 6, '#3a2f10');
   q(x+3, yy-3, 2, 2, '#222');
   q(x-2, yy-8, 5, 2, '#ffd54f'); q(x-2, yy-10, 1, 2, '#ffd54f'); q(x+2, yy-10, 1, 2, '#ffd54f');
+}
+function drawTilly(x, y, t){
+  const b = Math.sin(t*2.2)*.5;
+  ctx.save(); ctx.translate(x|0, (y+b)|0);
+  const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
+  ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0,1,6,2,0,0,7); ctx.fill();
+  q(-6,-16,12,16,'#c05a7a');
+  q(-4,-12,8,11,'#f5f0e6');
+  q(-3,-22,7,6,'#efc9a6');
+  q(-4,-25,9,4,'#8a5a3b'); q(-1,-27,4,3,'#8a5a3b');
+  q(1,-20,1,1,'#222');
+  ctx.restore();
+}
+function drawFrog(x, y, t){
+  const puff = Math.sin(t*3.5) > .4 ? 2 : 0;
+  const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
+  disc(x, y-4, 6, '#5a8f3c');
+  disc(x, y-1+puff*.5, 4+puff, '#7aa855');
+  disc(x-4, y-9, 2.5, '#5a8f3c'); disc(x+4, y-9, 2.5, '#5a8f3c');
+  q(-1+x-4, y-10, 2, 2, '#fff'); q(-1+x+4, y-10, 2, 2, '#fff');
+  q(x-4, y-10, 1, 1, '#222'); q(x+4, y-10, 1, 1, '#222');
+  q(x-6, y+1, 4, 2, '#4a7a30'); q(x+3, y+1, 4, 2, '#4a7a30');
+}
+function drawCatInTree(x, y, t){
+  const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
+  disc(x, y, 5, '#f5f5f5');
+  disc(x+5, y-4, 3.5, '#f5f5f5');
+  q(x+3, y-9, 2, 3, '#f5f5f5'); q(x+6, y-9, 2, 3, '#f5f5f5');
+  q(x+4, y-5, 1, 1, '#3fa34d'); q(x+7, y-5, 1, 1, '#3fa34d');
+  q(x+5, y-3, 2, 1, '#e8a0a8');
+  const tw = Math.sin(t*4)*3;
+  q(x-7, y-2+tw*.5, 3, 2, '#f5f5f5'); q(x-9, y-4+tw, 3, 2, '#f5f5f5');
+}
+function gorge(xEdge, dir, seed, t){
+  ctx.fillStyle = '#221d1a';
+  ctx.beginPath();
+  ctx.moveTo(xEdge + (hash(0,seed)*14-7), 100);
+  for (let i=1;i<=10;i++) ctx.lineTo(xEdge + (hash(i,seed)*14-7), 100+i*10);
+  ctx.lineTo(xEdge + dir*(OV+40), 200); ctx.lineTo(xEdge + dir*(OV+40), 100);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#151110';
+  ctx.beginPath();
+  ctx.moveTo(xEdge + dir*12 + (hash(0,seed+1)*10-5), 100);
+  for (let i=1;i<=10;i++) ctx.lineTo(xEdge + dir*12 + (hash(i,seed+1)*12-6), 100+i*10);
+  ctx.lineTo(xEdge + dir*(OV+40), 200); ctx.lineTo(xEdge + dir*(OV+40), 100);
+  ctx.closePath(); ctx.fill();
+  for (let i=0;i<=10;i+=2){
+    disc(xEdge + (hash(i,seed)*14-7) - dir*3, 102+i*9.6, 2.5, '#5a5148');
+  }
+  for (let i=0;i<3;i++){
+    const my = 200 - ((t*7 + i*33) % 95);
+    disc(xEdge + dir*(18+hash(i,seed+2)*20), my, 7, 'rgba(205,205,215,' + Math.max(0,.09 - (200-my)/1400) + ')');
+  }
 }
 function drawZ(x, y, a){
   ctx.fillStyle = 'rgba(255,255,255,' + a + ')';
@@ -792,9 +930,7 @@ foothills: {
     R(244,110,16,12,'rgba(140,210,255,' + g + ')');
     disc(60,142,8,'#8b8f99'); disc(122,168,10,'#82868f'); disc(180,150,7,'#8b8f99');
     disc(-60,150,12,'#8b8f99'); disc(-120,166,14,'#82868f');
-    R(302,100,OV+20,100,'#241f1c');
-    R(300,100,4,100,'#57504a');
-    for (let i=0;i<8;i++){ R(304+hash(i,60)*(OV+10), 104+hash(i,61)*90, 6, 2, '#171310'); }
+    gorge(302, 1, 60, t);
   },
   block(x, y){ return x > 294; },
   exitOk(d){ return d !== 'E'; },
@@ -938,8 +1074,7 @@ emberpeak: {
       R(v[0], v[1], v[2], 2, 'rgba(255,120,40,' + a + ')');
       R(v[0]+6, v[1]+2, v[2]-12, 1, 'rgba(255,180,80,' + a*.7 + ')');
     });
-    R(-OV,100,OV+16,100,'#241f1c'); R(14,100,4,100,'#57504a');
-    for (let i=0;i<6;i++){ R(-OV+hash(i,92)*(OV+6), 106+hash(i,93)*88, 6, 2, '#171310'); }
+    gorge(18, -1, 92, t);
   },
   block(x, y){ return x < 22; },
   spots: [
@@ -1111,6 +1246,221 @@ lair: {
   ],
 },
 
+marsh: {
+  title: '— The Misty Marsh —', gx:0, gy:3, walkTop:100,
+  draw(t){
+    R(-OV,0,W+2*OV,H,'#7c937c'); R(-OV,0,W+2*OV,52,'#6d856f'); R(-OV,0,W+2*OV,24,'#5f7763');
+    disc(280,26,9,'#d8dcc8');
+    ground(100, '#4e6b47', '#3d5638');
+    [[120,166,58,20],[262,138,34,12],[46,132,26,10],[-80,150,40,14],[380,168,44,16]].forEach(p=>{
+      ctx.fillStyle = '#3d5f4a';
+      ctx.beginPath(); ctx.ellipse(p[0],p[1],p[2]+3,p[3]+2,0,0,7); ctx.fill();
+      ctx.fillStyle = '#31503f';
+      ctx.beginPath(); ctx.ellipse(p[0],p[1],p[2],p[3],0,0,7); ctx.fill();
+    });
+    disc(104,162,5,'#4a7a3a'); R(106,160,4,2,'#31503f');
+    disc(136,172,6,'#4a7a3a'); R(138,170,5,2,'#31503f'); disc(133,169,2,'#f48fb1');
+    disc(268,136,4,'#4a7a3a');
+    for (let i=0;i<6;i++){
+      const rx = 26 + i*11 + hash(i,25)*5;
+      R(rx,116,1,16,'#2e5b30'); R(rx-1,112,3,6,'#6b5a3a');
+    }
+    R(186,152,34,7,'#5a4a36'); R(188,150,30,2,'#6b5a44');
+    drawFrog(202,148,t);
+    for (let i=0;i<3;i++){
+      const wx2 = 160 + Math.sin(t*.5 + i*2.1)*(90+i*24) ;
+      const wy2 = 118 + Math.sin(t*.9 + i*1.4)*14;
+      const a = .25 + Math.sin(t*3 + i)*.15;
+      disc(wx2, wy2, 5, 'rgba(180,255,220,' + a*.5 + ')');
+      disc(wx2, wy2, 2, 'rgba(220,255,240,' + a + ')');
+    }
+    deadTree(-52,124); deadTree(352,120);
+    ctx.fillStyle = 'rgba(215,225,215,.1)';
+    ctx.fillRect(-OV, 128 + Math.sin(t*.5)*5, W+2*OV, 13);
+  },
+  block(x, y){ const dx=(x-120)/61, dy=(y-166)/22; return dx*dx+dy*dy < 1; },
+  spots: [
+    { x:188,y:132,w:30,h:26, wx:196,wy:162, hx:202,hy:132,
+      act(){
+        sfxTalk();
+        if (!F.coin && !F.wished) say('The frog regards you with ancient calm. “Rrrribbit. The scarecrow in the orchard, far to the EAST, keeps more than crows away. Check his coat.”');
+        else say('“The pond is deep, traveler,” says the frog. “So, in the end, is everything.” It bows, slightly.');
+      } },
+    { x:120,y:104,w:80,h:26, wx:160,wy:136, hint:false,
+      act(){ sfxTalk(); say('Will-o-wisps drift like slow green sparks. They pay you no mind whatsoever.'); } },
+  ],
+},
+
+hamlet: {
+  title: '— Thistledown Hamlet —', gx:1, gy:3, walkTop:102,
+  draw(t){
+    sky(); clouds(t); hills(92);
+    ground(102, '#4aa050', '#38853e');
+    [[52,'#e8d9b8'],[242,'#dfd0b0']].forEach((hh,i)=>{
+      const hx2 = hh[0];
+      R(hx2,70,58,42,hh[1]);
+      ctx.fillStyle = '#a9762f';
+      ctx.beginPath(); ctx.moveTo(hx2-6,72); ctx.lineTo(hx2+64,72); ctx.lineTo(hx2+29,44); ctx.fill();
+      R(hx2+22,88,13,24,'#7a5230');
+      R(hx2+6,84,11,10,'#ffe08a'); R(hx2+40,84,11,10,'#ffe08a');
+      if (i===0){
+        R(hx2+44,50,8,14,'#8d6e63');
+        for (let k=0;k<2;k++){
+          const sy = ((t*8 + k*18) % 36);
+          disc(hx2+48, 48-sy, 3, 'rgba(230,230,230,' + Math.max(0,.4-sy/100) + ')');
+        }
+      }
+    });
+    R(186,120,3,20,'#8a6238'); R(211,120,3,20,'#8a6238');
+    ctx.fillStyle = '#a9762f';
+    ctx.beginPath(); ctx.moveTo(180,122); ctx.lineTo(220,122); ctx.lineTo(200,108); ctx.fill();
+    ctx.fillStyle = '#8f939e';
+    ctx.beginPath(); ctx.ellipse(200,142,15,7,0,0,7); ctx.fill();
+    ctx.fillStyle = '#2c3040';
+    ctx.beginPath(); ctx.ellipse(200,141,10,4,0,0,7); ctx.fill();
+    R(198,118,4,3,'#6d4522'); R(199,121,2,14,'#4a3a28');
+    [[212,164],[92,172]].forEach((c,i)=>{
+      const peck = Math.sin(t*5 + i*2) > .5 ? 2 : 0;
+      const cwx = c[0] + Math.sin(t*.6 + i*3)*8;
+      disc(cwx, c[1], 4, '#f5f5f5');
+      disc(cwx+4, c[1]-3+peck, 2.5, '#f5f5f5');
+      R(cwx+6, c[1]-3+peck, 2, 1, '#e8912b');
+      R(cwx+4, c[1]-4+peck, 1, 1, '#222');
+    });
+    for (let i=0;i<8;i++){ R(30+i*9, 120, 2, 2, ['#f48fb1','#ffd54f'][i%2]); }
+    tree(-44,124); tree(-96,110); tree(368,120); tree(424,132);
+    drawTilly(98,154,t);
+  },
+  spots: [
+    { x:86,y:122,w:26,h:34, wx:104,wy:156, hx:98,hy:124,
+      act(){
+        sfxTalk();
+        if (F.cat){
+          F.cat = false; F.catHome = true;
+          addScore(1); sfxPickup(); hud(); save();
+          say('“BISCUIT!” Tilly scoops her up, laughing, and presses a warm honey-bun into your hands. “Bless you! And listen — our well grants one TRUE wish, for an old copper coin…” (+1)');
+          return;
+        }
+        if (F.catHome){
+          say(F.wished ? 'Tilly waves, flour to the elbows: “Biscuit’s home, the ovens are warm, and the well is humming. All’s right in Thistledown.”'
+                       : 'Tilly leans in: “Don’t forget — one copper coin, one true wish. That old well never lies.”');
+          return;
+        }
+        say('Tilly wrings her floury apron: “My cat Biscuit chased a butterfly into the old orchard, EAST of here. Please, adventurer — bring her home!”');
+      } },
+    { x:182,y:112,w:36,h:36, wx:200,wy:158, hx:200,hy:114,
+      act(){
+        sfxTalk();
+        if (F.coin && !F.wished){
+          F.coin = false; F.wished = true;
+          for (const k in MINFO) seen[k] = 1;
+          addScore(1); sfxUnlock(); hud(); save();
+          say('You drop the coin and whisper: “I wish to know the land.” The water flashes gold — every road and realm of Aldermere unfurls in your mind! (Your 🗺 map is complete.) (+1)');
+          return;
+        }
+        if (F.wished){ say('The well hums contentedly, keeping its change.'); return; }
+        say('A wishing well, deep and patient. It wants a coin — a real, old, story-book coin.');
+      } },
+    { x:196,y:150,w:36,h:22, wx:212,wy:178, hint:false,
+      act(){ sfxTalk(); say('Bok. Bok-bok. The chicken has nothing further to add.'); } },
+  ],
+},
+
+orchard: {
+  title: '— The Old Orchard —', gx:2, gy:3, walkTop:100,
+  draw(t){
+    sky(); clouds(t); hills(90);
+    ground(100, '#559b52', '#428448');
+    const appleTree = (x,y)=>{
+      tree(x,y);
+      R(x-8,y-24,2,2,'#c62828'); R(x+2,y-30,2,2,'#c62828'); R(x+7,y-21,2,2,'#c62828');
+      R(x-2,y-20,2,2,'#c62828');
+    };
+    appleTree(40,118); appleTree(110,112); appleTree(180,118); appleTree(60,158);
+    appleTree(150,166); appleTree(288,112);
+    appleTree(-40,130); appleTree(-100,116); appleTree(360,126); appleTree(416,112);
+    for (let i=0;i<16;i++){
+      R(-OV/2 + hash(i,27)*(W+OV), 120 + hash(i,28)*70, 2, 2, '#a83030');
+    }
+    const sw = Math.sin(t*1.4)*1.5;
+    R(228,116,3,40,'#6d4c28');
+    R(214,124+sw*.4,31,3,'#6d4c28');
+    R(222,120,15,16,'#8a6b45'); R(222,120,15,3,'#a3835a');
+    R(214,122+sw*.4,5,5,'#e0cc7a'); R(240,122+sw*.4,5,5,'#e0cc7a');
+    disc(229.5,112,6,'#d9c08a');
+    R(226,110,2,2,'#3a2f1a'); R(231,110,2,2,'#3a2f1a'); R(227,114,5,1,'#3a2f1a');
+    R(221,104,17,3,'#c9a227'); R(225,99,9,6,'#c9a227');
+    const cb = Math.sin(t*2.8)*.7;
+    R(242,118+cb,7,4,'#16161c'); R(248,115+cb,4,4,'#16161c'); R(251,116+cb,3,1,'#e8912b');
+    if (!F.cat && !F.catHome) drawCatInTree(110,96,t);
+  },
+  spots: [
+    { x:96,y:84,w:30,h:24, wx:112,wy:146, hx:110,hy:84,
+      vis(){ return !F.cat && !F.catHome; },
+      act(){
+        F.cat = true; addScore(1); sfxPickup(); hud(); save();
+        say('“Biscuit?” Mrrp! She pours down the trunk and settles on your shoulders, purring like a tiny engine. (+1)');
+      } },
+    { x:212,y:96,w:38,h:52, wx:230,wy:162, hx:229,hy:94,
+      act(){
+        sfxTalk();
+        if (!F.coin && !F.wished){
+          F.coin = true; hud(); save();
+          say('The crow caws indignantly as you pat down the scarecrow’s coat. In one pocket: an old copper coin, warm from the sun.');
+          return;
+        }
+        say('The scarecrow stares at the horizon. The crow stares at you. Nobody blinks.');
+      } },
+    { x:130,y:150,w:44,h:30, wx:150,wy:184, hint:false,
+      act(){ sfxTalk(); say('Windfall apples, sweet and bruised. The wasps are delighted with the arrangement.'); } },
+  ],
+},
+
+cliffs: {
+  title: '— The Sea Cliffs —', gx:3, gy:3, walkTop:104,
+  draw(t){
+    sky(); clouds(t);
+    ground(104, '#5aa85f', '#46914c');
+    R(-OV,146,W+2*OV,12,'#7a5a40');
+    for (let i=0;i<20;i++){ R(-OV+hash(i,33)*(W+2*OV), 148+hash(i,34)*8, 5, 2, '#66492f'); }
+    R(-OV,158,W+2*OV,42,'#2a63b8');
+    for (let i=0;i<26;i++){
+      const wy2 = 162 + (i%3)*12 + hash(i,35)*6;
+      const wx2 = ((-OV + hash(i,36)*(W+2*OV)) - t*14*(1+(i%3)*.3)) % (W+2*OV);
+      R(wx2 < -OV ? wx2 + W+2*OV : wx2, wy2, 9, 2, 'rgba(225,240,255,.4)');
+    }
+    for (let i=0;i<12;i++){
+      if (Math.sin(t*6 + i*2.2) > .3) R(-OV + hash(i,37)*(W+2*OV), 158, 6, 2, 'rgba(240,248,255,.75)');
+    }
+    const bob = Math.sin(t*1.3)*1.5;
+    const bx = 120 + Math.sin(t*.11)*130;
+    R(bx-10, 176+bob, 20, 5, '#5d4037');
+    R(bx-1, 162+bob, 2, 14, '#3e2f23');
+    ctx.fillStyle = '#f4f1e0';
+    ctx.beginPath(); ctx.moveTo(bx+1,163+bob); ctx.lineTo(bx+11,173+bob); ctx.lineTo(bx+1,173+bob); ctx.fill();
+    R(292,100,14,46,'#eef2f8');
+    R(292,108,14,6,'#c62828'); R(292,124,14,6,'#c62828');
+    R(290,96,18,6,'#8f939e'); R(294,90,10,7,'#2c3040');
+    const bl = (Math.sin(t*2.4) + 1) / 2;
+    disc(299,93,3+bl*2,'rgba(255,224,130,' + (.3+bl*.5) + ')');
+    for (let i=0;i<3;i++){
+      const gx2 = 160 + Math.sin(t*.5 + i*2)*110;
+      const gy2 = 34 + Math.sin(t*1.1 + i*1.6)*10 + i*12;
+      const fl = Math.sin(t*9 + i)*2;
+      ctx.strokeStyle = '#f5f5f5'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(gx2-5, gy2-fl); ctx.lineTo(gx2, gy2); ctx.lineTo(gx2+5, gy2-fl); ctx.stroke();
+    }
+    tree(-52,128); tree(-110,116);
+  },
+  block(x, y){ return y > 144; },
+  spots: [
+    { x:284,y:86,w:30,h:62, wx:280,wy:140, hx:299,hy:84,
+      act(){ sfxTalk(); say('The lighthouse keeper is out. The lamp turns all the same — patient as the tide, bright as a small sun.'); } },
+    { x:-0,y:150,w:320,h:50, wx:160,wy:138, hint:false,
+      act(){ sfxTalk(); say('The sea rolls on forever, bright as beaten silver. Somewhere beyond it wait other shores, and other tales.'); } },
+  ],
+},
+
 };
 
 const grid = {};
@@ -1158,8 +1508,26 @@ function walkTo(x, y, p){
   player.tx = x; player.ty = y; player.moving = true;
   pending = p || null;
 }
+function arrowPos(dir){
+  const r = rooms[cur];
+  const my = (r.walkTop + 196) / 2;
+  return dir === 'W' ? [7, my] : dir === 'E' ? [313, my]
+       : dir === 'N' ? [160, r.walkTop + 6] : [160, 191];
+}
 function tapAt(lx, ly){
   const r = rooms[cur];
+  // arrows first: tapping one guarantees the transition
+  const dx2 = exits();
+  for (const dir in dx2){
+    const p = arrowPos(dir);
+    if (Math.hypot(lx - p[0], ly - p[1]) <= 13){
+      if (dir === 'W') walkTo(4, player.y, { exit: 'W' });
+      else if (dir === 'E') walkTo(316, player.y, { exit: 'E' });
+      else if (dir === 'N') walkTo(player.x, r.walkTop, { exit: 'N' });
+      else walkTo(player.x, 196, { exit: 'S' });
+      return;
+    }
+  }
   for (const s of r.spots){
     if ((!s.vis || s.vis()) && lx >= s.x && lx <= s.x + s.w && ly >= s.y && ly <= s.y + s.h){
       if (Math.hypot(player.x - s.wx, player.y - s.wy) < 14){
@@ -1210,13 +1578,13 @@ function chevron(x, y, dx, dy){
 function arrows(t){
   const r = rooms[cur]; if (r.gx == null) return;
   const d = exits();
-  const a = Math.max(0, .4 + Math.sin(t*3.2) * .32);
-  ctx.fillStyle = 'rgba(255,213,79,' + a + ')';
-  const my = (r.walkTop + 196) / 2;
-  if (d.W) chevron(8, my, -1, 0);
-  if (d.E) chevron(312, my, 1, 0);
-  if (d.N) chevron(160, r.walkTop + 7, 0, -1);
-  if (d.S) chevron(160, 192, 0, 1);
+  const a = Math.max(0, .55 + Math.sin(t*3.2) * .35);
+  for (const dir in d){
+    const p = arrowPos(dir);
+    disc(p[0], p[1], 8, 'rgba(10,12,26,.4)');
+    ctx.fillStyle = 'rgba(255,213,79,' + a + ')';
+    chevron(p[0], p[1], dir === 'W' ? -1 : dir === 'E' ? 1 : 0, dir === 'N' ? -1 : dir === 'S' ? 1 : 0);
+  }
 }
 function drawFrame(t){
   const r = rooms[cur];
@@ -1256,11 +1624,13 @@ const MAPGRID = [
   ['darkwoods','gate','foothills','emberpeak'],
   ['meadow','forest','bridge','pass'],
   ['beeglade','cottage','lake','tower'],
+  ['marsh','hamlet','orchard','cliffs'],
 ];
 const MINFO = {
   darkwoods:['🌲','Dark Woods'], gate:['🏰','Castle'], foothills:['⛰️','Foothills'], emberpeak:['🌋','Ember Peak'],
   meadow:['🌼','Meadow'], forest:['🌳','Forest'], bridge:['🌉','Bridge'], pass:['🌬️','High Pass'],
   beeglade:['🐝','Bee Glade'], cottage:['🏡','Cottage'], lake:['🌊','Lake'], tower:['🧙','Tower'],
+  marsh:['🐸','Marsh'], hamlet:['🥖','Hamlet'], orchard:['🍎','Orchard'], cliffs:['🌅','Sea Cliffs'],
 };
 const MPARENT = { throne:'gate', cave:'foothills', lair:'emberpeak' };
 function openMap(){
@@ -1309,6 +1679,7 @@ function goFull(){
 function begin(){
   introEl.classList.add('hidden');
   goFull();
+  if (musicOn){ ac(); if (AC) nextNote = AC.currentTime + .1; }
   const s = loadSave();
   if (s){ applyState(s); say(rooms[cur].title + '  (welcome back, adventurer)'); }
   else newGame();
@@ -1327,6 +1698,7 @@ document.getElementById('fs').addEventListener('click', ()=>{
   setTimeout(fit, 300);
 });
 if (loadSave()) document.getElementById('begin').textContent = '▶ Continue';
+musBtnIcon();
 window.addEventListener('pagehide', save);
 document.addEventListener('visibilitychange', ()=>{ if (document.hidden) save(); });
 
