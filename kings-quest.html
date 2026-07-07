@@ -314,7 +314,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v25';
+const KQ_VER = 'v26';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -819,24 +819,75 @@ function shadow(x, y, rx){
   ctx.beginPath(); ctx.ellipse(x, y+1, rx, 2, 0, 0, 7); ctx.fill();
 }
 function drawDude(x, y){
-  const f = player.moving ? (Math.floor(player.step)%2) : 0;
-  ctx.save(); ctx.translate(x|0, y|0); if (player.dir < 0) ctx.scale(-1,1);
-  ctx.fillStyle = 'rgba(0,0,0,.25)';
-  ctx.beginPath(); ctx.ellipse(0, 1, 6, 2, 0, 0, 7); ctx.fill();
+  const walk = player.moving ? (Math.floor(player.step) % 2) : -1; // -1 = standing
+  const sw = walk === 1 ? 1 : (walk === 0 ? -1 : 0); // stride direction
+  const bob = player.moving ? (Math.floor(player.step) % 2 ? 1 : 0) : 0; // 1px body bob
+  ctx.save(); ctx.translate(x|0, (y - bob)|0); if (player.dir < 0) ctx.scale(-1,1);
   const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
-  if (f){ q(-5,-7,3,7,'#4e3a2c'); q(2,-7,3,7,'#4e3a2c'); }
-  else  { q(-4,-7,3,7,'#4e3a2c'); q(1,-7,3,7,'#4e3a2c'); }
-  q(-5,-15,10,9,'#2f55c4');
-  q(-5,-9,10,2,'#7a4a1f');
-  q(-7,-14,2,6,'#2f55c4'); q(5,-14,2,6,'#2f55c4');
-  q(-3,-21,7,6,'#f2c290');
-  q(1,-19,1,1,'#222');
-  q(-4,-23,9,3,'#c62828');
-  q(4,-28,2,5,'#ffd54f');
-  if (F.crown){ q(-4,-24,9,2,'#ffd54f'); q(-4,-26,2,2,'#ffd54f'); q(0,-26,2,2,'#ffd54f'); q(3,-26,2,2,'#ffd54f'); }
+  // soft shadow (drawn at ground, unaffected by bob)
+  ctx.fillStyle = 'rgba(0,0,0,.28)';
+  ctx.beginPath(); ctx.ellipse(0, 1 + bob, 7, 2.2, 0, 0, 7); ctx.fill();
+
+  // ---- cloak (behind everything), with a gentle sway while walking ----
+  const sway = player.moving ? sw : 0;
+  q(-6, -20, 12, 15, '#8f2f22');            // cloak body (dark red)
+  q(-6 + sway, -7, 12, 3, '#7a2619');       // cloak hem, swings
+  q(3, -19, 3, 13, '#a5382a');              // cloak highlight fold
+
+  // ---- legs / boots with stride ----
+  const lgL = -4 - (sw > 0 ? 1 : 0), lgR = 1 + (sw < 0 ? 1 : 0);
+  q(lgL, -8, 3, 5, '#3a4a7a');              // left trouser
+  q(lgR, -8, 3, 5, '#3a4a7a');              // right trouser
+  q(lgL, -3, 3, 3, '#4e3a2c'); q(lgL, -3, 3, 1, '#6b5038'); // left boot + cuff
+  q(lgR, -3, 3, 3, '#4e3a2c'); q(lgR, -3, 3, 1, '#6b5038'); // right boot + cuff
+
+  // ---- tunic (torso) with trim + shading ----
+  q(-5, -16, 10, 10, '#2f55c4');            // tunic
+  q(-5, -16, 3, 10, '#274aad');             // shaded left edge
+  q(2, -16, 3, 10, '#4a6fd8');              // lit right edge
+  q(-1, -16, 2, 10, '#d8e0f0');             // centre placket
+  q(-5, -16, 10, 1, '#5a7fe0');             // collar highlight
+  // belt + gold buckle
+  q(-5, -8, 10, 2, '#5a3f28');
+  q(-1, -8, 2, 2, '#ffd54f'); q(-1, -8, 2, 1, '#ffe9a0');
+
+  // ---- arms with hands; the forward arm swings with the walk ----
+  q(-7, -15, 2, 7, '#2b4fb8');              // back arm
+  q(-7, -9, 2, 2, '#f2c290');               // back hand
+  const swA = player.moving ? (sw > 0 ? -1 : 1) : 0;
+  q(5, -15 + swA, 2, 7, '#3a5fca');         // front arm (lit), swings
+  q(5, -9 + swA, 2, 2, '#f2c290');          // front hand
+
+  // ---- head: neck, face, hair, features ----
+  q(-1, -17, 3, 2, '#e0a878');              // neck (shaded)
+  q(-3, -23, 7, 6, '#f2c290');              // face
+  q(3, -23, 1, 6, '#e0a878');               // face shade edge
+  q(-3, -23, 7, 1, '#ffdca8');              // brow highlight
+  // hair
+  q(-4, -24, 8, 2, '#6b4a2b'); q(-4, -22, 1, 3, '#6b4a2b'); q(-4, -24, 8, 1, '#7d5732');
+  // eyes, nose, mouth
+  q(-1, -21, 1, 1, '#3a2a1a'); q(2, -21, 1, 1, '#3a2a1a');
+  q(1, -20, 1, 1, '#e0a878');               // nose
+  q(0, -18, 2, 1, '#b5654a');               // mouth
+
+  if (F.crown){
+    // golden crown replaces the cap
+    q(-4, -25, 9, 2, '#ffd54f'); q(-4, -25, 9, 1, '#ffe9a0');
+    q(-4, -27, 2, 2, '#ffd54f'); q(0, -27, 2, 2, '#ffd54f'); q(3, -27, 2, 2, '#ffd54f');
+    q(-1, -25, 1, 1, '#c62828');            // red jewel
+  } else {
+    // plumed cap
+    q(-4, -25, 9, 3, '#b3402f');            // cap
+    q(-4, -25, 9, 1, '#c9503c');            // cap highlight
+    q(-4, -23, 9, 1, '#7a2619');            // cap band shadow
+    q(4, -30, 2, 6, '#ffd54f');             // feather shaft
+    q(3, -30, 1, 3, '#ffe9a0'); q(5, -28, 1, 3, '#e8b923'); // feather barbs
+  }
   if (F.cat){
-    q(-9,-19,6,4,'#f5f5f5'); q(-9,-21,2,2,'#f5f5f5'); q(-5,-21,2,2,'#f5f5f5');
-    q(-8,-18,1,1,'#3fa34d'); q(-5,-18,1,1,'#3fa34d'); q(-11,-17,2,2,'#f5f5f5');
+    // Biscuit riding on the shoulder
+    q(-9, -20, 6, 4, '#f5f5f5'); q(-9, -22, 2, 2, '#f5f5f5'); q(-5, -22, 2, 2, '#f5f5f5');
+    q(-8, -19, 1, 1, '#3fa34d'); q(-5, -19, 1, 1, '#3fa34d');
+    q(-11, -18, 2, 2, '#f5f5f5'); q(-11, -17, 1, 1, '#e8a0a8'); // tail + nose
   }
   ctx.restore();
 }
