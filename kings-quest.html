@@ -294,7 +294,7 @@ if (hasTTS){
   try { speechSynthesis.onvoiceschanged = pickVoice; } catch(e){}
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
-const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[] };
+const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null };
 const AIVOICES = [
   ['en_GB-alba-medium', 'Alba — British storyteller'],
   ['en_US-amy-medium', 'Amy — American'],
@@ -303,15 +303,31 @@ const AIVOICES = [
 let aiActive = false, aiAudio = null;
 const aiCache = new Map();
 async function makeAISession(mod, voiceId, onProgress){
-  if (mod.TtsSession){
-    let s;
-    if (typeof mod.TtsSession.create === 'function')
+  let s = null;
+  try {
+    if (mod.TtsSession && typeof mod.TtsSession.create === 'function')
       s = await mod.TtsSession.create({ voiceId, progress: onProgress });
-    else s = new mod.TtsSession({ voiceId, progress: onProgress });
-    if (s && s.voiceId !== voiceId){ try { s.voiceId = voiceId; } catch(e){} }
-    if (s && typeof s.predict === 'function') return s;
+    else if (mod.TtsSession)
+      s = new mod.TtsSession({ voiceId, progress: onProgress });
+  } catch(e){}
+  // the lib reuses a singleton session — creating with a new voiceId can
+  // silently keep the OLD voice. Force the switch and re-init the model.
+  if (s && s.voiceId !== undefined && s.voiceId !== voiceId){
+    try {
+      s.voiceId = voiceId;
+      if (typeof s.init === 'function') await s.init();
+    } catch(e){}
+    if (s.voiceId !== voiceId){
+      try {
+        const s2 = new mod.TtsSession({ voiceId, progress: onProgress });
+        if (typeof s2.init === 'function') await s2.init();
+        if (s2 && typeof s2.predict === 'function') s = s2;
+      } catch(e){}
+    }
   }
-  return { predict: t => mod.predict({ text: t, voiceId }) };
+  if (s && typeof s.predict === 'function' && (s.voiceId === undefined || s.voiceId === voiceId))
+    return s;
+  return { voiceId, predict: t => mod.predict({ text: t, voiceId }) };
 }
 async function loadAI(voiceId){
   if (AI.state === 'loading') return;
@@ -332,8 +348,10 @@ async function loadAI(voiceId){
     };
     AI.session = await makeAISession(AI.mod, voiceId, onProgress);
     AI.voiceId = voiceId; AI.state = 'ready';
+    aiCache.clear(); // generated lines from another voice must not replay
     if (AI.storedIds.indexOf(voiceId) < 0) AI.storedIds.push(voiceId);
     try { localStorage.setItem('kq-aivoice', voiceId); } catch(e){}
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e){}
   } catch(e){
     AI.state = 'error'; AI.err = String(e && e.message || e).slice(0, 90);
     AI.session = null; AI.voiceId = null;
@@ -512,6 +530,11 @@ function buildNarMenu(){
           has ? 'On your phone — tap to use' : '~60 MB download',
           '', ()=> loadAI(v[0]).then(()=>{ if (AI.state === 'ready') aiPreview(); })));
       });
+    } else if (AI.pref){
+      const v = AIVOICES.find(x => x[0] === AI.pref);
+      list.appendChild(aiRow('✨ Reload your storyteller' + (v ? ' — ' + v[1] : ''),
+        'Uses the saved download if it’s still on your phone; otherwise downloads again (~60 MB).',
+        '', ()=> loadAI(AI.pref).then(()=>{ if (AI.state === 'ready') aiPreview(); })));
     } else {
       list.appendChild(aiRow('✨ Get the AI Storyteller voice',
         'Natural, not robotic. ~60 MB download, kept on your phone. Wi-Fi recommended.'
@@ -2311,28 +2334,65 @@ document.getElementById('fs').addEventListener('click', ()=>{
 if (loadSave()) document.getElementById('begin').textContent = '▶ Continue';
 narBtnIcon();
 // detect the AI storyteller already stored on this device and re-activate it.
-// This asks the voice engine what's actually downloaded, so it works even if
-// the saved preference was lost — no re-download, no tap needed.
+// Three probes: the voice engine's own registry, the private file system, and
+// the browser's download cache — so a lost preference or a quirky storage
+// backend can't make the game forget a 60 MB model that's already here.
+async function opfsVoices(){
+  const out = [];
+  try {
+    const root = await navigator.storage.getDirectory();
+    const scan = async (dir, depth) => {
+      for await (const entry of dir.values()){
+        const m = entry.name.match(/([a-z]{2}_[A-Z]{2}-[\w+-]+?)\.onnx/);
+        if (entry.kind === 'file' && m && out.indexOf(m[1]) < 0) out.push(m[1]);
+        else if (entry.kind === 'directory' && depth < 2) await scan(entry, depth + 1);
+      }
+    };
+    await scan(root, 0);
+  } catch(e){}
+  return out;
+}
+async function cacheVoices(){
+  const out = [];
+  try {
+    for (const key of await caches.keys()){
+      const c = await caches.open(key);
+      for (const req of await c.keys()){
+        const m = req.url.match(/([a-z]{2}_[A-Z]{2}-[\w+-]+?)\.onnx/);
+        if (m && out.indexOf(m[1]) < 0) out.push(m[1]);
+      }
+    }
+  } catch(e){}
+  return out;
+}
 async function detectAI(){
   try {
     if (!AI.mod)
       AI.mod = await import('https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1/+esm');
-    let pref = null;
-    try { pref = localStorage.getItem('kq-aivoice'); } catch(e){}
-    let storedIds = [];
+  } catch(e){ AI.mod = null; }
+  try { AI.pref = localStorage.getItem('kq-aivoice'); } catch(e){}
+  const ids = {};
+  if (AI.mod){
     try {
-      if (typeof AI.mod.stored === 'function') storedIds = (await AI.mod.stored()) || [];
+      if (typeof AI.mod.stored === 'function')
+        ((await AI.mod.stored()) || []).forEach(v => { ids[v] = 1; });
     } catch(e){}
-    AI.storedIds = storedIds;
-    const preferred = (pref && storedIds.indexOf(pref) >= 0)
-      ? pref
-      : storedIds.filter(id => AIVOICES.some(v => v[0] === id))[0];
-    if (preferred && pref !== ''){ loadAI(preferred); return; }        // '' = user chose a phone voice
-    if (pref && typeof AI.mod.stored !== 'function'){ loadAI(pref); return; } // old lib: trust the pref
-    if (!narEl.classList.contains('hidden')) buildNarMenu();
-  } catch(e){}
+  }
+  (await opfsVoices()).forEach(v => { ids[v] = 1; });
+  (await cacheVoices()).forEach(v => { ids[v] = 1; });
+  AI.storedIds = Object.keys(ids);
+  if (AI.mod){
+    const preferred = (AI.pref && AI.storedIds.indexOf(AI.pref) >= 0)
+      ? AI.pref
+      : AI.storedIds.filter(id => AIVOICES.some(v => v[0] === id))[0];
+    if (preferred && AI.pref !== ''){ loadAI(preferred); return; } // '' = user chose a phone voice
+  }
+  if (!narEl.classList.contains('hidden')) buildNarMenu();
 }
-if (location.protocol.indexOf('http') === 0) detectAI();
+if (location.protocol.indexOf('http') === 0){
+  detectAI();
+  window.addEventListener('online', ()=>{ if (AI.state === 'off') detectAI(); });
+}
 window.addEventListener('pagehide', save);
 document.addEventListener('visibilitychange', ()=>{ if (document.hidden) save(); });
 
