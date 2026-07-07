@@ -34,7 +34,7 @@
     background:#141625; border-top:2px solid #2c3050; color:#f4e3b2;
     display:flex; align-items:flex-start; gap:10px;
   }
-  #speak {
+  #speak, #eye {
     background:#2c3050; color:#f4e3b2; border:0; border-radius:6px;
     font-size:15px; padding:4px 9px; flex:0 0 auto; font-family:inherit;
   }
@@ -57,13 +57,14 @@
     font-size:15px; font-weight:bold; padding:10px 22px; margin:4px;
   }
   .card button.ghost { background:#2c3050; color:#f4e3b2; }
-  #voiceList { max-height:44vh; overflow-y:auto; margin:10px 0; display:flex; flex-direction:column; gap:6px; }
-  .vrow {
+  #voiceList { max-height:38vh; overflow-y:auto; margin:10px 0; display:flex; flex-direction:column; gap:6px; }
+  .card button.vrow {
     background:#1b1e33; border:1px solid #2c3050; border-radius:8px; color:#f4e3b2;
-    font-family:inherit; font-size:12px; padding:8px 10px; text-align:left; width:100%;
+    font-family:inherit; font-size:12px; font-weight:normal; padding:8px 10px;
+    text-align:left; width:100%; margin:0;
   }
-  .vrow.sel { border-color:#ffd54f; color:#ffd54f; }
-  .vrow small { color:#8b90ad; display:block; font-size:10px; margin-top:2px; }
+  .card button.vrow.sel { border-color:#ffd54f; color:#ffd54f; background:#26240f; }
+  .card button.vrow small { color:#8b90ad; display:block; font-size:10px; margin-top:2px; }
   #mapGrid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin:10px 0 14px; }
   .mc {
     background:#1b1e33; border:1px solid #2c3050; border-radius:6px;
@@ -87,7 +88,7 @@
     <button id="reset" title="New game">↺</button>
   </div>
   <div id="stage"><canvas id="cv" width="320" height="200"></canvas></div>
-  <div id="msg"><button id="speak" title="Read aloud">🔊</button><span id="msgTxt"></span></div>
+  <div id="msg"><button id="eye" title="Describe the scene">👁️</button><button id="speak" title="Read aloud">🔊</button><span id="msgTxt"></span></div>
 
   <div id="intro" class="overlay">
     <div class="card">
@@ -120,7 +121,12 @@
       <h1>🗣️ Narrator</h1>
       <button id="autoBtn"></button>
       <div id="voiceList"></div>
-      <p style="font-size:11px;color:#8b90ad">Tap a voice to hear it — “HD” voices sound best.<br>Tap outside this card to close.</p>
+      <p style="font-size:11px;color:#8b90ad;text-align:left">These voices come from your phone. <b>Android tip:</b> the game follows the
+      Google engine’s default voice — to upgrade it, open your phone’s
+      <i>Text-to-speech</i> settings → tap the ⚙ beside the Google engine →
+      <i>Install voice data</i> → English → pick the Voice that sounds nicest,
+      then restart the game.</p>
+      <p style="font-size:11px;color:#8b90ad">Tap a voice to hear it • Tap outside this card to close</p>
     </div>
   </div>
 
@@ -307,15 +313,18 @@ function allVoices(){
   vs.sort((a,b) => vrank(b) - vrank(a));
   return vs;
 }
+const VFLAGS = { us:'🇺🇸', gb:'🇬🇧', au:'🇦🇺', in:'🇮🇳', ng:'🇳🇬', ie:'🇮🇪', za:'🇿🇦', ca:'🇨🇦', nz:'🇳🇿' };
 function voiceLabel(v){
   const id = ((v.voiceURI || '') + ' ' + v.name).toLowerCase();
+  const region = ((v.lang || '').split('-')[1] || '').toLowerCase();
+  const flag = VFLAGS[region] ? VFLAGS[region] + ' ' : '';
   const m = id.match(/en-([a-z]{2})-x-[a-z0-9]+(?:#([a-z]+)_(\d))?[-#]?(network|local)/);
   if (m){
-    return 'English ' + m[1].toUpperCase()
+    return flag + 'English ' + m[1].toUpperCase()
       + (m[2] ? ' — ' + m[2][0].toUpperCase() + m[2].slice(1) + ' ' + m[3] : '')
       + (m[4] === 'network' ? '  ✨HD' : '  (compact)');
   }
-  let n = v.name;
+  let n = flag + v.name;
   if (/natural|neural|enhanced|premium/i.test(id)) n += '  ✨HD';
   return n;
 }
@@ -1833,6 +1842,50 @@ const MINFO = {
   marsh:['🐸','Marsh'], hamlet:['🥖','Hamlet'], orchard:['🍎','Orchard'], cliffs:['🌅','Sea Cliffs'],
 };
 const MPARENT = { throne:'gate', cave:'foothills', lair:'emberpeak' };
+
+// ---------- scene descriptions (the 👁️ button) ----------
+const DESCS = {
+  forest: () => 'You stand in a sunny forest where two dirt paths cross. Tall oak trees rustle all around you, and a wooden signpost points the way to the castle, the meadow, the cottage and the bridge.',
+  meadow: () => 'A wide green meadow full of tiny white, yellow and pink flowers, with butterflies fluttering about.'
+    + (!F.flower && !F.gaveFlower ? ' In the grass to the west, one special flower glows softly pink — the moonpetal.' : '')
+    + (!F.posy && !honeyDone() ? ' On the east side grows a bright patch of wildflowers, perfect for picking.' : ''),
+  cottage: () => 'A cosy cottage with a thatched roof and smoke curling from the chimney. Old Elda stands in her flower garden by the fence.'
+    + (!F.lantern ? ' A little lantern hangs on a hook by the door.' : ''),
+  bridge: () => 'A rushing blue river runs along the east side, crossed by an old wooden bridge, with snowy mountains far beyond.'
+    + (F.gaveFish ? ' Grukk the troll sits happily beside the bridge, patting his round belly.'
+                  : ' Grukk, a big green troll, stands right on the bridge guarding the way — a shiny brass key hangs at his chest.'),
+  lake: () => 'A great silver lake sparkles in the sun. A little wooden pier reaches out over the water and reeds sway at the shore.'
+    + (!F.fish && !F.gaveFish ? ' Every now and then, a fat trout leaps out and splashes back in.' : ''),
+  gate: () => 'A grey stone castle with two tall towers, red flags flapping in the wind.'
+    + (F.gateOpen ? ' The great wooden doors stand open onto a dark hall.' : ' Its great wooden doors are shut tight, with a brass keyhole.'),
+  throne: () => 'A grand stone hall with blue glass windows, flickering torches, and a red carpet leading up to a golden throne.'
+    + (F.crown ? ' The stone pedestal beside it stands empty — because the crown is on your head.'
+               : ' Beside the throne stands a stone pedestal, empty, marked with soot and claw scratches.'),
+  darkwoods: () => 'A gloomy wood of bare, dead trees with grey fog drifting between them. Red mushrooms grow in a ring, and high on the tallest snag perches a black raven'
+    + (!F.gaveGeode ? ', clutching a little leather book.' : ', admiring its shiny geode.'),
+  foothills: () => 'Rocky foothills dotted with boulders beneath snowy peaks. A dark cave mouth opens in the hillside, breathing cold air, and to the east the ground splits into a deep, misty gorge.',
+  cave: () => 'A glittering crystal cave, deep and dark. Blue and purple crystals glow softly, bats flit near the ceiling, and your lantern makes a little circle of warm light.'
+    + (!F.geode ? ' Something sparkly and purple glints on the cave floor.' : ''),
+  pass: () => F.warm
+    ? 'A snowy mountain pass, calm and quiet now. The narrow way north lies open, and Ember Peak glows red in the distance. The snowman looks pleased for you.'
+    : 'A freezing mountain pass deep in snow. A wild, howling blizzard swirls across the narrow path to the north, and even the snowman looks cold.',
+  emberpeak: () => 'A dark, burnt mountain under an ash-grey sky. Orange fire glows in cracks in the black rock, and smoke drifts from a big cave mouth — the dragon’s lair.',
+  lair: () => F.crown
+    ? 'Inside the dragon’s lair, Cinder dozes contentedly on her mountain of gold. She does not mind about the crown one bit.'
+    : (F.honeyOut
+      ? 'Cinder the huge red dragon is over at the flat stone, happily slurping honey. Her mountain of gold — with the crown on top — stands unguarded!'
+      : 'Inside the dragon’s lair, Cinder the huge red dragon lies sleeping, smoke rings puffing from her nose. Behind her rises a mountain of gold — and on top of it, the golden crown.'),
+  marsh: () => 'A misty green marsh with dark, still pools and lily pads. Ghostly green lights drift slowly over the water, and a wise old frog sits on a log, watching you.',
+  hamlet: () => 'A tiny village of two cottages with smoking chimneys. Chickens peck about the grass, Tilly the baker stands in her floury apron, and in the middle waits an old stone wishing well.',
+  orchard: () => 'Rows of apple trees heavy with red apples. A scarecrow in a straw hat stands watch with a grumpy crow on its arm'
+    + (!F.cat && !F.catHome ? ' — and up in one of the trees, a little white cat meows for help.' : '.'),
+  cliffs: () => 'Green cliffs high above a wide silver sea. Waves roll far below, seagulls wheel overhead, a little sailboat drifts past, and a lighthouse blinks its patient lamp.',
+};
+document.getElementById('eye').addEventListener('click', ()=>{
+  const d = DESCS[cur] ? DESCS[cur]() : rooms[cur].title;
+  msgTxtEl.textContent = d;
+  startSpeech(d, speakBtn);
+});
 function openMap(){
   const here = MPARENT[cur] || cur;
   document.getElementById('mapGrid').innerHTML = MAPGRID.map(row =>
