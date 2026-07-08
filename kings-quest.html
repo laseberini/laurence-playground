@@ -177,9 +177,9 @@
 <script>
 'use strict';
 const W = 320, H = 200, MAX = 18;
-// chunk size: phones render at half res for fat, cosy pixels; laptops/desktops
-// (a real pointer) render at full res so the art is crisp and detailed. Set per fit().
-let PX = 2;
+// chunk size: every device renders the full 320x200, matching the classic
+// Sierra resolution — sharper detail and true 1px dithering on phones too.
+let PX = 1;
 const CRISP = (window.matchMedia && matchMedia('(pointer: fine)').matches);
 const OV = 400;    // decorative overdraw beyond world edges for wide screens
 const cv = document.getElementById('cv'), dctx = cv.getContext('2d');
@@ -616,7 +616,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v33';
+const KQ_VER = 'v34';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -1669,6 +1669,9 @@ function kFar(){
   R(-OV, 96, W+2*OV, 4, '#1d5c1e');
   R(-OV, 100, W+2*OV, 5, '#e6dc8e'); // sunlit clearing strip below the woods
   dRect(-OV, 103, W+2*OV, 3, '#e6dc8e', '#50c040');
+  for (let i=0;i<14;i++){ // tiny coloured accents along the strip
+    R(-OV + hash(i,55)*(W+2*OV), 101 + hash(i,56)*3, 2, 1, i%2 ? '#e05858' : '#e070d8');
+  }
 }
 function kGround(){
   const top = 105;
@@ -1696,12 +1699,49 @@ function kGround(){
   ctx.fillRect(-OV, 145, OV+147, 1); ctx.fillRect(172, 145, W+OV-172, 1);
   ctx.fillRect(-OV, 164, OV+147, 1); ctx.fillRect(172, 164, W+OV-172, 1);
   kDirt(-OV, 188, W+2*OV, 12, 5); // ragged dirt strip frames the foreground
+  ctx.fillStyle = '#2f8428'; // spiky grass tufts
+  for (let i=0;i<18;i++){
+    const tx = (-OV + hash(i,78)*(W+2*OV))|0, ty = (112 + hash(i,79)*(H-126))|0;
+    if ((tx > 140 && tx < 180) || (ty > 142 && ty < 166)) continue;
+    ctx.fillRect(tx, ty, 1, 3); ctx.fillRect(tx+2, ty-1, 1, 4); ctx.fillRect(tx+4, ty, 1, 3);
+  }
   for (let i=0;i<16;i++){ // tiny pixel-flower clusters
     const fx = (-OV + hash(i,80)*(W+2*OV))|0, fy = (top+8 + hash(i,81)*(H-top-32))|0;
     if ((fx > 140 && fx < 178) || (fy > 140 && fy < 168)) continue;
     const c = i%3 ? '#e070d8' : '#8f7ae8';
     R(fx, fy, 2, 2, c); R(fx+3, fy-1, 1, 1, c); R(fx-2, fy+1, 1, 1, '#f2b3ea');
   }
+}
+function kRock(x, y, s){
+  // flat-shaded boulder: black silhouette, lit crown, dithered flank, cracks
+  // scanline rows with a rounded, jittered profile — reads as a real boulder
+  const rows = Math.round(24*s);
+  for (let k=0; k<rows; k++){
+    const f = k/rows, ry = y - rows + k;
+    let hw = 14*s*Math.sin(3.1416*(0.09 + 0.66*f)) + (hash(k,7) - .5)*1.6*s;
+    if (hw < 2) hw = 2;
+    R(x - hw - 1, ry, 2*hw + 2, 1, '#14161a');   // hard outline
+    if (k > 0 && k < rows-1){
+      const split = x - hw*.2 + (f - .45)*6*s;    // diagonal light/shade split
+      R(x - hw, ry, Math.max(1, split - (x - hw)), 1, f < .18 ? '#c2c8ce' : '#aab2b8');
+      R(split, ry, x + hw - split, 1, f < .3 ? '#9aa2aa' : '#7c848c');
+      if (f > .38) dRect(x + hw*.25, ry, hw*.7, 1, '#7c848c', '#3e454c'); // dithered flank
+      if (f > .8) dRect(x - hw*.6, ry, hw*1.1, 1, '#6a727a', '#565e66');  // bottom shade
+    }
+  }
+  R(x - 2, y - rows + 5, 1, 8, '#14161a');  // cracks
+  R(x + 4, y - rows*.5, 1, 8, '#14161a');
+  R(x - 12*s, y - 1, 24*s, 2, '#2c7a22');   // grass contact shadow
+}
+function kStump(x, y, s){
+  R(x - 7*s, y - 2, 14*s, 3, '#241505');    // base outline
+  R(x - 6*s, y - 8*s, 12*s, 8*s, '#6b4526');
+  R(x - 6*s, y - 8*s, 3*s, 8*s, '#4a2c12'); // shaded side
+  R(x - 6*s, y - 11*s, 12*s, 4*s, '#241505'); // rim
+  R(x - 5*s, y - 10.4*s, 10*s, 2.6*s, '#c9a05e'); // cut face
+  R(x - 3*s, y - 9.6*s, 6*s, 1.2*s, '#8a6a38');   // rings
+  R(x - 8*s, y - 6*s, 2*s, 5*s, '#3a2410'); // root flares
+  R(x + 6*s, y - 5*s, 2*s, 4*s, '#3a2410');
 }
 function kCanopyTop(){
   // foliage hanging over the top of the frame, as if from huge trees just
@@ -1732,6 +1772,13 @@ function kTree(x, y, sc, t, i){
   R(x - 3*sc, y - th, 6*sc, th, '#7a4e26');  // flat trunk
   R(x - 3*sc, y - th, 2*sc, th, '#54351a');  // flat shaded side
   dRect(x + 0.5*sc, y - th + 3, 1.5*sc, th - 5, '#7a4e26', '#54351a'); // bark
+  for (let k=0;k<3;k++){ // black bark slashes
+    R(x - 2.4*sc + hash(k,i+60)*3*sc, y - th + (4 + k*5.5)*sc, 2.5*sc, 1, '#241505');
+  }
+  R(x - 5*sc, y - 3, 2*sc, 3, '#54351a'); // root flares
+  R(x + 3*sc, y - 3, 2*sc, 3, '#54351a');
+  R(x - 5.6*sc, y - 1, 2*sc, 2, '#241505');
+  R(x + 3.8*sc, y - 1, 2*sc, 2, '#241505');
   const cy = y - th - 6*sc;
   const sway = Math.sin(t*.6 + i*1.9) * 1.2;
   const dk = '#144a12', md = '#2c8a24', dd = dpat('#144a12','#2c8a24');
@@ -1739,6 +1786,7 @@ function kTree(x, y, sc, t, i){
   B(0, 2, 12, dk, 1); B(-11, -1, 9, dk, 2); B(11, -1, 9, dk, 3); // broad oak lobes
   B(0, -8, 10, dk, 4);
   B(-5, -3, 9, dd, 5); B(7, -4, 8, dd, 6); B(1, 1, 9, dd, 7);    // dithered body
+  B(7, 2, 8, dpat('#144a12','#082408'), 10);                     // deep shade, near-black
   B(-8 + sway/sc, -7, 6, md, 8); B(5 + sway/sc, -9, 6, md, 9);   // lit lobes
   ctx.fillStyle = '#4fc23a'; // chunky top highlights
   for (let k=0;k<10;k++){
@@ -1834,15 +1882,33 @@ forest: {
           [-36,124,1.25,5],[-84,106,1,6],[356,120,1.15,7],[404,104,1,8],[24,122,2.1,9]],
   draw(t){
     kSky(t); kFar(); kGround();
+    kStump(96, 178, 1);
+    kRock(236, 134, 1.2);
+    for (let i=0;i<22;i++){ // flower bed at the boulder's foot
+      const fx = 208 + hash(i,85)*52, fy = 135 + hash(i,86)*8;
+      R(fx, fy, 2, 2, ['#e070d8','#7a8cf0','#d84fc0','#a070e8'][i%4]);
+      if (i%3 === 0) R(fx+1, fy-1, 1, 1, '#ffffff');
+    }
     treesBG(this.trees, t);   // trunks block; drawFrame re-draws front trees to occlude
     signpost(56, 150);
     kCanopyTop();
+  },
+  block(x, y){
+    return (x > 221 && x < 251 && y > 124 && y < 139) || // boulder
+           (x > 88 && x < 104 && y > 172 && y < 181);    // stump
+  },
+  post(t){
+    if (player.y < 134) kRock(236, 134, 1.2); // slip behind the boulder
   },
   spots: [
     { x:52,y:114,w:32,h:38, wx:78,wy:154, hx:70,hy:112,
       act(){ sfxTalk(); say('The sign reads: “Castle NORTH. Meadow WEST. Elda’s cottage SOUTH. Bridge EAST.”'); } },
     { x:12,y:96,w:26,h:30, wx:38,wy:130, hint:false,
       act(){ sfxTalk(); say('A sturdy old oak. Its leaves whisper of adventure.'); } },
+    { x:220,y:108,w:34,h:30, wx:238,wy:144, hint:false,
+      act(){ sfxTalk(); say('A huge mossy boulder. Perhaps a giant dropped it long ago.'); } },
+    { x:88,y:166,w:18,h:14, wx:108,wy:180, hint:false,
+      act(){ sfxTalk(); say('An old stump. You can count its rings — this tree was VERY old.'); } },
   ],
 },
 
@@ -3581,8 +3647,8 @@ document.addEventListener('visibilitychange', ()=>{ if (document.hidden) save();
 function fit(){
   const sw = stage.clientWidth, sh = stage.clientHeight;
   if (!sw || !sh) return;
-  // full-res pixels on a laptop/desktop, chunky ones on a phone
-  PX = CRISP ? 1 : 2;
+  // full 320x200 everywhere — the classic Sierra resolution
+  PX = 1;
   DW = Math.max(W, Math.min(W + 2*OV, Math.round(sw / sh * H)));
   OX = Math.floor((DW - W) / 2 / PX) * PX;
   os.width = Math.ceil(DW / PX); os.height = H / PX;
