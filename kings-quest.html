@@ -625,7 +625,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v46';
+const KQ_VER = 'v47';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -3652,8 +3652,10 @@ stage.addEventListener('pointerdown', e => {
   const b = cv.getBoundingClientRect();
   const lx = (e.clientX - b.left) / b.width * DW - OX;
   const ly = (e.clientY - b.top) / b.height * H;
+  // clamp to the VISIBLE range, not the 320 world — on wide screens the exit
+  // arrows and edge-tap zones live out at W+OX, so a side tap must reach them
   if (lx >= -OX - 1 && lx <= W + OX + 1 && ly >= 0 && ly <= H)
-    tapAt(Math.max(0, Math.min(W, lx)), ly);
+    tapAt(Math.max(-OX, Math.min(W + OX, lx)), ly);
 });
 document.addEventListener('contextmenu', e => e.preventDefault());
 
