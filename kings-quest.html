@@ -616,7 +616,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v37';
+const KQ_VER = 'v38';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -1555,7 +1555,7 @@ function fFar(){
   }
   R(-OV, 94, W+2*OV, 3, '#5f9a68');
   R(-OV, 96, W+2*OV, 10, '#e6dc8e'); // sunlit clearing band under the woods
-  dRect(-OV, 100, W+2*OV, 6, '#e6dc8e', '#8fce6f');
+  dRect(-OV, 100, W+2*OV, 6, '#e6dc8e', '#79ea5c');
 }
 function fGround(){
   const top = 100;
@@ -1656,7 +1656,7 @@ function kFar(){
   }
   R(-OV, 96, W+2*OV, 4, '#1d5c1e');
   R(-OV, 100, W+2*OV, 5, '#e6dc8e'); // sunlit clearing strip below the woods
-  dRect(-OV, 103, W+2*OV, 3, '#e6dc8e', '#50c040');
+  dRect(-OV, 103, W+2*OV, 3, '#e6dc8e', '#46e93c');
   for (let i=0;i<14;i++){ // tiny coloured accents along the strip
     R(-OV + hash(i,55)*(W+2*OV), 101 + hash(i,56)*3, 2, 1, i%2 ? '#e05858' : '#e070d8');
   }
@@ -1672,15 +1672,15 @@ function kPathH(px){
 }
 function kGround(){
   const top = 105;
-  R(-OV, top, W+2*OV, H-top, '#50c040'); // one flat classic green
-  ctx.fillStyle = '#84e858'; // hard-edged sunlit streaks
+  R(-OV, top, W+2*OV, H-top, '#46e93c'); // one flat classic green
+  ctx.fillStyle = '#8cff70'; // hard-edged sunlit streaks
   for (let i=0;i<26;i++){
     const gx = -OV + hash(i,71)*(W+2*OV), gy = top+6 + hash(i,72)*(H-top-14);
     ctx.fillRect(gx|0, gy|0, (8+hash(i,73)*26)|0, 2);
   }
   for (let i=0;i<10;i++){ // dithered shade patches
     const gx = -OV + hash(i,74)*(W+2*OV), gy = top+4 + hash(i,75)*(H-top-16);
-    dRect(gx, gy, (12+hash(i,76)*30)|0, (4+hash(i,77)*6)|0, '#50c040', '#2f8428');
+    dRect(gx, gy, (12+hash(i,76)*30)|0, (4+hash(i,77)*6)|0, '#46e93c', '#2fae2e');
   }
   // winding crossroads: the two ways meander, swell at the junction and
   // keep ragged hand-drawn edges — no straight lines in a forest
@@ -1717,7 +1717,7 @@ function kGround(){
     dRect(wx, wy, (4+hash(i,94)*8)|0, (2+hash(i,95)*3)|0, '#b07f3e', '#7c5424');
   }
   kDirt(-OV, 188, W+2*OV, 12, 5); // ragged dirt strip frames the foreground
-  ctx.fillStyle = '#2f8428'; // spiky grass tufts
+  ctx.fillStyle = '#2fae2e'; // spiky grass tufts
   for (let i=0;i<18;i++){
     const tx = (-OV + hash(i,78)*(W+2*OV))|0, ty = (112 + hash(i,79)*(H-126))|0;
     const pv = kPathV(ty), ph = kPathH(tx);
@@ -1751,7 +1751,7 @@ function kRock(x, y, s, shc){
   }
   R(x - 2, y - rows + 5, 1, 8, '#14161a');  // cracks
   R(x + 4, y - rows*.5, 1, 8, '#14161a');
-  R(x - 12*s, y - 1, 24*s, 2, shc || '#2c7a22'); // ground contact shadow
+  R(x - 12*s, y - 1, 24*s, 2, shc || '#2fae2e'); // ground contact shadow
 }
 function kStump(x, y, s){
   R(x - 7*s, y - 2, 14*s, 3, '#241505');    // base outline
@@ -1784,8 +1784,8 @@ function kDirt(x, y, w, h, seed){
   dRect(x, y, w, h, '#9a6a30', '#5c3a14');
 }
 function kTree(x, y, sc, t, i){
-  R(x - 12*sc, y - 1, 24*sc, 3, '#2f8428'); // flat hard-edged shadow
-  R(x - 8*sc, y + 2, 16*sc, 2, '#2f8428');
+  R(x - 12*sc, y - 1, 24*sc, 3, '#2fae2e'); // flat hard-edged shadow
+  R(x - 8*sc, y + 2, 16*sc, 2, '#2fae2e');
   const th = 20*sc;
   R(x - 3*sc - 1, y - th, 1.2, th, '#241505'); // outlines
   R(x + 3*sc, y - th, 1.2, th, '#241505');
@@ -1856,7 +1856,7 @@ function dTree(x, y, sc, i){
 function fGrass(top, c0, c1){
   c0 = c0 || '#4fae55'; c1 = c1 || '#2c743a';
   R(-OV, top, W+2*OV, H-top, c0);
-  ctx.fillStyle = '#84e858';
+  ctx.fillStyle = '#8cff70';
   for (let i=0;i<24;i++){
     ctx.fillRect((-OV + hash(i,171)*(W+2*OV))|0, (top+5 + hash(i,172)*(H-top-12))|0, (8+hash(i,173)*24)|0, 2);
   }
@@ -1951,7 +1951,7 @@ meadow: {
   title: '— Moonpetal Meadow —', gx:0, gy:1, walkTop:100, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
-    fGrass(100, '#52c948', '#2f8a35');
+    fGrass(100, '#46e93c', '#2fae2e');
     // layered wildflowers: tall stems behind, bright heads in front
     for (let i=0;i<120;i++){
       const fx = -OV + hash(i,7)*(W+2*OV), fy = 106 + hash(i,8)*(H-112);
@@ -2008,7 +2008,7 @@ cottage: {
   title: '— Elda’s Cottage —', gx:1, gy:2, walkTop:104, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
-    fGrass(104, '#50c644', '#2e8834');
+    fGrass(104, '#46e93c', '#2fae2e');
     fTree(376, 118, 1.2, t, 3); fTree(430, 126, 1.0, t, 5); // orchard behind on the right
     // plastered wall with soft vertical shading + timber frame
     gradFill(115, 58, 92, 54, 58, 112, [[0,'#efe1c2'],[1,'#d8c49c']]);
@@ -2113,7 +2113,7 @@ bridge: {
     };
     mtn(268,64,240,296); mtn(306,72,280,330); mtn(372,58,336,408);
     fFar();
-    fGrass(100, '#4bbf3e', '#2a8030');
+    fGrass(100, '#46e93c', '#2fae2e');
     // river gorge
     fWater(240, 100, 80, 100, t, 3);
     R(236,100,4,100,'#7a5c48'); R(316,100,4,100,'#7a5c48'); // banks
@@ -2159,7 +2159,7 @@ lake: {
   title: '— The Silver Lake —', gx:2, gy:2, walkTop:100, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
-    fGrass(100, '#4bbf3e', '#2a8030');
+    fGrass(100, '#46e93c', '#2fae2e');
     // sandy shore ring
     ctx.fillStyle = '#d9bd82';
     ctx.beginPath(); ctx.ellipse(216,176,164,58,0,0,7); ctx.fill();
@@ -2267,7 +2267,7 @@ gate: {
       glow(160,101,17,'rgba(255,213,79,' + (.24 + Math.sin(t*2.5)*.06) + ')', 'rgba(255,213,79,0)');
     }
     // ---- grounds ----
-    gradFill(-OV, 120, W+2*OV, H-120, 120, H, [[0,'#4ec342'],[1,'#2f8f35']]);
+    gradFill(-OV, 120, W+2*OV, H-120, 120, H, [[0,'#46e93c'],[1,'#2fae2e']]);
     for (let i=0;i<140;i++){ R(-OV + hash(i,1)*(W+2*OV), 122 + hash(i,2)*(H-126), 1, 2, 'rgba(26,86,38,.5)'); }
     pathV(148,120,24,H-120);
     fTree(-46,152,1.2,t,10); fTree(-98,138,1,t,11); fTree(366,148,1.15,t,12); fTree(420,134,1,t,13);
@@ -2645,7 +2645,7 @@ tower: {
   title: '— Fenwick’s Tower —', gx:3, gy:2, walkTop:102, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
-    fGrass(102, '#4ec342', '#2c8536');
+    fGrass(102, '#46e93c', '#2fae2e');
     fTree(-40,120,1.2,t,1); fTree(-96,134,1.0,t,3); fTree(380,124,1.15,t,5); fTree(430,110,1.0,t,7);
     // stone tower with shaded curve + course lines
     gradFill(192,28,44,92, 0, 0, [[0,'#b4aec6'],[1,'#b4aec6']]);
@@ -2700,7 +2700,7 @@ beeglade: {
   title: '— The Bee Glade —', gx:0, gy:2, walkTop:100, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
-    fGrass(100, '#55cc4a', '#339040');
+    fGrass(100, '#46e93c', '#2fae2e');
     // dense layered wildflowers, gently swaying
     for (let i=0;i<140;i++){
       const fx = -OV + hash(i,17)*(W+2*OV), fy = 106 + hash(i,18)*(H-112);
@@ -2889,7 +2889,7 @@ hamlet: {
   title: '— Thistledown Hamlet —', gx:1, gy:3, walkTop:102, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
-    fGrass(102, '#4ec342', '#2c8536');
+    fGrass(102, '#46e93c', '#2fae2e');
     fTree(-44,124,1.2,t,1); fTree(-96,110,1.0,t,3); fTree(368,120,1.15,t,5); fTree(424,132,1.0,t,7);
     [[52,'#ecdcbc'],[242,'#e2d3b2']].forEach((hh,i)=>{
       const hx2 = hh[0];
@@ -2989,7 +2989,7 @@ orchard: {
           [360,126,1.15,8,'apple'],[416,112,1,9,'apple']],
   draw(t){
     fSky(t); fClouds(t); fFar();
-    fGrass(100, '#51c545', '#2f8a35');
+    fGrass(100, '#46e93c', '#2fae2e');
     treesBG(this.trees, t);   // apple trees: block at the trunk, occlude when behind
     for (let i=0;i<16;i++){ // windfall apples in the grass
       const ax = -OV/2 + hash(i,27)*(W+OV), ay = 120 + hash(i,28)*70;
@@ -3033,7 +3033,7 @@ cliffs: {
   title: '— The Sea Cliffs —', gx:3, gy:3, walkTop:104, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
-    fGrass(104, '#54ca48', '#338c3e');
+    fGrass(104, '#46e93c', '#2fae2e');
     // rocky cliff edge
     gradFill(-OV,146,W+2*OV,12, 146,158, [[0,'#8a6848'],[1,'#5c442e']]);
     for (let i=0;i<24;i++){ R(-OV+hash(i,33)*(W+2*OV), 148+hash(i,34)*8, 5, 2, '#4e3a28'); }
@@ -3104,11 +3104,27 @@ function doExit(dir){
   else if (dir === 'N') gotoRoom(id, player.x, 193);
   else gotoRoom(id, player.x, rooms[id].walkTop + 6);
 }
+// nearest walkable point to (x,y) — so room entries never strand the player
+// inside water, a gorge, a tree trunk or a grumpy troll's no-go zone
+function freeSpot(r, x, y){
+  if (!solidAt(r, x, y)) return [x, y];
+  for (let rad=3; rad<340; rad+=3){
+    for (let a=0; a<16; a++){
+      const nx = Math.max(4, Math.min(316, x + Math.cos(a/16*6.283)*rad));
+      const ny = Math.max(r.walkTop, Math.min(196, y + Math.sin(a/16*6.283)*rad));
+      if (!solidAt(r, nx, ny)) return [nx, ny];
+    }
+  }
+  return [160, r.walkTop + 20];
+}
 function gotoRoom(id, px, py){
   cur = id;
   const r = rooms[id];
-  player.x = player.tx = Math.max(4, Math.min(316, px));
-  player.y = player.ty = Math.max(r.walkTop, Math.min(196, py));
+  const sp = freeSpot(r,
+    Math.max(4, Math.min(316, px)),
+    Math.max(r.walkTop, Math.min(196, py)));
+  player.x = player.tx = sp[0];
+  player.y = player.ty = sp[1];
   player.moving = false; pending = null;
   const firstVisit = !been[id];
   seen[id] = 1; been[id] = 1;
