@@ -616,7 +616,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v36';
+const KQ_VER = 'v37';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -1951,7 +1951,7 @@ meadow: {
   title: '— Moonpetal Meadow —', gx:0, gy:1, walkTop:100, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
-    fGrass(100, '#57b25c', '#357f42');
+    fGrass(100, '#52c948', '#2f8a35');
     // layered wildflowers: tall stems behind, bright heads in front
     for (let i=0;i<120;i++){
       const fx = -OV + hash(i,7)*(W+2*OV), fy = 106 + hash(i,8)*(H-112);
@@ -2008,7 +2008,7 @@ cottage: {
   title: '— Elda’s Cottage —', gx:1, gy:2, walkTop:104, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
-    fGrass(104, '#54ac54', '#327c3d');
+    fGrass(104, '#50c644', '#2e8834');
     fTree(376, 118, 1.2, t, 3); fTree(430, 126, 1.0, t, 5); // orchard behind on the right
     // plastered wall with soft vertical shading + timber frame
     gradFill(115, 58, 92, 54, 58, 112, [[0,'#efe1c2'],[1,'#d8c49c']]);
@@ -2113,7 +2113,7 @@ bridge: {
     };
     mtn(268,64,240,296); mtn(306,72,280,330); mtn(372,58,336,408);
     fFar();
-    fGrass(100, '#46974a', '#276e30');
+    fGrass(100, '#4bbf3e', '#2a8030');
     // river gorge
     fWater(240, 100, 80, 100, t, 3);
     R(236,100,4,100,'#7a5c48'); R(316,100,4,100,'#7a5c48'); // banks
@@ -2159,7 +2159,7 @@ lake: {
   title: '— The Silver Lake —', gx:2, gy:2, walkTop:100, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
-    fGrass(100, '#46974a', '#276e30');
+    fGrass(100, '#4bbf3e', '#2a8030');
     // sandy shore ring
     ctx.fillStyle = '#d9bd82';
     ctx.beginPath(); ctx.ellipse(216,176,164,58,0,0,7); ctx.fill();
@@ -2267,7 +2267,7 @@ gate: {
       glow(160,101,17,'rgba(255,213,79,' + (.24 + Math.sin(t*2.5)*.06) + ')', 'rgba(255,213,79,0)');
     }
     // ---- grounds ----
-    gradFill(-OV, 120, W+2*OV, H-120, 120, H, [[0,'#4aa050'],[1,'#2e7a33']]);
+    gradFill(-OV, 120, W+2*OV, H-120, 120, H, [[0,'#4ec342'],[1,'#2f8f35']]);
     for (let i=0;i<140;i++){ R(-OV + hash(i,1)*(W+2*OV), 122 + hash(i,2)*(H-126), 1, 2, 'rgba(26,86,38,.5)'); }
     pathV(148,120,24,H-120);
     fTree(-46,152,1.2,t,10); fTree(-98,138,1,t,11); fTree(366,148,1.15,t,12); fTree(420,134,1,t,13);
@@ -2645,7 +2645,7 @@ tower: {
   title: '— Fenwick’s Tower —', gx:3, gy:2, walkTop:102, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
-    fGrass(102, '#4aa050', '#2c743a');
+    fGrass(102, '#4ec342', '#2c8536');
     fTree(-40,120,1.2,t,1); fTree(-96,134,1.0,t,3); fTree(380,124,1.15,t,5); fTree(430,110,1.0,t,7);
     // stone tower with shaded curve + course lines
     gradFill(192,28,44,92, 0, 0, [[0,'#b4aec6'],[1,'#b4aec6']]);
@@ -2700,7 +2700,7 @@ beeglade: {
   title: '— The Bee Glade —', gx:0, gy:2, walkTop:100, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
-    fGrass(100, '#5aad5f', '#3a8a48');
+    fGrass(100, '#55cc4a', '#339040');
     // dense layered wildflowers, gently swaying
     for (let i=0;i<140;i++){
       const fx = -OV + hash(i,17)*(W+2*OV), fy = 106 + hash(i,18)*(H-112);
@@ -2889,7 +2889,7 @@ hamlet: {
   title: '— Thistledown Hamlet —', gx:1, gy:3, walkTop:102, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
-    fGrass(102, '#4aa050', '#2c743a');
+    fGrass(102, '#4ec342', '#2c8536');
     fTree(-44,124,1.2,t,1); fTree(-96,110,1.0,t,3); fTree(368,120,1.15,t,5); fTree(424,132,1.0,t,7);
     [[52,'#ecdcbc'],[242,'#e2d3b2']].forEach((hh,i)=>{
       const hx2 = hh[0];
@@ -2989,7 +2989,7 @@ orchard: {
           [360,126,1.15,8,'apple'],[416,112,1,9,'apple']],
   draw(t){
     fSky(t); fClouds(t); fFar();
-    fGrass(100, '#57a052', '#357f42');
+    fGrass(100, '#51c545', '#2f8a35');
     treesBG(this.trees, t);   // apple trees: block at the trunk, occlude when behind
     for (let i=0;i<16;i++){ // windfall apples in the grass
       const ax = -OV/2 + hash(i,27)*(W+OV), ay = 120 + hash(i,28)*70;
@@ -3033,7 +3033,7 @@ cliffs: {
   title: '— The Sea Cliffs —', gx:3, gy:3, walkTop:104, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
-    fGrass(104, '#5aa85f', '#3a8048');
+    fGrass(104, '#54ca48', '#338c3e');
     // rocky cliff edge
     gradFill(-OV,146,W+2*OV,12, 146,158, [[0,'#8a6848'],[1,'#5c442e']]);
     for (let i=0;i<24;i++){ R(-OV+hash(i,33)*(W+2*OV), 148+hash(i,34)*8, 5, 2, '#4e3a28'); }
