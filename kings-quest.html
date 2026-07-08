@@ -625,7 +625,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v45';
+const KQ_VER = 'v46';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -3374,10 +3374,15 @@ function exits(){
   }
   return out;
 }
+// on wide screens the scene bleeds past the 320 world; let the walker use that
+// whole visible width (world x runs -OX..W+OX on screen) instead of turning
+// back at the old 320 edge, so no visible ground goes to waste
+function wLeft(){ return -OX + 4; }
+function wRight(){ return W + OX - 4; }
 function doExit(dir){
   const id = exits()[dir]; if (!id) return;
-  if (dir === 'W') gotoRoom(id, 310, player.y);
-  else if (dir === 'E') gotoRoom(id, 10, player.y);
+  if (dir === 'W') gotoRoom(id, wRight() - 6, player.y);
+  else if (dir === 'E') gotoRoom(id, wLeft() + 6, player.y);
   else if (dir === 'N') gotoRoom(id, player.x, 193);
   else gotoRoom(id, player.x, rooms[id].walkTop + 6);
 }
@@ -3387,7 +3392,7 @@ function freeSpot(r, x, y){
   if (!solidAt(r, x, y)) return [x, y];
   for (let rad=3; rad<340; rad+=3){
     for (let a=0; a<16; a++){
-      const nx = Math.max(4, Math.min(316, x + Math.cos(a/16*6.283)*rad));
+      const nx = Math.max(wLeft(), Math.min(wRight(), x + Math.cos(a/16*6.283)*rad));
       const ny = Math.max(r.walkTop, Math.min(196, y + Math.sin(a/16*6.283)*rad));
       if (!solidAt(r, nx, ny)) return [nx, ny];
     }
@@ -3398,7 +3403,7 @@ function gotoRoom(id, px, py){
   cur = id;
   const r = rooms[id];
   const sp = freeSpot(r,
-    Math.max(4, Math.min(316, px)),
+    Math.max(wLeft(), Math.min(wRight(), px)),
     Math.max(r.walkTop, Math.min(196, py)));
   player.x = player.tx = sp[0];
   player.y = player.ty = sp[1];
@@ -3415,7 +3420,7 @@ function gotoRoom(id, px, py){
 }
 function walkTo(x, y, p){
   const r = rooms[cur];
-  x = Math.max(4, Math.min(316, x));
+  x = Math.max(wLeft(), Math.min(wRight(), x));
   y = Math.max(r.walkTop, Math.min(196, y));
   if (solidAt(r, x, y)){
     for (let k=0; k<50 && solidAt(r,x,y); k++){
@@ -3428,7 +3433,7 @@ function walkTo(x, y, p){
 function arrowPos(dir){
   const r = rooms[cur];
   const my = (r.walkTop + 196) / 2;
-  return dir === 'W' ? [7, my] : dir === 'E' ? [313, my]
+  return dir === 'W' ? [wLeft() + 3, my] : dir === 'E' ? [wRight() - 3, my]
        : dir === 'N' ? [160, r.walkTop + 6] : [160, 191];
 }
 // close-up: a live, animated view of the room at full 1:1 detail, cropped
@@ -3520,8 +3525,8 @@ function tapAt(lx, ly){
   for (const dir in dx2){
     const p = arrowPos(dir);
     if (Math.hypot(lx - p[0], ly - p[1]) <= 13){
-      if (dir === 'W') walkTo(4, player.y, { exit: 'W' });
-      else if (dir === 'E') walkTo(316, player.y, { exit: 'E' });
+      if (dir === 'W') walkTo(wLeft(), player.y, { exit: 'W' });
+      else if (dir === 'E') walkTo(wRight(), player.y, { exit: 'E' });
       else if (dir === 'N') walkTo(player.x, r.walkTop, { exit: 'N' });
       else walkTo(player.x, 196, { exit: 'S' });
       return;
@@ -3538,8 +3543,8 @@ function tapAt(lx, ly){
     }
   }
   const d = exits();
-  if (lx <= 14 && d.W){ walkTo(4, ly, { exit: 'W' }); return; }
-  if (lx >= W - 14 && d.E){ walkTo(316, ly, { exit: 'E' }); return; }
+  if (lx <= wLeft() + 12 && d.W){ walkTo(wLeft(), ly, { exit: 'W' }); return; }
+  if (lx >= wRight() - 12 && d.E){ walkTo(wRight(), ly, { exit: 'E' }); return; }
   if (ly <= r.walkTop + 10 && d.N){ walkTo(lx, r.walkTop, { exit: 'N' }); return; }
   if (ly >= H - 12 && d.S){ walkTo(lx, 196, { exit: 'S' }); return; }
   walkTo(lx, ly);
@@ -3548,7 +3553,7 @@ function tapAt(lx, ly){
 function stepPlayer(dx, dy){
   if (CINE.on) return; // hold still for the coronation
   const r = rooms[cur];
-  let nx = Math.max(4, Math.min(316, player.x + dx));
+  let nx = Math.max(wLeft(), Math.min(wRight(), player.x + dx));
   let ny = Math.max(r.walkTop, Math.min(196, player.y + dy));
   if (solidAt(r, nx, ny)){
     if (!solidAt(r, nx, player.y)) ny = player.y;       // slide horizontally
@@ -3591,8 +3596,8 @@ function update(dt){
   }
   const r = rooms[cur];
   const d = exits();
-  if (player.x <= 5 && d.W) doExit('W');
-  else if (player.x >= 315 && d.E) doExit('E');
+  if (player.x <= wLeft() + 1 && d.W) doExit('W');
+  else if (player.x >= wRight() - 1 && d.E) doExit('E');
   else if (player.y <= r.walkTop + 1 && d.N) doExit('N');
   else if (player.y >= 195 && d.S) doExit('S');
   else if (r.exitBottom && player.y >= 195) gotoRoom(r.exitBottom[0], r.exitBottom[1], r.exitBottom[2]);
