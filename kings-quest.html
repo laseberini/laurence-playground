@@ -616,7 +616,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v35';
+const KQ_VER = 'v36';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -1514,45 +1514,48 @@ function crystal(x, y, h, c, t, i){
 // A gradient sky with a hazy sun, layered treeline depth, shaded oaks and
 // dappled light. Kept forest-local so other scenes stay untouched for now.
 function fSky(t){
-  const g = ctx.createLinearGradient(0, 0, 0, 118);
-  g.addColorStop(0, '#3f96de'); g.addColorStop(.5, '#77c4ef'); g.addColorStop(1, '#c6e9f2');
-  ctx.fillStyle = g; ctx.fillRect(-OV, 0, W+2*OV, 118);
-  const sx = 288, sy = 26; // warm sun with a soft halo
-  const h = ctx.createRadialGradient(sx, sy, 2, sx, sy, 40);
-  h.addColorStop(0, 'rgba(255,248,208,.95)'); h.addColorStop(.45, 'rgba(255,236,160,.45)');
-  h.addColorStop(1, 'rgba(255,236,160,0)');
-  ctx.fillStyle = h; ctx.beginPath(); ctx.arc(sx, sy, 40, 0, 7); ctx.fill();
-  disc(sx, sy, 10, '#fff7cc'); disc(sx, sy, 7, '#ffe9a0');
-  ctx.strokeStyle = 'rgba(48,66,92,.5)'; ctx.lineWidth = 1; // drifting birds
+  // classic flat sky: one blue, a dithered step, a pale horizon band
+  R(-OV, 0, W+2*OV, 82, '#4a72e0');
+  dRect(-OV, 74, W+2*OV, 10, '#4a72e0', '#8ab2ee');
+  R(-OV, 84, W+2*OV, 34, '#8ab2ee');
+  disc(288, 24, 10, '#fff7cc'); disc(288, 24, 7, '#ffe9a0'); // flat sun
+  ctx.fillStyle = '#1c2a4a'; // black-pixel birds
   const span = W + 2*OV + 80;
   for (let i=0;i<3;i++){
-    const bx = ((t*7 + i*120) % span) - OV - 40, by = 24 + i*8 + Math.sin(t*1.3 + i)*2;
-    const f = Math.abs(Math.sin(t*6 + i)) * 1.6;
-    ctx.beginPath(); ctx.moveTo(bx-4, by); ctx.lineTo(bx, by - 2 - f); ctx.lineTo(bx+4, by); ctx.stroke();
+    const bx = (((t*7 + i*120) % span) - OV - 40)|0, by = 22 + i*8;
+    const up = Math.sin(t*6 + i) > 0 ? 1 : 0;
+    ctx.fillRect(bx-3, by+1-up, 3, 1); ctx.fillRect(bx+1, by+1-up, 3, 1);
+    ctx.fillRect(bx-5, by+up, 2, 1); ctx.fillRect(bx+4, by+up, 2, 1);
   }
 }
 function fClouds(t){
   const span = W + 2*OV + 140;
-  const puff = (x, y, s) => {
-    ctx.fillStyle = 'rgba(206,224,240,.5)';
-    ctx.beginPath(); ctx.ellipse(x, y + 3*s, 15*s, 5*s, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.95)';
-    ctx.beginPath();
-    ctx.arc(x, y, 8*s, 0, 7); ctx.arc(x + 10*s, y + 2*s, 6*s, 0, 7);
-    ctx.arc(x - 10*s, y + 2*s, 6*s, 0, 7); ctx.arc(x + 2*s, y - 4*s, 6*s, 0, 7);
-    ctx.fill();
+  const puff = (x, y, s) => { // flat-bottomed, dome-topped storybook cloud
+    x = x|0; y = y|0;
+    R(x - 16*s, y, 32*s, 5*s, '#f6fbff');
+    R(x - 11*s, y - 4*s, 22*s, 4*s, '#f6fbff');
+    R(x - 5*s, y - 7*s, 11*s, 3*s, '#f6fbff');
+    dRect(x - 16*s, y + 3*s, 32*s, 2*s, '#f6fbff', '#c9d8ea'); // shaded underside
   };
-  puff(((t*4) % span) - OV - 70, 32, 1);
-  puff(((t*3 + span*.5) % span) - OV - 70, 52, .75);
+  puff(((t*4) % span) - OV - 70, 30, 1);
+  puff(((t*3 + span*.5) % span) - OV - 70, 50, .75);
 }
 function fFar(){
-  for (const hx of [-30,70,170,260,360]) disc(hx, 100, 24, '#a7d0b0'); // hazy hills
-  R(-OV, 100, W+2*OV, 6, '#a7d0b0');
-  const tl = (x, s) => { // muted, bluish treeline for depth
-    disc(x, 98 - 4*s, 7*s, '#6fae79'); disc(x - 6*s, 100, 6*s, '#6fae79');
-    disc(x + 6*s, 100, 6*s, '#6fae79'); R(x-1, 98, 2, 6, '#5f9268');
-  };
-  for (let i=0;i<9;i++) tl(-60 + i*52 + (i%2)*18, .8 + (i%3)*.12);
+  ctx.fillStyle = '#a7d0b0'; // rolling far hills, hard-edged
+  for (let i=0;i<56;i++){
+    const hx = -OV + i*((W+2*OV)/56);
+    const hh = 10 + Math.sin(i*.7)*5 + hash(i,29)*4;
+    ctx.fillRect(hx|0, (94-hh)|0, 21, (hh+2)|0);
+  }
+  ctx.fillStyle = '#5f9a68'; // dark treeline teeth
+  for (let i=0;i<52;i++){
+    const tx = -OV + i*((W+2*OV)/52);
+    const th = 5 + hash(i,31)*8;
+    ctx.fillRect(tx|0, (96-th)|0, 11, (th+2)|0);
+  }
+  R(-OV, 94, W+2*OV, 3, '#5f9a68');
+  R(-OV, 96, W+2*OV, 10, '#e6dc8e'); // sunlit clearing band under the woods
+  dRect(-OV, 100, W+2*OV, 6, '#e6dc8e', '#8fce6f');
 }
 function fGround(){
   const top = 100;
@@ -1583,22 +1586,7 @@ function fGround(){
   ctx.fillRect(-OV, 145, OV+148, 1); ctx.fillRect(172, 145, W+OV-172, 1);
   ctx.fillRect(-OV, 163, OV+148, 1); ctx.fillRect(172, 163, W+OV-172, 1);
 }
-function fTree(x, y, sc, t, i){
-  const sway = Math.sin(t*.7 + i*1.9) * 2.2 * sc;
-  ctx.fillStyle = 'rgba(20,44,20,.2)';
-  ctx.beginPath(); ctx.ellipse(x, y+1, 15*sc, 4*sc, 0, 0, 7); ctx.fill();
-  const th = 20*sc;
-  R(x - 3*sc, y - th, 6*sc, th, '#6b4a2b');
-  R(x - 3*sc, y - th, 2*sc, th, '#573a20');       // shaded side
-  R(x + 1.4*sc, y - th, 1.6*sc, th, '#815b36');   // lit side
-  const cy = y - th - 5*sc;
-  const B = (dx, dy, r, c) => disc(x + dx*sc + (dy < -3 ? sway : sway*.4), cy + dy*sc, r*sc, c);
-  B(0, 3, 15, '#20612a'); B(-11, 1, 10, '#20612a'); B(11, 1, 10, '#20612a');   // shadow mass
-  B(-7, -4, 11, '#2e7d32'); B(8, -3, 10, '#2e7d32'); B(0, -1, 12, '#2e7d32');  // mid green
-  B(-3, -11, 9, '#3fa046'); B(5, -9, 7, '#3fa046');                            // upper lit
-  B(3, -13, 5, '#63bd5c'); B(8, -8, 4, '#63bd5c');                             // sun highlights
-  if (DETAIL) for (let k=0;k<10;k++) B(-9 + k*2, -6 - (k%3)*3, 1, 'rgba(170,235,155,.6)');
-}
+function fTree(x, y, sc, t, i){ kTree(x, y, sc, t, i); } // classic chunky oak everywhere
 function fMotes(t){
   for (let i=0;i<18;i++){
     const mx = -20 + hash(i,20)*(W+60) + Math.sin(t*.5 + i*1.3)*10;
@@ -1744,7 +1732,7 @@ function kGround(){
     R(fx, fy, 2, 2, c); R(fx+3, fy-1, 1, 1, c); R(fx-2, fy+1, 1, 1, '#f2b3ea');
   }
 }
-function kRock(x, y, s){
+function kRock(x, y, s, shc){
   // flat-shaded boulder: black silhouette, lit crown, dithered flank, cracks
   // scanline rows with a rounded, jittered profile — reads as a real boulder
   const rows = Math.round(24*s);
@@ -1763,7 +1751,7 @@ function kRock(x, y, s){
   }
   R(x - 2, y - rows + 5, 1, 8, '#14161a');  // cracks
   R(x + 4, y - rows*.5, 1, 8, '#14161a');
-  R(x - 12*s, y - 1, 24*s, 2, '#2c7a22');   // grass contact shadow
+  R(x - 12*s, y - 1, 24*s, 2, shc || '#2c7a22'); // ground contact shadow
 }
 function kStump(x, y, s){
   R(x - 7*s, y - 2, 14*s, 3, '#241505');    // base outline
@@ -1827,23 +1815,28 @@ function kTree(x, y, sc, t, i){
 }
 
 // ---------- shared scene-enrichment helpers ----------
-// vertical gradient fill; y0/y1 are the gradient stops (world y), rect is x,y,w,h
+// classic flat "gradient": two bands with a dithered seam — no real gradients.
+// y0/y1 are the old gradient stops (world y); the seam sits at their midpoint.
 function gradFill(x, y, w, h, y0, y1, stops){
-  const g = ctx.createLinearGradient(0, y0, 0, y1);
-  for (const s of stops) g.addColorStop(s[0], s[1]);
-  ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+  const c0 = stops[0][1], c1 = stops[stops.length-1][1];
+  if (c0 === c1 || y1 <= y0){ R(x, y, w, h, c1); return; }
+  const ym = Math.max(y, Math.min(y + h, (y0 + y1) / 2));
+  R(x, y, w, ym - y, c0);
+  R(x, ym, w, y + h - ym, c1);
+  const bh = Math.min(6, h * .34);
+  dRect(x, ym - bh/2, w, bh, c0, c1);
 }
-// soft radial glow from inner colour at the centre out to transparent at r
-function glow(x, y, r, inner, outer){
-  const g = ctx.createRadialGradient(x, y, 1, x, y, r);
-  g.addColorStop(0, inner); g.addColorStop(1, outer);
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
-}
-// a lit, textured dirt path segment (horizontal cross-section gradient)
+// classic art has no soft glows — kept as a no-op so call sites stay simple
+function glow(x, y, r, inner, outer){}
+// a worn dirt way with ragged edges, wandering gently (vertical strip)
 function pathV(x, y, w, h){
-  const g = ctx.createLinearGradient(x, 0, x + w, 0);
-  g.addColorStop(0, '#a5824a'); g.addColorStop(.5, '#d0ad6b'); g.addColorStop(1, '#a5824a');
-  ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+  const cx = x + w/2;
+  for (let py=y; py<y+h; py+=2){
+    const hw = w/2 + (hash(py,47)-.5)*3 + Math.sin(py*.08)*1.5;
+    R(cx - hw, py, 2*hw, 2, '#b07f3e');
+    R(cx - hw*.35, py, hw*.7, 2, '#bb8a48');
+    R(cx - hw - 1.5, py, 1.5, 2, '#6b451c'); R(cx + hw, py, 1.5, 2, '#6b451c');
+  }
 }
 // gnarled, moonlit dead tree for the Dark Woods
 function dTree(x, y, sc, i){
@@ -1859,22 +1852,32 @@ function dTree(x, y, sc, i){
   R(x - 9*sc, y - h + 3, 6*sc, 1, 'rgba(158,163,186,.3)');
 }
 
-// lush grass ground (no path): gradient + sun dapples + grass blades
+// classic flat grass: one green, hard sunlit streaks, dithered shade, tufts
 function fGrass(top, c0, c1){
-  gradFill(-OV, top, W+2*OV, H-top, top, H, [[0, c0||'#4fa855'],[1, c1||'#2c743a']]);
-  for (let i=0;i<42;i++)
-    disc(-OV + hash(i,3)*(W+2*OV), top + 4 + hash(i,4)*(H-top-6), 2 + hash(i,5)*4, 'rgba(255,255,205,.05)');
-  for (let i=0;i<200;i++)
-    R(-OV + hash(i,1)*(W+2*OV), top + 3 + hash(i,2)*(H-top-4), 1, 2,
-      hash(i,6) > .5 ? 'rgba(24,84,36,.5)' : 'rgba(120,200,120,.35)');
+  c0 = c0 || '#4fae55'; c1 = c1 || '#2c743a';
+  R(-OV, top, W+2*OV, H-top, c0);
+  ctx.fillStyle = '#84e858';
+  for (let i=0;i<24;i++){
+    ctx.fillRect((-OV + hash(i,171)*(W+2*OV))|0, (top+5 + hash(i,172)*(H-top-12))|0, (8+hash(i,173)*24)|0, 2);
+  }
+  for (let i=0;i<10;i++){
+    dRect(-OV + hash(i,174)*(W+2*OV), top+4 + hash(i,175)*(H-top-14), (12+hash(i,176)*28)|0, (4+hash(i,177)*5)|0, c0, c1);
+  }
+  ctx.fillStyle = c1; // spiky tufts
+  for (let i=0;i<14;i++){
+    const tx = (-OV + hash(i,178)*(W+2*OV))|0, ty = (top+8 + hash(i,179)*(H-top-16))|0;
+    ctx.fillRect(tx, ty, 1, 3); ctx.fillRect(tx+2, ty-1, 1, 4); ctx.fillRect(tx+4, ty, 1, 3);
+  }
 }
-// shimmering water with depth gradient and drifting ripples
+// classic flat water: depth bands with dithered seams + solid ripple dashes
 function fWater(x, y, w, h, t, seed){
-  gradFill(x, y, w, h, y, y+h, [[0,'#4a9adf'],[.5,'#2f74c4'],[1,'#234f96']]);
-  for (let i=0;i<18;i++){
+  R(x, y, w, h, '#3d84d6');
+  R(x, y, w, h*.32, '#5aa0e6');
+  dRect(x, y + h*.28, w, h*.14, '#5aa0e6', '#3d84d6');
+  dRect(x, y + h*.62, w, h*.38, '#3d84d6', '#20539a');
+  for (let i=0;i<16;i++){
     const wy = y + ((i*13 + t*15 + hash(i,seed)*h) % h);
-    const a = Math.max(0, .38 - (wy - y)/h*.24);
-    R(x + 3 + hash(i,seed+1)*(w-14), wy, 6 + hash(i,seed+3)*4, 1, 'rgba(224,242,255,' + a.toFixed(2) + ')');
+    R(x + 3 + hash(i,seed+1)*(w-14), wy, 5 + hash(i,seed+3)*4, 1, i%2 ? '#cfe8ff' : '#8ec4f0');
   }
 }
 
@@ -1884,7 +1887,7 @@ function drawOneTree(tr, t){
   const x = tr[0], y = tr[1], sc = tr[2], seed = tr[3]|0;
   (rooms[cur] && rooms[cur].kq ? kTree : fTree)(x, y, sc, t, seed);
   if (tr[4] === 'apple'){
-    const cy = y - 25*sc, sway = Math.sin(t*.7 + (seed+1)*1.9) * 2.2 * sc;
+    const cy = y - 25*sc, sway = Math.sin(t*.6 + seed*1.9) * 1.2;
     [[-9,-2],[4,-7],[9,-1],[-4,3],[6,-10],[0,-5]].forEach(a=>{
       R(x + a[0]*sc + sway*.5, cy + a[1]*sc, 2, 2, '#d22c2c');
       R(x + a[0]*sc + sway*.5, cy + a[1]*sc, 1, 1, '#ef6b5c');
@@ -1945,7 +1948,7 @@ forest: {
 },
 
 meadow: {
-  title: '— Moonpetal Meadow —', gx:0, gy:1, walkTop:100,
+  title: '— Moonpetal Meadow —', gx:0, gy:1, walkTop:100, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
     fGrass(100, '#57b25c', '#357f42');
@@ -2002,7 +2005,7 @@ meadow: {
 },
 
 cottage: {
-  title: '— Elda’s Cottage —', gx:1, gy:2, walkTop:104,
+  title: '— Elda’s Cottage —', gx:1, gy:2, walkTop:104, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
     fGrass(104, '#54ac54', '#327c3d');
@@ -2096,7 +2099,7 @@ cottage: {
 },
 
 bridge: {
-  title: '— Grukk’s Bridge —', gx:2, gy:1, walkTop:100,
+  title: '— Grukk’s Bridge —', gx:2, gy:1, walkTop:100, kq:true,
   draw(t){
     fSky(t); fClouds(t);
     // snow-capped mountains with shaded flanks
@@ -2153,7 +2156,7 @@ bridge: {
 },
 
 lake: {
-  title: '— The Silver Lake —', gx:2, gy:2, walkTop:100,
+  title: '— The Silver Lake —', gx:2, gy:2, walkTop:100, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
     fGrass(100, '#46974a', '#276e30');
@@ -2220,7 +2223,7 @@ lake: {
 },
 
 gate: {
-  title: '— The Silent Castle —', gx:1, gy:0, walkTop:124,
+  title: '— The Silent Castle —', gx:1, gy:0, walkTop:124, kq:true,
   draw(t){
     gradFill(-OV, 0, W+2*OV, 124, 0, 124, [[0,'#3f96de'],[.55,'#79c5ef'],[1,'#c1e6f2']]);
     glow(292, 22, 34, 'rgba(255,246,204,.85)', 'rgba(255,246,204,0)'); disc(292,22,9,'#fff7cc');
@@ -2235,7 +2238,9 @@ gate: {
       gradFill(tx, 40, 34, 80, 40, 120, [[0,'#c3c8d3'],[1,'#9096a4']]);
       R(tx,40,4,80,'#ced3dd'); R(tx+30,40,4,80,'#82889a'); // lit / shaded sides
       for (let x=tx; x<tx+34; x+=9){ R(x,34,6,7,'#b3b8c4'); R(x,34,6,2,'#cbd0da'); }
-      R(tx+12,50,7,13,'#332b3e'); glow(tx+15,56,7,'rgba(255,212,96,.3)','rgba(255,212,96,0)');
+      R(tx+12,50,7,13,'#332b3e');
+      const fl = Math.sin(t*7 + tx) > 0 ? 1 : 0; // flat torch flame
+      R(tx+14,53+fl,3,5,'#ffb648'); R(tx+15,52+fl,1,3,'#ffe082');
       R(tx+16,12,2,24,'#6d4522'); // flagpole
     });
     // ---- flags, waving ----
@@ -2355,12 +2360,11 @@ throne: {
 },
 
 darkwoods: {
-  title: '— The Dark Woods —', gx:0, gy:0, walkTop:102,
+  title: '— The Dark Woods —', gx:0, gy:0, walkTop:102, kq:true,
   draw(t){
     // murky sky with a hidden moon glowing through the mist
     gradFill(-OV, 0, W+2*OV, 108, 0, 108, [[0,'#2a2740'],[.5,'#3d3a55'],[1,'#535069']]);
-    glow(250, 34, 48, 'rgba(192,197,222,.26)', 'rgba(192,197,222,0)');
-    disc(250, 34, 9, 'rgba(212,216,232,.5)');
+    disc(250, 34, 9, '#d4d8e8'); disc(247, 32, 2, '#b0b6cc'); disc(253, 37, 1.5, '#b0b6cc'); // flat moon
     // far silhouette treeline for depth
     ctx.fillStyle = '#33314a';
     for (let i=0;i<11;i++){ const x = -70 + i*44;
@@ -2415,7 +2419,7 @@ darkwoods: {
 },
 
 foothills: {
-  title: '— The Stony Foothills —', gx:2, gy:0, walkTop:100,
+  title: '— The Stony Foothills —', gx:2, gy:0, walkTop:100, kq:true,
   draw(t){
     gradFill(-OV, 0, W+2*OV, 100, 0, 100, [[0,'#5aa6e0'],[.6,'#8fcaef'],[1,'#cfe8f0']]);
     glow(40, 24, 30, 'rgba(255,246,204,.75)', 'rgba(255,246,204,0)'); disc(40,24,8,'#fff7cc');
@@ -2435,8 +2439,7 @@ foothills: {
     gradFill(-OV, 100, W+2*OV, H-100, 100, H, [[0,'#828e6d'],[1,'#5f6e52']]);
     for (let i=0;i<170;i++){ R(-OV + hash(i,1)*(W+2*OV), 102 + hash(i,2)*(H-104), 1, 2, 'rgba(70,82,60,.5)'); }
     // shaded scattered boulders
-    const rock = (x, y, r) => { disc(x, y, r, '#8b8f99'); disc(x - r*.3, y - r*.3, r*.7, '#9ba0aa');
-      ctx.fillStyle = '#767b85'; ctx.beginPath(); ctx.arc(x, y, r, .2, Math.PI-.2); ctx.fill(); };
+    const rock = (x, y, r) => kRock(x, y + r, r/11, '#57604a');
     rock(60,144,8); rock(122,170,10); rock(180,152,7); rock(-60,152,12); rock(-120,168,14);
     // faceted rocky outcrop the cave is carved into
     ctx.fillStyle = '#7c828e'; ctx.beginPath();
@@ -2529,7 +2532,7 @@ cave: {
 },
 
 pass: {
-  title: '— The High Pass —', gx:3, gy:1, walkTop:104,
+  title: '— The High Pass —', gx:3, gy:1, walkTop:104, kq:true,
   exitOk(d){ return d !== 'N' || F.warm; },
   draw(t){
     // cold winter sky + pale sun
@@ -2549,7 +2552,7 @@ pass: {
     gradFill(-OV,104,W+2*OV,H-104, 104, H, [[0,'#eef3fa'],[1,'#c2d1e2']]);
     for (let i=0;i<80;i++) R(-OV+hash(i,31)*(W+2*OV), 108+hash(i,32)*(H-110), 1, 1, 'rgba(255,255,255,.7)');
     R(-OV,100,W+2*OV,6,'#dbe6f2'); R(-OV,100,W+2*OV,2,'#ffffff'); // snow bank ridge
-    R(148,86,28,20,'#8fa6c0'); R(146,86,3,20,'#5d6673'); R(175,86,3,20,'#5d6673'); R(146,84,32,3,'#f4f8fc'); // arch + snow cap
+    R(148,86,28,20,'#39435a'); R(146,86,3,20,'#5d6673'); R(175,86,3,20,'#5d6673'); R(146,84,32,3,'#f4f8fc'); // arch + snow cap
     if (!F.warm){
       for (let i=0;i<9;i++){
         R(146 + hash(i,80)*30, 84 + ((t*44 + i*13) % 30), 3, 7, 'rgba(255,255,255,.75)');
@@ -2581,7 +2584,7 @@ pass: {
 },
 
 emberpeak: {
-  title: '— Ember Peak —', gx:3, gy:0, walkTop:100,
+  title: '— Ember Peak —', gx:3, gy:0, walkTop:100, kq:true,
   exitOk(d){ return d === 'S'; },
   draw(t){
     // smouldering sky: dark maroon above, ember glow at the horizon
@@ -2639,7 +2642,7 @@ emberpeak: {
 },
 
 tower: {
-  title: '— Fenwick’s Tower —', gx:3, gy:2, walkTop:102,
+  title: '— Fenwick’s Tower —', gx:3, gy:2, walkTop:102, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
     fGrass(102, '#4aa050', '#2c743a');
@@ -2694,7 +2697,7 @@ tower: {
 },
 
 beeglade: {
-  title: '— The Bee Glade —', gx:0, gy:2, walkTop:100,
+  title: '— The Bee Glade —', gx:0, gy:2, walkTop:100, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
     fGrass(100, '#5aad5f', '#3a8a48');
@@ -2704,9 +2707,7 @@ beeglade: {
       const c = ['#ffffff','#ffd54f','#f48fb1','#ba68c8'][i%4], sway = Math.sin(t*1.1 + i)*0.7;
       R(fx, fy, 1, 3, '#2e7d32'); R(fx-1+sway, fy-2, 3, 2, c);
     }
-    R(74,74,10,52,'#6b4a2b'); R(74,74,3,52,'#573a20'); R(80,74,2,52,'#815b36');
-    disc(79,66,20,'#20612a'); disc(62,76,13,'#2e7d32'); disc(96,74,14,'#2e7d32'); disc(74,54,12,'#3fa046');
-    disc(70,60,7,'#63bd5c'); // sun highlight on canopy
+    kTree(79, 126, 1.55, t, 12); // the hive oak
     R(88,82,2,8,'#5d4037');
     disc(89,96,8,'#d9a441'); disc(89,102,9,'#d9a441'); disc(89,108,8,'#d9a441');
     R(81,98,16,2,'#a8752c'); R(81,104,16,2,'#a8752c');
@@ -2831,7 +2832,7 @@ lair: {
 },
 
 marsh: {
-  title: '— The Misty Marsh —', gx:0, gy:3, walkTop:100,
+  title: '— The Misty Marsh —', gx:0, gy:3, walkTop:100, kq:true,
   draw(t){
     // misty green-grey sky with a wan sun
     gradFill(-OV,0,W+2*OV,110, 0,110, [[0,'#657d68'],[.55,'#8a9d84'],[1,'#b0bba0']]);
@@ -2885,7 +2886,7 @@ marsh: {
 },
 
 hamlet: {
-  title: '— Thistledown Hamlet —', gx:1, gy:3, walkTop:102,
+  title: '— Thistledown Hamlet —', gx:1, gy:3, walkTop:102, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
     fGrass(102, '#4aa050', '#2c743a');
@@ -2982,7 +2983,7 @@ hamlet: {
 },
 
 orchard: {
-  title: '— The Old Orchard —', gx:2, gy:3, walkTop:100,
+  title: '— The Old Orchard —', gx:2, gy:3, walkTop:100, kq:true,
   trees: [[40,118,1,0,'apple'],[110,112,.95,1,'apple'],[180,118,1,2,'apple'],[60,158,1.25,3,'apple'],
           [150,166,1.3,4,'apple'],[288,112,1,5,'apple'],[-40,130,1.2,6,'apple'],[-100,116,1,7,'apple'],
           [360,126,1.15,8,'apple'],[416,112,1,9,'apple']],
@@ -3029,7 +3030,7 @@ orchard: {
 },
 
 cliffs: {
-  title: '— The Sea Cliffs —', gx:3, gy:3, walkTop:104,
+  title: '— The Sea Cliffs —', gx:3, gy:3, walkTop:104, kq:true,
   draw(t){
     fSky(t); fClouds(t); fFar();
     fGrass(104, '#5aa85f', '#3a8048');
