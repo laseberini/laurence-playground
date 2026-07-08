@@ -616,7 +616,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v42';
+const KQ_VER = 'v43';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -662,13 +662,13 @@ const AIVOICES = [
 let aiActive = false, aiAudio = null;
 const aiCache = new Map();
 async function makeAISession(mod, voiceId, onProgress){
-  let s = null;
+  let s = null, createErr = null;
   try {
     if (mod.TtsSession && typeof mod.TtsSession.create === 'function')
       s = await mod.TtsSession.create({ voiceId, progress: onProgress });
     else if (mod.TtsSession)
       s = new mod.TtsSession({ voiceId, progress: onProgress });
-  } catch(e){}
+  } catch(e){ createErr = e; }
   if (s && typeof s.predict === 'function'){
     // The library reuses a singleton and only relabels voiceId when reusing —
     // the actual model stays the OLD voice. We track which voice WE initialized
@@ -680,7 +680,60 @@ async function makeAISession(mod, voiceId, onProgress){
     AI.initVoice = voiceId;
     return s;
   }
-  return { predict: t => mod.predict({ text: t, voiceId }) };
+  if (typeof mod.predict === 'function')
+    return { predict: t => mod.predict({ text: t, voiceId }) };
+  throw createErr || new Error('voice engine has no usable API');
+}
+// the engine module, with a fallback CDN in case the first is blocked
+async function importPiper(stall){
+  const urls = [
+    'https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1/+esm',
+    'https://esm.sh/@mintplex-labs/piper-tts-web@1?bundle',
+  ];
+  let lastErr = null;
+  for (const u of urls){
+    try {
+      const im = import(u);
+      return await (stall ? Promise.race([im, stall]) : im);
+    } catch(e){
+      lastErr = e;
+      if (/took too long/.test(String(e && e.message))) throw e;
+    }
+  }
+  throw lastErr || new Error('voice engine unreachable');
+}
+// when a load fails, name the culprit in plain words (and purge broken copies)
+async function aiSelfTest(voiceId){
+  const probe = async url => {
+    try {
+      const ctl = new AbortController();
+      const tm = setTimeout(()=>ctl.abort(), 8000);
+      const r = await fetch(url, { method:'HEAD', cache:'no-store', signal: ctl.signal });
+      clearTimeout(tm);
+      return r.ok;
+    } catch(e){ return false; }
+  };
+  let savedOk = null;
+  try { // a real voice model is tens of MB — a small cached file is a broken download
+    const c = await caches.open('kq-piper');
+    for (const req of await c.keys()){
+      if (req.url.indexOf(voiceId) >= 0 && /\.onnx(\?|$)/.test(req.url)){
+        const hit = await c.match(req, { ignoreVary: true });
+        const b = hit && await hit.blob();
+        savedOk = !!b && b.size > 10*1024*1024;
+        if (!savedOk) await c.delete(req);
+      }
+    }
+  } catch(e){}
+  if (savedOk === false) return 'saved copy was broken and has been cleared — retry to re-download';
+  const vp = (voiceId || 'en_GB-alba-medium').split('-');
+  const engine = await probe('https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1/package.json');
+  const models = await probe('https://huggingface.co/rhasspy/piper-voices/resolve/main/'
+    + vp[0].split('_')[0] + '/' + vp[0] + '/' + vp[1] + '/' + vp[2] + '/' + voiceId + '.onnx.json');
+  if (!engine && !models) return 'this network blocks both voice sites (jsdelivr + huggingface)';
+  if (!engine) return 'this network blocks the voice engine site (cdn.jsdelivr.net)';
+  if (!models) return 'this network blocks the voice download site (huggingface.co)';
+  return '';
 }
 async function loadAI(voiceId){
   if (AI.state === 'loading') return;
@@ -708,13 +761,14 @@ async function loadAI(voiceId){
   });
   stall.catch(()=>{});
   try {
-    if (AI.tries === 2){ await opfsDelete(voiceId); }
-    else if (AI.tries >= 3){ await opfsDelete(voiceId); await cacheDelete(voiceId); AI.fromCache = false; }
-    if (!AI.mod)
-      AI.mod = await Promise.race([
-        import('https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1/+esm'),
-        stall,
-      ]);
+    const soft = ms => new Promise(res => setTimeout(res, ms)); // cleanup never blocks
+    if (AI.tries === 2){ await Promise.race([opfsDelete(voiceId), soft(4000)]); }
+    else if (AI.tries >= 3){
+      await Promise.race([opfsDelete(voiceId), soft(4000)]);
+      await Promise.race([cacheDelete(voiceId), soft(4000)]);
+      AI.fromCache = false;
+    }
+    if (!AI.mod) AI.mod = await importPiper(stall);
     beat = Date.now();
     let lastPct = -1;
     const onProgress = p => {
@@ -737,6 +791,12 @@ async function loadAI(voiceId){
   } catch(e){
     AI.state = 'error'; AI.err = String(e && e.message || e).slice(0, 90);
     AI.session = null; AI.voiceId = null;
+    aiSelfTest(voiceId).then(hint => { // diagnose and say WHY in the retry row
+      if (hint && AI.state === 'error' && AI.err.indexOf(hint) < 0){
+        AI.err = (AI.err ? AI.err + ' · ' : '') + hint;
+        if (!narEl.classList.contains('hidden')) buildNarMenu();
+      }
+    }).catch(()=>{});
   }
   watching = false;
   if (!narEl.classList.contains('hidden')) buildNarMenu();
@@ -3826,8 +3886,8 @@ async function cacheVoices(){
 }
 async function detectAI(){
   try {
-    if (!AI.mod)
-      AI.mod = await import('https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1/+esm');
+    const slow = new Promise((_, rej)=>setTimeout(()=>rej(new Error('slow')), 15000));
+    if (!AI.mod) AI.mod = await Promise.race([importPiper(), slow]);
   } catch(e){ AI.mod = null; }
   try { AI.pref = localStorage.getItem('kq-aivoice'); } catch(e){}
   const ids = {};
