@@ -616,7 +616,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v43';
+const KQ_VER = 'v44';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -662,7 +662,19 @@ const AIVOICES = [
 let aiActive = false, aiAudio = null;
 const aiCache = new Map();
 async function makeAISession(mod, voiceId, onProgress){
-  let s = null, createErr = null;
+  let s = null, createErr = null, cleared = false;
+  // Switching voices: the library reuses a singleton and only relabels its
+  // voiceId — re-initialising that old session can hang on desktop browsers.
+  // Drop the singleton so create() builds a genuinely fresh session (the same
+  // code path as a cold load, which works); fall back to relabel+init only if
+  // the library hides its singleton under a name we don't know.
+  if (AI.initVoice && AI.initVoice !== voiceId && mod.TtsSession){
+    for (const k of ['_instance', 'instance']){
+      try {
+        if (k in mod.TtsSession){ mod.TtsSession[k] = null; cleared = mod.TtsSession[k] == null; }
+      } catch(e){}
+    }
+  }
   try {
     if (mod.TtsSession && typeof mod.TtsSession.create === 'function')
       s = await mod.TtsSession.create({ voiceId, progress: onProgress });
@@ -670,10 +682,7 @@ async function makeAISession(mod, voiceId, onProgress){
       s = new mod.TtsSession({ voiceId, progress: onProgress });
   } catch(e){ createErr = e; }
   if (s && typeof s.predict === 'function'){
-    // The library reuses a singleton and only relabels voiceId when reusing —
-    // the actual model stays the OLD voice. We track which voice WE initialized
-    // and force a real re-init whenever it changes.
-    if (AI.initVoice && AI.initVoice !== voiceId && typeof s.init === 'function'){
+    if (!cleared && AI.initVoice && AI.initVoice !== voiceId && typeof s.init === 'function'){
       s.voiceId = voiceId;
       await s.init();
     }
@@ -746,6 +755,9 @@ async function loadAI(voiceId){
   // 3rd try wipes everything and downloads fresh from the internet.
   AI.tries = (AI.lastTryVoice === voiceId) ? (AI.tries || 0) + 1 : 1;
   AI.lastTryVoice = voiceId;
+  // keep the working session at hand: if switching voices fails, restore it
+  const prev = (AI.session && AI.voiceId && AI.voiceId !== voiceId)
+    ? { session: AI.session, voiceId: AI.voiceId, initVoice: AI.initVoice } : null;
   if (!narEl.classList.contains('hidden')) buildNarMenu();
   // watchdog: a load that makes no progress for 35s is stuck — fail it so the
   // player gets a retry button instead of an eternal spinner
@@ -781,7 +793,14 @@ async function loadAI(voiceId){
         if (!narEl.classList.contains('hidden')) buildNarMenu();
       }
     };
-    AI.session = await Promise.race([makeAISession(AI.mod, voiceId, onProgress), stall]);
+    const next = await Promise.race([makeAISession(AI.mod, voiceId, onProgress), stall]);
+    if (prev && prev.session && prev.session !== next){
+      // the old session is no longer needed — free it if the library allows
+      for (const k of ['release','dispose','destroy','close']){
+        try { if (typeof prev.session[k] === 'function') prev.session[k](); } catch(e){}
+      }
+    }
+    AI.session = next;
     AI.voiceId = voiceId; AI.state = 'ready'; AI.tries = 0;
     aiCache.clear(); // generated lines from another voice must not replay
     if (AI.storedIds.indexOf(voiceId) < 0) AI.storedIds.push(voiceId);
@@ -791,6 +810,10 @@ async function loadAI(voiceId){
   } catch(e){
     AI.state = 'error'; AI.err = String(e && e.message || e).slice(0, 90);
     AI.session = null; AI.voiceId = null;
+    if (prev){ // the switch failed — quietly restore the voice that worked
+      AI.session = prev.session; AI.voiceId = prev.voiceId; AI.initVoice = prev.initVoice;
+      AI.state = 'ready';
+    }
     aiSelfTest(voiceId).then(hint => { // diagnose and say WHY in the retry row
       if (hint && AI.state === 'error' && AI.err.indexOf(hint) < 0){
         AI.err = (AI.err ? AI.err + ' · ' : '') + hint;
@@ -1081,6 +1104,13 @@ function buildNarMenu(){
     list.appendChild(aiRow('⚠️ AI voice failed — tap to retry',
       (AI.err ? AI.err + ' · ' : '') + 'Retrying uses a fresh copy of the voice.',
       '', ()=> loadAI(AI.lastTryVoice || AIVOICES[0][0])));
+    AIVOICES.forEach(v => { // the other storytellers stay one tap away
+      if (v[0] === AI.lastTryVoice) return;
+      const has = AI.storedIds.indexOf(v[0]) >= 0;
+      list.appendChild(aiRow('✨ ' + v[1],
+        has ? 'On your phone — tap to use' : 'Tap to download (~60 MB)',
+        '', ()=> loadAI(v[0]).then(()=>{ if (AI.state === 'ready') aiPreview(); })));
+    });
   } else {
     AIVOICES.forEach(v => {
       const sel = AI.voiceId === v[0];
