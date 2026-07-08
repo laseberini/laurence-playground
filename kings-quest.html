@@ -616,7 +616,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v32';
+const KQ_VER = 'v33';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -1608,6 +1608,144 @@ function fMotes(t){
   }
 }
 
+// ---------- classic Sierra-style helpers (flat fills + checker dithering) ----------
+// The KQ-era look: no gradients — two colours interleaved in a 1px checkerboard
+// read as a third shade from a distance. Rooms opt in with `kq: true`, which
+// also switches off the HD bloom/vignette grade so edges stay hard.
+const DPAT = new Map();
+function dpat(c1, c2){
+  const key = c1 + '|' + c2 + '|' + PX;
+  let p = DPAT.get(key);
+  if (!p){
+    const pc = document.createElement('canvas');
+    pc.width = pc.height = 2*PX;
+    const g = pc.getContext('2d');
+    g.fillStyle = c1; g.fillRect(0, 0, 2*PX, 2*PX);
+    g.fillStyle = c2; g.fillRect(0, 0, PX, PX); g.fillRect(PX, PX, PX, PX);
+    p = ctx.createPattern(pc, 'repeat');
+    DPAT.set(key, p);
+  }
+  return p;
+}
+function dRect(x, y, w, h, c1, c2){ ctx.fillStyle = dpat(c1, c2); ctx.fillRect(x|0, y|0, w, h); }
+// a ragged, hard-edged mass built from chunky squares (c may be a dither pattern)
+function clump(x, y, r, c, seed){
+  ctx.fillStyle = c;
+  ctx.fillRect((x - r*.72)|0, (y - r*.55)|0, (r*1.44)|0, (r*1.1)|0);
+  const n = (10 + r)|0;
+  for (let k=0;k<n;k++){
+    const a = k/n*6.283, rr = r*(.6 + hash(k,seed)*.45);
+    const bs = (2 + hash(k,seed+9)*3)|0;
+    ctx.fillRect((x + Math.cos(a)*rr - bs/2)|0, (y + Math.sin(a)*rr*.75 - bs/2)|0, bs, bs);
+  }
+}
+function kSky(t){
+  R(-OV, 0, W+2*OV, 88, '#4a72e0');                 // one flat storybook blue
+  dRect(-OV, 78, W+2*OV, 10, '#4a72e0', '#8ab2ee'); // dithered step, not a gradient
+  R(-OV, 88, W+2*OV, 30, '#8ab2ee');                // pale band at the horizon
+  ctx.fillStyle = '#1c2a4a';                        // black-pixel birds
+  const span = W + 2*OV + 80;
+  for (let i=0;i<3;i++){
+    const bx = (((t*7 + i*120) % span) - OV - 40)|0, by = 22 + i*9;
+    const up = Math.sin(t*6 + i) > 0 ? 1 : 0;
+    ctx.fillRect(bx-3, by+1-up, 3, 1); ctx.fillRect(bx+1, by+1-up, 3, 1);
+    ctx.fillRect(bx-5, by+up, 2, 1); ctx.fillRect(bx+4, by+up, 2, 1);
+  }
+}
+function kFar(){
+  ctx.fillStyle = '#2c3f8c'; // the silent castle, flat on the horizon
+  ctx.fillRect(196, 74, 30, 24);
+  ctx.fillRect(192, 68, 8, 30); ctx.fillRect(222, 68, 8, 30);
+  ctx.fillRect(192, 64, 2, 4); ctx.fillRect(196, 64, 2, 4);
+  ctx.fillRect(224, 64, 2, 4); ctx.fillRect(228, 64, 2, 4);
+  ctx.fillRect(207, 58, 8, 40); ctx.fillRect(206, 54, 10, 4); ctx.fillRect(210, 50, 2, 4);
+  dRect(190, 88, 42, 10, '#2c3f8c', '#8ab2ee');
+  ctx.fillStyle = '#1d5c1e'; // jagged dark treeline, hard-edged
+  for (let i=0;i<52;i++){
+    const tx = -OV + i*((W+2*OV)/52);
+    const th = 6 + hash(i,31)*9;
+    ctx.fillRect(tx|0, (98-th)|0, 11, (th+2)|0);
+  }
+  R(-OV, 96, W+2*OV, 4, '#1d5c1e');
+  R(-OV, 100, W+2*OV, 5, '#e6dc8e'); // sunlit clearing strip below the woods
+  dRect(-OV, 103, W+2*OV, 3, '#e6dc8e', '#50c040');
+}
+function kGround(){
+  const top = 105;
+  R(-OV, top, W+2*OV, H-top, '#50c040'); // one flat classic green
+  ctx.fillStyle = '#84e858'; // hard-edged sunlit streaks
+  for (let i=0;i<26;i++){
+    const gx = -OV + hash(i,71)*(W+2*OV), gy = top+6 + hash(i,72)*(H-top-14);
+    ctx.fillRect(gx|0, gy|0, (8+hash(i,73)*26)|0, 2);
+  }
+  for (let i=0;i<10;i++){ // dithered shade patches
+    const gx = -OV + hash(i,74)*(W+2*OV), gy = top+4 + hash(i,75)*(H-top-16);
+    dRect(gx, gy, (12+hash(i,76)*30)|0, (4+hash(i,77)*6)|0, '#50c040', '#2f8428');
+  }
+  // crossroads: flat dirt with scattered worn patches, 1px hard edges
+  R(148, 100, 24, H-100, '#b07f3e');
+  R(-OV, 146, W+2*OV, 18, '#b07f3e');
+  for (let i=0;i<30;i++){
+    const on = i < 13; // along the north-south way, then the east-west way
+    const px2 = on ? 149 + hash(i,90)*15 : -OV + hash(i,91)*(W+2*OV);
+    const py2 = on ? 102 + hash(i,92)*(H-110) : 147 + hash(i,93)*12;
+    dRect(px2, py2, (4+hash(i,94)*8)|0, (2+hash(i,95)*3)|0, '#b07f3e', '#7c5424');
+  }
+  ctx.fillStyle = '#6b451c';
+  ctx.fillRect(147, 100, 1, H-100); ctx.fillRect(172, 100, 1, H-100);
+  ctx.fillRect(-OV, 145, OV+147, 1); ctx.fillRect(172, 145, W+OV-172, 1);
+  ctx.fillRect(-OV, 164, OV+147, 1); ctx.fillRect(172, 164, W+OV-172, 1);
+  kDirt(-OV, 188, W+2*OV, 12, 5); // ragged dirt strip frames the foreground
+  for (let i=0;i<16;i++){ // tiny pixel-flower clusters
+    const fx = (-OV + hash(i,80)*(W+2*OV))|0, fy = (top+8 + hash(i,81)*(H-top-32))|0;
+    if ((fx > 140 && fx < 178) || (fy > 140 && fy < 168)) continue;
+    const c = i%3 ? '#e070d8' : '#8f7ae8';
+    R(fx, fy, 2, 2, c); R(fx+3, fy-1, 1, 1, c); R(fx-2, fy+1, 1, 1, '#f2b3ea');
+  }
+}
+function kCanopyTop(){
+  // foliage hanging over the top of the frame, as if from huge trees just
+  // out of view — the classic Sierra framing device
+  const dk = '#123f10', dd = dpat('#123f10','#2c8a24');
+  for (let i=0;i<28;i++){
+    const cx = -OV + i*((W+2*OV)/28) + hash(i,61)*16;
+    if (cx > 112 && cx < 256) continue; // keep the castle view open
+    const r = 13 + hash(i,62)*11;
+    clump(cx, -9 + hash(i,63)*10, r, dk, i+70);
+    clump(cx - 5, -10 + hash(i,63)*7, r*.72, dd, i+80);
+  }
+}
+function kDirt(x, y, w, h, seed){
+  ctx.fillStyle = '#9a6a30';
+  const n = Math.ceil(w/14);
+  for (let i=0;i<=n;i++){ // stepped ragged top edge
+    ctx.fillRect((x + i*14)|0, (y - 2 - hash(i,seed)*5)|0, 15, 8);
+  }
+  dRect(x, y, w, h, '#9a6a30', '#5c3a14');
+}
+function kTree(x, y, sc, t, i){
+  R(x - 12*sc, y - 1, 24*sc, 3, '#2f8428'); // flat hard-edged shadow
+  R(x - 8*sc, y + 2, 16*sc, 2, '#2f8428');
+  const th = 20*sc;
+  R(x - 3*sc - 1, y - th, 1.2, th, '#241505'); // outlines
+  R(x + 3*sc, y - th, 1.2, th, '#241505');
+  R(x - 3*sc, y - th, 6*sc, th, '#7a4e26');  // flat trunk
+  R(x - 3*sc, y - th, 2*sc, th, '#54351a');  // flat shaded side
+  dRect(x + 0.5*sc, y - th + 3, 1.5*sc, th - 5, '#7a4e26', '#54351a'); // bark
+  const cy = y - th - 6*sc;
+  const sway = Math.sin(t*.6 + i*1.9) * 1.2;
+  const dk = '#144a12', md = '#2c8a24', dd = dpat('#144a12','#2c8a24');
+  const B = (dx, dy, r, c, sd) => clump(x + dx*sc, cy + dy*sc, r*sc, c, i*7 + sd);
+  B(0, 2, 12, dk, 1); B(-11, -1, 9, dk, 2); B(11, -1, 9, dk, 3); // broad oak lobes
+  B(0, -8, 10, dk, 4);
+  B(-5, -3, 9, dd, 5); B(7, -4, 8, dd, 6); B(1, 1, 9, dd, 7);    // dithered body
+  B(-8 + sway/sc, -7, 6, md, 8); B(5 + sway/sc, -9, 6, md, 9);   // lit lobes
+  ctx.fillStyle = '#4fc23a'; // chunky top highlights
+  for (let k=0;k<10;k++){
+    ctx.fillRect((x - 9*sc + hash(k,i+40)*16*sc + sway)|0, (cy - 8*sc + hash(k,i+50)*8*sc)|0, 2, 2);
+  }
+}
+
 // ---------- shared scene-enrichment helpers ----------
 // vertical gradient fill; y0/y1 are the gradient stops (world y), rect is x,y,w,h
 function gradFill(x, y, w, h, y0, y1, stops){
@@ -1664,7 +1802,7 @@ function fWater(x, y, w, h, t, seed){
 // They block the walker at the trunk base and occlude him when he steps behind.
 function drawOneTree(tr, t){
   const x = tr[0], y = tr[1], sc = tr[2], seed = tr[3]|0;
-  fTree(x, y, sc, t, seed);
+  (rooms[cur] && rooms[cur].kq ? kTree : fTree)(x, y, sc, t, seed);
   if (tr[4] === 'apple'){
     const cy = y - 25*sc, sway = Math.sin(t*.7 + (seed+1)*1.9) * 2.2 * sc;
     [[-9,-2],[4,-7],[9,-1],[-4,3],[6,-10],[0,-5]].forEach(a=>{
@@ -1691,14 +1829,14 @@ const honeyDone = () => F.honey || F.honeyOut || F.crown || F.throne;
 const rooms = {
 
 forest: {
-  title: '— The Whispering Forest —', gx:1, gy:1, walkTop:100,
-  trees: [[118,98,.9,0],[212,98,.92,1],[58,104,1,2],[262,102,1.05,3],[292,118,1.2,4],
-          [-36,124,1.25,5],[-84,106,1,6],[356,120,1.15,7],[404,104,1,8],[24,122,1.4,9]],
+  title: '— The Whispering Forest —', gx:1, gy:1, walkTop:100, kq:true,
+  trees: [[118,98,.9,0],[212,98,.92,1],[58,104,1,2],[262,102,1.05,3],[292,118,1.85,4],
+          [-36,124,1.25,5],[-84,106,1,6],[356,120,1.15,7],[404,104,1,8],[24,122,2.1,9]],
   draw(t){
-    fSky(t); fClouds(t); fFar(); fGround();
+    kSky(t); kFar(); kGround();
     treesBG(this.trees, t);   // trunks block; drawFrame re-draws front trees to occlude
     signpost(56, 150);
-    fMotes(t);
+    kCanopyTop();
   },
   spots: [
     { x:52,y:114,w:32,h:38, wx:78,wy:154, hx:70,hy:112,
@@ -3488,14 +3626,16 @@ function frame(ts){
   ctx.setTransform(1/PX, 0, 0, 1/PX, OX/PX, 0);
   drawFrame(t);
   dctx.setTransform(1, 0, 0, 1, 0, 0);
+  // classic-styled rooms (kq) skip the whole grade: flat colour, hard edges
+  const flat = rooms[cur] && rooms[cur].kq;
   // base: crisp nearest-neighbour upscale, colours deepened for a 32-bit feel
   dctx.globalCompositeOperation = 'source-over'; dctx.globalAlpha = 1;
   dctx.imageSmoothingEnabled = false;
-  dctx.filter = CANVAS_FILTER ? HD.color : 'none';
+  dctx.filter = CANVAS_FILTER && !flat ? HD.color : 'none';
   dctx.drawImage(os, 0, 0, os.width, os.height, 0, 0, cv.width, cv.height);
   dctx.filter = 'none';
   // bloom: blur a copy of the scene and add it back so bright things glow softly
-  if (CANVAS_FILTER && HD.bloom > 0){
+  if (CANVAS_FILTER && HD.bloom > 0 && !flat){
     blctx.setTransform(1, 0, 0, 1, 0, 0);
     blctx.clearRect(0, 0, bl.width, bl.height);
     blctx.filter = 'blur(1.4px) brightness(1.18)';
@@ -3508,7 +3648,7 @@ function frame(ts){
     dctx.globalCompositeOperation = 'source-over'; dctx.globalAlpha = 1;
   }
   // vignette: gently darken the corners for a storybook frame
-  if (HD.vignette > 0){ dctx.fillStyle = vignette(); dctx.fillRect(0, 0, cv.width, cv.height); }
+  if (HD.vignette > 0 && !flat){ dctx.fillStyle = vignette(); dctx.fillRect(0, 0, cv.width, cv.height); }
   if (closeSpot && !closeEl.classList.contains('hidden')) renderCloseup(t);
   requestAnimationFrame(frame);
 }
