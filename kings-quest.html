@@ -616,7 +616,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v34';
+const KQ_VER = 'v35';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -1673,6 +1673,15 @@ function kFar(){
     R(-OV + hash(i,55)*(W+2*OV), 101 + hash(i,56)*3, 2, 1, i%2 ? '#e05858' : '#e070d8');
   }
 }
+// the crossroads meander: centreline + half-width of each way at a world coord
+function kPathV(py){
+  return { c: 160 + Math.sin(py*.06)*7 + Math.sin(py*.15)*3,
+           h: 11 + Math.sin(py*.09+2)*2 + (hash(py,41)-.5)*3 + 5*Math.exp(-(py-155)*(py-155)/400) };
+}
+function kPathH(px){
+  return { c: 155 + Math.sin(px*.045)*5 + Math.sin(px*.013)*3,
+           h: 8 + Math.sin(px*.07+1)*1.5 + (hash(px,43)-.5)*3 + 4*Math.exp(-(px-160)*(px-160)/500) };
+}
 function kGround(){
   const top = 105;
   R(-OV, top, W+2*OV, H-top, '#50c040'); // one flat classic green
@@ -1685,29 +1694,52 @@ function kGround(){
     const gx = -OV + hash(i,74)*(W+2*OV), gy = top+4 + hash(i,75)*(H-top-16);
     dRect(gx, gy, (12+hash(i,76)*30)|0, (4+hash(i,77)*6)|0, '#50c040', '#2f8428');
   }
-  // crossroads: flat dirt with scattered worn patches, 1px hard edges
-  R(148, 100, 24, H-100, '#b07f3e');
-  R(-OV, 146, W+2*OV, 18, '#b07f3e');
-  for (let i=0;i<30;i++){
-    const on = i < 13; // along the north-south way, then the east-west way
-    const px2 = on ? 149 + hash(i,90)*15 : -OV + hash(i,91)*(W+2*OV);
-    const py2 = on ? 102 + hash(i,92)*(H-110) : 147 + hash(i,93)*12;
-    dRect(px2, py2, (4+hash(i,94)*8)|0, (2+hash(i,95)*3)|0, '#b07f3e', '#7c5424');
+  // winding crossroads: the two ways meander, swell at the junction and
+  // keep ragged hand-drawn edges — no straight lines in a forest
+  const x0 = -OX - 6, x1 = DW - OX + 6;
+  for (let py=100; py<H; py+=2){ // north-south way
+    const p = kPathV(py);
+    R(p.c - p.h, py, 2*p.h, 2, '#b07f3e');
+    R(p.c - p.h*.35, py, p.h*.7, 2, '#bb8a48'); // worn lighter middle
   }
-  ctx.fillStyle = '#6b451c';
-  ctx.fillRect(147, 100, 1, H-100); ctx.fillRect(172, 100, 1, H-100);
-  ctx.fillRect(-OV, 145, OV+147, 1); ctx.fillRect(172, 145, W+OV-172, 1);
-  ctx.fillRect(-OV, 164, OV+147, 1); ctx.fillRect(172, 164, W+OV-172, 1);
+  for (let px=x0; px<x1; px+=2){ // east-west way
+    const p = kPathH(px);
+    R(px, p.c - p.h, 2, 2*p.h, '#b07f3e');
+    R(px, p.c - p.h*.3, 2, p.h*.6, '#bb8a48');
+  }
+  for (let py=100; py<H; py+=2){ // ragged dark edges, skipped at the junction
+    const p = kPathV(py);
+    for (const ex of [p.c - p.h - 1, p.c + p.h - 1]){
+      const q = kPathH(ex);
+      if (Math.abs(py - q.c) > q.h) R(ex, py, 1.6, 2, '#6b451c');
+    }
+  }
+  for (let px=x0; px<x1; px+=2){
+    const p = kPathH(px);
+    for (const ey of [p.c - p.h - 1, p.c + p.h - 1]){
+      const q = kPathV(ey);
+      if (Math.abs(px - q.c) > q.h) R(px, ey, 2, 1.6, '#6b451c');
+    }
+  }
+  for (let i=0;i<30;i++){ // worn dithered patches along both ways
+    const on = i < 13;
+    let wx, wy;
+    if (on){ wy = 102 + hash(i,92)*(H-110); wx = kPathV(wy).c - 7 + hash(i,90)*12; }
+    else { wx = -OV + hash(i,91)*(W+2*OV); wy = kPathH(wx).c - 6 + hash(i,93)*10; }
+    dRect(wx, wy, (4+hash(i,94)*8)|0, (2+hash(i,95)*3)|0, '#b07f3e', '#7c5424');
+  }
   kDirt(-OV, 188, W+2*OV, 12, 5); // ragged dirt strip frames the foreground
   ctx.fillStyle = '#2f8428'; // spiky grass tufts
   for (let i=0;i<18;i++){
     const tx = (-OV + hash(i,78)*(W+2*OV))|0, ty = (112 + hash(i,79)*(H-126))|0;
-    if ((tx > 140 && tx < 180) || (ty > 142 && ty < 166)) continue;
+    const pv = kPathV(ty), ph = kPathH(tx);
+    if (Math.abs(tx - pv.c) < pv.h + 5 || Math.abs(ty - ph.c) < ph.h + 5) continue;
     ctx.fillRect(tx, ty, 1, 3); ctx.fillRect(tx+2, ty-1, 1, 4); ctx.fillRect(tx+4, ty, 1, 3);
   }
   for (let i=0;i<16;i++){ // tiny pixel-flower clusters
     const fx = (-OV + hash(i,80)*(W+2*OV))|0, fy = (top+8 + hash(i,81)*(H-top-32))|0;
-    if ((fx > 140 && fx < 178) || (fy > 140 && fy < 168)) continue;
+    const qv = kPathV(fy), qh = kPathH(fx);
+    if (Math.abs(fx - qv.c) < qv.h + 4 || Math.abs(fy - qh.c) < qh.h + 4) continue;
     const c = i%3 ? '#e070d8' : '#8f7ae8';
     R(fx, fy, 2, 2, c); R(fx+3, fy-1, 1, 1, c); R(fx-2, fy+1, 1, 1, '#f2b3ea');
   }
