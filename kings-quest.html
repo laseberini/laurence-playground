@@ -616,7 +616,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v38';
+const KQ_VER = 'v39';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -686,12 +686,39 @@ async function loadAI(voiceId){
   if (AI.state === 'loading') return;
   AI.state = 'loading'; AI.pct = 0; AI.err = '';
   AI.fromCache = AI.storedIds.indexOf(voiceId) >= 0;
+  // retry ladder: repeat attempts on the same voice escalate the cleanup.
+  // 2nd try wipes the voice library's private copy (a half-written file there
+  // can hang the load forever — seen on laptops, where that storage works);
+  // the saved download in the browser cache still serves it instantly.
+  // 3rd try wipes everything and downloads fresh from the internet.
+  AI.tries = (AI.lastTryVoice === voiceId) ? (AI.tries || 0) + 1 : 1;
+  AI.lastTryVoice = voiceId;
   if (!narEl.classList.contains('hidden')) buildNarMenu();
+  // watchdog: a load that makes no progress for 35s is stuck — fail it so the
+  // player gets a retry button instead of an eternal spinner
+  let beat = Date.now(), watching = true;
+  const stall = new Promise((_, rej) => {
+    const iv = setInterval(()=>{
+      if (!watching){ clearInterval(iv); return; }
+      if (Date.now() - beat > 35000){
+        clearInterval(iv);
+        rej(new Error('took too long — tap to try again'));
+      }
+    }, 1000);
+  });
+  stall.catch(()=>{});
   try {
+    if (AI.tries === 2){ await opfsDelete(voiceId); }
+    else if (AI.tries >= 3){ await opfsDelete(voiceId); await cacheDelete(voiceId); AI.fromCache = false; }
     if (!AI.mod)
-      AI.mod = await import('https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1/+esm');
+      AI.mod = await Promise.race([
+        import('https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1/+esm'),
+        stall,
+      ]);
+    beat = Date.now();
     let lastPct = -1;
     const onProgress = p => {
+      beat = Date.now();
       let pct = null;
       if (typeof p === 'number') pct = p <= 1 ? Math.round(p*100) : Math.round(p);
       else if (p && p.total) pct = Math.round(p.loaded / p.total * 100);
@@ -700,8 +727,8 @@ async function loadAI(voiceId){
         if (!narEl.classList.contains('hidden')) buildNarMenu();
       }
     };
-    AI.session = await makeAISession(AI.mod, voiceId, onProgress);
-    AI.voiceId = voiceId; AI.state = 'ready';
+    AI.session = await Promise.race([makeAISession(AI.mod, voiceId, onProgress), stall]);
+    AI.voiceId = voiceId; AI.state = 'ready'; AI.tries = 0;
     aiCache.clear(); // generated lines from another voice must not replay
     if (AI.storedIds.indexOf(voiceId) < 0) AI.storedIds.push(voiceId);
     try { localStorage.setItem('kq-aivoice', voiceId); } catch(e){}
@@ -711,7 +738,31 @@ async function loadAI(voiceId){
     AI.state = 'error'; AI.err = String(e && e.message || e).slice(0, 90);
     AI.session = null; AI.voiceId = null;
   }
+  watching = false;
   if (!narEl.classList.contains('hidden')) buildNarMenu();
+}
+// targeted cleanup for the retry ladder: remove one voice's files from the
+// voice library's private storage and from the game's download cache
+async function opfsDelete(voiceId){
+  try {
+    const root = await navigator.storage.getDirectory();
+    const scan = async (dir, depth) => {
+      for await (const entry of dir.values()){
+        if (entry.kind === 'file' && entry.name.indexOf(voiceId) >= 0){
+          try { await dir.removeEntry(entry.name); } catch(e){}
+        } else if (entry.kind === 'directory' && depth < 2) await scan(entry, depth + 1);
+      }
+    };
+    await scan(root, 0);
+  } catch(e){}
+}
+async function cacheDelete(voiceId){
+  try {
+    const c = await caches.open('kq-piper');
+    for (const req of await c.keys()){
+      if (req.url.indexOf(voiceId) >= 0){ try { await c.delete(req); } catch(e){} }
+    }
+  } catch(e){}
 }
 let aiSrc = null;
 function aiParts(text){
@@ -926,6 +977,7 @@ async function aiDiag(){
     if (navigator.storage && navigator.storage.persisted)
       bits.push('protected: ' + ((await navigator.storage.persisted()) ? 'yes' : 'no'));
   } catch(e){}
+  if (AI.err) bits.push('last voice error: ' + AI.err);
   return bits.join('  •  ');
 }
 function buildNarMenu(){
@@ -966,7 +1018,9 @@ function buildNarMenu(){
       AI.fromCache ? 'No download needed — using the saved voice.'
                    : 'First time only — the voice stays on your phone.', ''));
   } else if (AI.state === 'error'){
-    list.appendChild(aiRow('⚠️ AI voice failed — tap to retry', AI.err, '', ()=> loadAI(AIVOICES[0][0])));
+    list.appendChild(aiRow('⚠️ AI voice failed — tap to retry',
+      (AI.err ? AI.err + ' · ' : '') + 'Retrying uses a fresh copy of the voice.',
+      '', ()=> loadAI(AI.lastTryVoice || AIVOICES[0][0])));
   } else {
     AIVOICES.forEach(v => {
       const sel = AI.voiceId === v[0];
