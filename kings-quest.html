@@ -616,7 +616,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v39';
+const KQ_VER = 'v40';
 const KQ_WEB = 'https://raw.githack.com/laseberini/laurence-playground/claude/kings-quest-mobile-7jjfwv/kings-quest.html';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -1558,10 +1558,11 @@ function water(x, y, w, h, t, seed){
   }
 }
 function crystal(x, y, h, c, t, i){
-  const g = .22 + Math.sin(t*2.5 + i)*.14;
-  disc(x, y-h*.5, h*.7, 'rgba(140,210,255,' + g + ')');
   R(x-2, y-h, 4, h, c); R(x-5, y-h+5, 3, h-8, c); R(x+3, y-h+7, 3, h-10, c);
-  R(x-1, y-h, 1, Math.floor(h*.5), 'rgba(255,255,255,.6)');
+  R(x-1, y-h, 1, Math.floor(h*.5), '#eaf6ff');
+  if (Math.sin(t*2.5 + i) > .3){ // hard blinking twinkle
+    R(x-1, y-h-3, 1, 1, '#ffffff'); R(x+2, y-h+3, 1, 1, '#dff0ff'); R(x-4, y-h+8, 1, 1, '#dff0ff');
+  }
 }
 
 // ---------- Whispering Forest: enriched, scene-specific rendering ----------
@@ -1670,6 +1671,20 @@ function dpat(c1, c2){
   return p;
 }
 function dRect(x, y, w, h, c1, c2){ ctx.fillStyle = dpat(c1, c2); ctx.fillRect(x|0, y|0, w, h); }
+const DPATA = new Map();
+function dpatA(c){ // checkerboard of colour and TRANSPARENT — for dithered shadow rims
+  const key = c + '|' + PX;
+  let p = DPATA.get(key);
+  if (!p){
+    const pc = document.createElement('canvas');
+    pc.width = pc.height = 2*PX;
+    const g = pc.getContext('2d');
+    g.fillStyle = c; g.fillRect(0, 0, PX, PX); g.fillRect(PX, PX, PX, PX);
+    p = ctx.createPattern(pc, 'repeat');
+    DPATA.set(key, p);
+  }
+  return p;
+}
 // a ragged, hard-edged mass built from chunky squares (c may be a dither pattern)
 function clump(x, y, r, c, seed){
   ctx.fillStyle = c;
@@ -1939,7 +1954,20 @@ function fWater(x, y, w, h, t, seed){
 // They block the walker at the trunk base and occlude him when he steps behind.
 function drawOneTree(tr, t){
   const x = tr[0], y = tr[1], sc = tr[2], seed = tr[3]|0;
+  if (tr[4] === 'dead'){ dTree(x, y, sc, seed); return; }
   (rooms[cur] && rooms[cur].kq ? kTree : fTree)(x, y, sc, t, seed);
+  if (tr[4] === 'hive'){
+    R(x+9, y-44, 2, 8, '#5d4037'); // rope
+    disc(x+10, y-30, 8, '#d9a441'); disc(x+10, y-24, 9, '#d9a441'); disc(x+10, y-18, 8, '#d9a441');
+    R(x+2, y-28, 16, 2, '#a8752c'); R(x+2, y-22, 16, 2, '#a8752c');
+    R(x+7, y-14, 6, 4, '#5c4319'); // entrance
+    if (DETAIL){
+      for (let hy2=-32; hy2<-16; hy2+=4){
+        for (let hx2=4; hx2<16; hx2+=4){ R(x+hx2, y+hy2, 2, 2, '#c2913a'); }
+      }
+      R(x+6, y-13, 2, 2, '#f2b90d'); R(x+9, y-11, 1, 2, '#f2b90d');
+    }
+  }
   if (tr[4] === 'apple'){
     const cy = y - 25*sc, sway = Math.sin(t*.6 + seed*1.9) * 1.2;
     [[-9,-2],[4,-7],[9,-1],[-4,3],[6,-10],[0,-5]].forEach(a=>{
@@ -2343,12 +2371,16 @@ gate: {
 },
 
 throne: {
-  title: '— The Throne Hall —', gx:null, gy:null, walkTop:96,
+  title: '— The Throne Hall —', gx:null, gy:null, walkTop:96, kq:true,
   exitBottom: ['gate',160,148],
   draw(t){
     R(-OV,0,W+2*OV,H,'#6d5a4a');
     R(-OV,0,W+2*OV,90,'#7d7f8a');
     for (let i=0;i<75;i++){ R(-OV + hash(i,40)*(W+2*OV), hash(i,41)*88, 7, 3, '#73757f'); }
+    dRect(-OV, 86, W+2*OV, 4, '#7d7f8a', '#6d5a4a'); // dithered wall-floor seam
+    for (let i=0;i<8;i++){ // dithered floor wear
+      dRect(-OV + hash(i,44)*(W+2*OV), 96 + hash(i,45)*96, (10+hash(i,46)*22)|0, (3+hash(i,47)*4)|0, '#6d5a4a', '#5c4c3e');
+    }
     R(46,16,16,74,'#8f929e'); R(258,16,16,74,'#8f929e');
     R(44,12,20,5,'#9a9daa'); R(256,12,20,5,'#9a9daa');
     R(-78,16,16,74,'#8f929e'); R(-80,12,20,5,'#9a9daa');
@@ -2357,18 +2389,20 @@ throne: {
       ctx.fillStyle = '#4a6bbf';
       ctx.beginPath(); ctx.arc(wx2+9,26,9,Math.PI,0); ctx.fill();
       R(wx2,26,18,26,'#4a6bbf');
+      dRect(wx2,42,18,10,'#4a6bbf','#7b96de'); // dithered light through the pane
       R(wx2,34,18,3,'#2c3050'); R(wx2+8,20,3,32,'#2c3050');
       R(wx2+2,38,5,5,['#c62828','#ffd54f'][i]); R(wx2+11,42,5,5,['#ffd54f','#c62828'][i]);
     });
     [126,194].forEach((tx,i)=>{
       R(tx,56,4,12,'#5d4037');
-      const fl = Math.sin(t*13 + i*2)*2;
-      disc(tx+2, 52+fl*.4, 4, '#ff8f00'); disc(tx+2, 50+fl*.4, 2.5, '#ffd54f');
+      const fl = Math.sin(t*9 + i*2) > 0 ? 1 : 0; // flat two-frame flame
+      R(tx, 48+fl, 4, 7, '#ff8f3c'); R(tx+1, 46+fl, 2, 4, '#ffd54f');
     });
     ctx.fillStyle = '#a83030';
     ctx.beginPath(); ctx.moveTo(146,90); ctx.lineTo(174,90); ctx.lineTo(196,200); ctx.lineTo(124,200); ctx.fill();
     ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(146,90); ctx.lineTo(124,200); ctx.moveTo(174,90); ctx.lineTo(196,200); ctx.stroke();
+    dRect(148,116,24,66,'#a83030','#8c2626'); // worn carpet middle
     R(128,82,64,10,'#9aa0aa'); R(134,76,52,8,'#a8adb8');
     R(146,40,28,38,'#caa53d');
     R(144,40,4,42,'#caa53d'); R(172,40,4,42,'#caa53d');
@@ -2415,6 +2449,17 @@ throne: {
 
 darkwoods: {
   title: '— The Dark Woods —', gx:0, gy:0, walkTop:102, kq:true,
+  trees: [[40,128,1.1,0,'dead'],[96,108,1,1,'dead'],[150,124,1.15,2,'dead'],[280,110,1.05,3,'dead'],
+          [-40,120,1.1,4,'dead'],[-96,132,1,5,'dead'],[352,126,1.1,6,'dead'],[408,112,1,7,'dead']],
+  perch(t){
+    R(216,64,8,90,'#3a352f'); R(217,64,3,90,'#2c2822');
+    R(200,78,18,3,'#3a352f'); R(196,72,5,8,'#3a352f');
+    R(224,70,20,3,'#3a352f'); R(242,64,5,8,'#3a352f');
+    R(218,54,3,12,'#3a352f');
+    drawRaven(222,70,t);
+  },
+  block(x, y){ return x > 213 && x < 227 && y > 147 && y < 157; }, // perch pole
+  post(t){ if (player.y < 154) this.perch(t); },
   draw(t){
     // murky sky with a hidden moon glowing through the mist
     gradFill(-OV, 0, W+2*OV, 108, 0, 108, [[0,'#2a2740'],[.5,'#3d3a55'],[1,'#535069']]);
@@ -2431,15 +2476,8 @@ darkwoods: {
       ctx.fillStyle = 'rgba(200,206,225,' + b[2] + ')';
       ctx.fillRect(-OV, b[0] + Math.sin(t*b[3])*b[1], W+2*OV, 14);
     }
-    // gnarled dead trees, moonlit
-    dTree(40,128,1.1,0); dTree(96,108,1,1); dTree(150,124,1.15,2); dTree(280,110,1.05,3);
-    dTree(-40,120,1.1,4); dTree(-96,132,1,5); dTree(352,126,1.1,6); dTree(408,112,1,7);
-    // the raven's perch
-    R(216,64,8,90,'#3a352f'); R(217,64,3,90,'#2c2822');
-    R(200,78,18,3,'#3a352f'); R(196,72,5,8,'#3a352f');
-    R(224,70,20,3,'#3a352f'); R(242,64,5,8,'#3a352f');
-    R(218,54,3,12,'#3a352f');
-    drawRaven(222,70,t);
+    treesBG(this.trees, t); // gnarled dead trees: solid trunks, walk-behind
+    this.perch(t);
     // crimson mushroom ring, faintly aglow
     for (let i=0;i<5;i++){
       const mx = 74 + hash(i,50)*22, my = 156 + hash(i,51)*10;
@@ -2525,7 +2563,7 @@ foothills: {
 },
 
 cave: {
-  title: '— The Crystal Cave —', gx:null, gy:null, walkTop:96,
+  title: '— The Crystal Cave —', gx:null, gy:null, walkTop:96, kq:true,
   exitBottom: ['foothills',250,140],
   draw(t){
     R(-OV,0,W+2*OV,H,'#181233');
@@ -2540,8 +2578,7 @@ cave: {
     crystal(150,100,22,'#4dd0e1',t,2); crystal(250,116,28,'#b388ff',t,3);
     crystal(286,104,16,'#4dd0e1',t,4); crystal(-60,116,24,'#b388ff',t,5); crystal(380,112,22,'#4dd0e1',t,6);
     if (!F.geode){
-      const g = .3 + Math.sin(t*3.4)*.18;
-      disc(210,152,10,'rgba(200,150,255,' + g + ')');
+      if (Math.sin(t*3.4) > 0){ R(204,146,1,1,'#e6c8ff'); R(216,150,1,1,'#ffffff'); R(208,159,1,1,'#e6c8ff'); }
       disc(210,153,6,'#5e4a7a'); disc(210,153,4,'#8e6bbf');
       R(207,151,2,2,'#e1bee7'); R(211,153,2,2,'#f3e5f5'); R(209,155,1,1,'#fff');
       if (DETAIL){
@@ -2557,18 +2594,22 @@ cave: {
     }
   },
   post(t){
+    // classic lantern light: darkness with a hard round hole + dithered rim
     ctx.save();
-    ctx.fillStyle = 'rgba(6,3,20,.7)';
-    ctx.fillRect(-OV,0,W+2*OV,H);
-    ctx.globalCompositeOperation = 'destination-out';
-    const g = ctx.createRadialGradient(player.x, player.y-10, 10, player.x, player.y-10, 52);
-    g.addColorStop(0,'rgba(0,0,0,.95)'); g.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(player.x-56, player.y-66, 112, 112);
+    ctx.fillStyle = 'rgba(6,3,20,.72)';
+    ctx.beginPath();
+    ctx.rect(-OV, 0, W+2*OV, H);
+    ctx.arc(player.x, player.y-10, 48, 0, 7);
+    ctx.fill('evenodd');
+    ctx.beginPath();
+    ctx.arc(player.x, player.y-10, 48, 0, 7);
+    ctx.arc(player.x, player.y-10, 36, 0, 7);
+    ctx.clip('evenodd');
+    ctx.fillStyle = dpatA('rgba(6,3,20,.72)');
+    ctx.fillRect(player.x-50, player.y-60, 100, 100);
     ctx.restore();
-    if (!F.geode){
-      const a = .3 + Math.sin(t*3.4)*.18;
-      disc(210,152,7,'rgba(210,160,255,' + a + ')');
+    if (!F.geode && Math.sin(t*3.4) > 0){ // the geode winks through the dark
+      R(208,150,2,2,'#cfa0ff'); R(212,154,1,1,'#ffffff');
     }
   },
   spots: [
@@ -2752,6 +2793,7 @@ tower: {
 
 beeglade: {
   title: '— The Bee Glade —', gx:0, gy:2, walkTop:100, kq:true,
+  trees: [[79,126,1.55,12,'hive'],[290,116,1.1,2],[346,104,1,4],[-52,120,1.2,6],[-110,108,1,8]],
   draw(t){
     fSky(t); fClouds(t); fFar();
     fGrass(100, '#46e93c', '#2fae2e');
@@ -2761,23 +2803,12 @@ beeglade: {
       const c = ['#ffffff','#ffd54f','#f48fb1','#ba68c8'][i%4], sway = Math.sin(t*1.1 + i)*0.7;
       R(fx, fy, 1, 3, '#2e7d32'); R(fx-1+sway, fy-2, 3, 2, c);
     }
-    kTree(79, 126, 1.55, t, 12); // the hive oak
-    R(88,82,2,8,'#5d4037');
-    disc(89,96,8,'#d9a441'); disc(89,102,9,'#d9a441'); disc(89,108,8,'#d9a441');
-    R(81,98,16,2,'#a8752c'); R(81,104,16,2,'#a8752c');
-    R(86,112,6,4,'#5c4319');
-    if (DETAIL){
-      for (let hy2=94; hy2<110; hy2+=4){
-        for (let hx2=83; hx2<95; hx2+=4){ R(hx2, hy2, 2, 2, '#c2913a'); }
-      }
-      R(85,113,2,2,'#f2b90d'); R(88,115,1,2,'#f2b90d');
-    }
+    treesBG(this.trees, t); // hive oak + glade oaks: solid trunks, walk-behind
     for (let i=0;i<8;i++){
       const bx = 89 + Math.cos(t*2 + i*.8)*(12 + hash(i,19)*10);
       const by = 102 + Math.sin(t*2.7 + i*1.1)*(8 + hash(i,22)*6);
       R(bx, by, 2, 1, '#f2b90d');
     }
-    fTree(290,116,1.1,t,2); fTree(346,104,1.0,t,4); fTree(-52,120,1.2,t,6); fTree(-110,108,1.0,t,8);
     fMotes(t);
     drawQueen(204,138,t);
   },
@@ -2800,7 +2831,7 @@ beeglade: {
 },
 
 lair: {
-  title: '— Cinder’s Lair —', gx:null, gy:null, walkTop:100,
+  title: '— Cinder’s Lair —', gx:null, gy:null, walkTop:100, kq:true,
   exitBottom: ['emberpeak',180,148],
   draw(t){
     R(-OV,0,W+2*OV,H,'#241016'); R(-OV,0,W+2*OV,70,'#1c0c11');
@@ -2812,9 +2843,9 @@ lair: {
       ctx.beginPath(); ctx.moveTo(sx,0); ctx.lineTo(sx+12,0); ctx.lineTo(sx+6,20+hash(i,98)*18); ctx.fill();
     }
     [[40,70],[290,64],[-60,74],[380,68]].forEach((v,i)=>{
-      const a = .3 + Math.sin(t*5 + i*2)*.18;
       R(v[0],v[1],4,10,'#3b2018');
-      disc(v[0]+2, v[1]-2, 4, 'rgba(255,140,50,' + a + ')');
+      const fl = Math.sin(t*7 + i*2) > 0 ? 1 : 0; // flat two-frame flame
+      R(v[0]+1, v[1]-6+fl, 3, 5, '#ff8f3c'); R(v[0]+2, v[1]-7+fl, 1, 3, '#ffd54f');
     });
     disc(258,168,24,'#c9a227'); disc(238,176,18,'#e8c245'); disc(280,176,16,'#e8c245');
     disc(300,182,12,'#c9a227');
@@ -2826,8 +2857,7 @@ lair: {
       R(82,148,10,9,'#c98a2b'); R(84,146,6,3,'#f2b90d'); R(85,152,3,4,'#f2b90d');
     }
     if (!F.crown){
-      const g = .25 + Math.sin(t*3)*.12;
-      disc(256,138,11,'rgba(255,235,120,' + g + ')');
+      if (Math.sin(t*3) > 0){ R(250,131,1,1,'#fff8d0'); R(263,134,1,1,'#fff8d0'); R(255,127,1,1,'#ffffff'); }
       R(248,136,16,6,'#ffd54f');
       ctx.fillStyle = '#ffd54f';
       ctx.beginPath(); ctx.moveTo(248,136); ctx.lineTo(251,129); ctx.lineTo(254,136); ctx.fill();
