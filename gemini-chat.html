@@ -153,9 +153,9 @@
 <header>
   <h1>✦ Gemini <span>Chat</span></h1>
   <select id="model">
-    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-    <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-    <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+    <option value="gemini-flash-latest">Gemini Flash (latest)</option>
+    <option value="gemini-pro-latest">Gemini Pro (latest)</option>
+    <option value="gemini-flash-lite-latest">Gemini Flash Lite (latest)</option>
   </select>
   <button id="clearBtn" title="Clear conversation">New chat</button>
   <button id="keyBtn" title="Change API key">🔑</button>
@@ -217,8 +217,43 @@
     if (!v) return;
     localStorage.setItem(KEY_STORAGE, v);
     hideKeyModal();
+    loadModels();
     inputEl.focus();
   });
+
+  // Ask the API which models this key can use, so the dropdown never goes stale.
+  async function loadModels() {
+    try {
+      const res = await fetch(
+        'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000',
+        { headers: { 'x-goog-api-key': getKey() } });
+      if (!res.ok) return; // keep the static fallback options
+      const data = await res.json();
+      const models = (data.models || [])
+        .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+        .map(m => ({
+          id: m.name.replace(/^models\//, ''),
+          label: m.displayName || m.name.replace(/^models\//, '')
+        }))
+        .filter(m => m.id.startsWith('gemini'))
+        .sort((a, b) => b.id.localeCompare(a.id));
+      if (!models.length) return;
+      const previous = modelEl.value;
+      modelEl.innerHTML = '';
+      for (const m of models) {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.label;
+        modelEl.appendChild(opt);
+      }
+      const preferred =
+        models.find(m => m.id === previous) ||
+        models.find(m => m.id === 'gemini-flash-latest') ||
+        models.find(m => /flash/.test(m.id) && !/lite|image|tts|audio|live/.test(m.id)) ||
+        models[0];
+      modelEl.value = preferred.id;
+    } catch (_) { /* offline or blocked — static fallback options remain */ }
+  }
   keyInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('keySave').click();
   });
@@ -363,7 +398,7 @@
   inputEl.addEventListener('input', autosize);
 
   if (!getKey()) showKeyModal();
-  else inputEl.focus();
+  else { loadModels(); inputEl.focus(); }
 })();
 </script>
 </body>
