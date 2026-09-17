@@ -3,6 +3,24 @@
 A couple of small, self-contained web pages. No build step, no dependencies to
 install — each is a single HTML file you can open in any modern browser.
 
+## How this site deploys
+
+GitHub Pages serves this repo straight from the **`main` branch, root folder**.
+There is no Actions workflow and there must not be one: adding a workflow that
+calls `actions/deploy-pages` switches the site to Actions-built mode and every
+file on `main` stops being served.
+
+- Merge to `main` and the live site refreshes in about a minute.
+- Each app is either a single HTML file at the root or a folder with its own
+  `index.html`. A folder gives the nicer URL, so prefer it for new apps.
+- App index: https://laseberini.github.io/laurence-playground/apps/
+
+## 📱 Apps — [`apps/`](apps/index.html)
+
+A list of everything here, plus the sites that live in their own repos.
+
+**Live:** https://laseberini.github.io/laurence-playground/apps/
+
 ## 📖 Resume Reader — [`index.html`](index.html)
 
 A mobile-friendly PDF reader that **remembers exactly where you left off**, so
@@ -38,3 +56,9 @@ in your own browser.
 ## 🌀 fractal-loop — [`fractal-loop.html`](fractal-loop.html)
 
 A small interactive fractal toy.
+
+## 🎫 Loyalty Cards — [`cards/index.html`](cards/index.html)
+
+Your loyalty barcodes, one tap away.
+
+**Live:** https://laseberini.github.io/laurence-playground/cards/
