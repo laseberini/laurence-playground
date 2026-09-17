@@ -32,9 +32,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    # No environment block here on purpose. The auto-created github-pages
-    # environment has a branch rule that blocks every current branch, and
-    # the deploy action works without declaring it.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy
         id: deployment
