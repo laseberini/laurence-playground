@@ -205,11 +205,28 @@
   }
   .palette {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
     justify-items: center;
   }
-  .palette .peg { --size: min(48px, 12vw); cursor: pointer; }
+  .palette .peg { --size: min(46px, 11vw); cursor: pointer; }
+  .palette .peg.blank {
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+    font: 500 1.1rem var(--mono);
+  }
+  .marker { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .marker .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding-block: 12px;
+  }
+  .marker .key { width: 22px; height: 22px; }
+  .shake { animation: shake .3s; }
+  @keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
   .palette .peg:active { transform: scale(.92); }
   .actions { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
   .btn {
@@ -245,7 +262,7 @@
     .pegs { gap: 7px; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .peg.pop { animation: none; }
+    .peg.pop, .shake { animation: none; }
     .board { scroll-behavior: auto; }
   }
 </style>
@@ -272,6 +289,10 @@
 
   <div class="tray">
     <div class="palette" id="palette"></div>
+    <div class="marker" id="marker" hidden>
+      <button class="btn" id="add-red"><i class="key b"></i> Add red</button>
+      <button class="btn" id="add-white"><i class="key w"></i> Add white</button>
+    </div>
     <div class="actions">
       <button class="btn" id="btn-clear">Clear</button>
       <button class="btn primary" id="btn-go">Check</button>
@@ -280,7 +301,7 @@
       <span><i class="key b"></i> right colour, right spot</span>
       <span><i class="key w"></i> right colour, wrong spot</span>
     </div>
-    <div class="version">v1.0</div>
+    <div class="version">v1.1</div>
   </div>
 </div>
 
@@ -291,30 +312,37 @@
   const $ = id => document.getElementById(id);
 
   // ---- Scoring ----
+  // An empty hole (null) counts as its own "colour", so blanks in a code
+  // can be matched. A random secret never has blanks, so empty holes in
+  // your guess just score nothing.
+  const BLANK = COLORS, KINDS = COLORS + 1;
+  const gc = new Uint8Array(KINDS), sc = new Uint8Array(KINDS);
   function score(guess, secret) {
     let black = 0;
-    const gc = new Array(COLORS).fill(0), sc = new Array(COLORS).fill(0);
+    gc.fill(0); sc.fill(0);
     for (let i = 0; i < SLOTS; i++) {
-      if (guess[i] === secret[i]) black++;
-      else { if (guess[i] !== null) gc[guess[i]]++; sc[secret[i]]++; }
+      const g = guess[i] ?? BLANK, s = secret[i] ?? BLANK;
+      if (g === s) black++;
+      else { gc[g]++; sc[s]++; }
     }
     let white = 0;
-    for (let c = 0; c < COLORS; c++) white += Math.min(gc[c], sc[c]);
+    for (let c = 0; c < KINDS; c++) white += Math.min(gc[c], sc[c]);
     return { black, white };
   }
+  const codeKey = code => code.map(c => c ?? "_").join("");
 
-  // ---- All 1296 codes, for the computer player ----
+  // ---- All 2401 codes (6 colours + blank), for the computer player ----
   const ALL = [];
   (function build(prefix) {
     if (prefix.length === SLOTS) { ALL.push(prefix); return; }
-    for (let c = 0; c < COLORS; c++) build(prefix.concat(c));
+    for (let c = 0; c <= COLORS; c++) build(prefix.concat(c === COLORS ? null : c));
   })([]);
 
   // Knuth's minimax: pick the guess whose worst-case leftover set is smallest.
   function nextComputerGuess(candidates, turn) {
     if (turn === 0) return [0, 0, 1, 1];
     if (candidates.length <= 2) return candidates[0];
-    const inCand = new Set(candidates.map(c => c.join("")));
+    const inCand = new Set(candidates.map(codeKey));
     let best = null, bestWorst = Infinity, bestIsCand = false;
     for (const g of ALL) {
       const counts = new Map();
@@ -325,7 +353,7 @@
         counts.set(k, v);
         if (v > worst) { worst = v; if (worst > bestWorst) break; }
       }
-      const isCand = inCand.has(g.join(""));
+      const isCand = inCand.has(codeKey(g));
       if (worst < bestWorst || (worst === bestWorst && isCand && !bestIsCand)) {
         best = g; bestWorst = worst; bestIsCand = isCand;
       }
@@ -339,7 +367,9 @@
   let rows = [];          // [{guess, result}]
   let draft = [];         // pegs being placed (your guess, or your secret)
   let sel = 0;            // selected slot in draft
-  let phase = "play";     // "setup" | "play" | "thinking" | "over"
+  let phase = "play";     // "setup" | "play" | "thinking" | "mark" | "over"
+  let marks = { black: 0, white: 0 }; // your marking of the computer's guess
+  let wrongMark = false;
   let candidates = [];
   let timer = null;
 
@@ -347,6 +377,8 @@
     clearTimeout(timer);
     mode = m;
     rows = [];
+    marks = { black: 0, white: 0 };
+    wrongMark = false;
     draft = new Array(SLOTS).fill(null);
     sel = 0;
     if (mode === "break") {
@@ -369,7 +401,7 @@
     if (c !== null && c !== undefined) {
       b.dataset.c = c;
       b.setAttribute("aria-label", NAMES[c]);
-    } else b.setAttribute("aria-label", "empty");
+    } else b.setAttribute("aria-label", "blank");
     return b;
   }
 
@@ -400,7 +432,10 @@
         const p = pegEl(c, i === sel ? "sel" : "");
         p.style.cursor = "pointer";
         if (i === sel) p.style.outline = "2px solid var(--brass)", p.style.outlineOffset = "2px";
-        p.onclick = () => { sel = i; render(); };
+        p.onclick = () => {
+          if (draft[i] !== null && sel === i) draft[i] = null;
+          sel = i; render();
+        };
         sec.appendChild(p);
       });
     } else {
@@ -425,7 +460,8 @@
       let result = null;
       if (r < rows.length) {
         rows[r].guess.forEach(c => { const p = pegEl(c); p.tabIndex = -1; pegs.appendChild(p); });
-        result = rows[r].result;
+        result = rows[r].result || marks;
+        if (!rows[r].result) { row.classList.add("active"); row.id = "active-row"; }
       } else if (showActive && r === rows.length) {
         row.classList.add("active");
         row.id = "active-row";
@@ -445,21 +481,30 @@
     }
 
     // Tray + text
-    const filled = draft.every(c => c !== null);
     const anyPeg = draft.some(c => c !== null);
     const go = $("btn-go"), clear = $("btn-clear");
     const pal = $("palette");
     const paletteOn = phase === "setup" || (mode === "break" && phase === "play");
+    const marking = phase === "mark";
     pal.querySelectorAll(".peg").forEach(p => p.disabled = !paletteOn);
-    clear.disabled = !paletteOn || draft.every(c => c === null);
+    pal.hidden = marking;
+    $("marker").hidden = !marking;
+    const full = marks.black + marks.white >= SLOTS;
+    $("add-red").disabled = $("add-white").disabled = !marking || full;
+    clear.disabled = marking ? marks.black + marks.white === 0
+      : !paletteOn || draft.every(c => c === null);
 
     const last = rows[rows.length - 1];
     const turnNo = Math.min(rows.length + (phase === "over" ? 0 : 1), TURNS);
     let status = `Guess ${turnNo} / ${TURNS}`;
     if (phase === "setup") {
       status = "Pick your code";
-      go.textContent = "Lock it in"; go.disabled = !filled;
+      go.textContent = "Lock it in"; go.disabled = !anyPeg;
+    } else if (phase === "mark") {
+      status = wrongMark ? "Not right, check again" : `Mark guess ${rows.length}`;
+      go.textContent = "Mark"; go.disabled = false;
     } else if (phase === "thinking") {
+      status = "Thinking…";
       go.textContent = "Thinking…"; go.disabled = true;
     } else if (phase === "play") {
       go.textContent = "Check"; go.disabled = !anyPeg;
@@ -471,8 +516,8 @@
       go.textContent = "Play again"; go.disabled = false;
     }
     $("turn").textContent = status;
-    // Secret row only when picking a code or revealing it at the end.
-    $("shield").hidden = !(phase === "setup" || phase === "over");
+    // Secret row: yours while you set/mark it, the computer's only at the end.
+    $("shield").hidden = !(mode === "set" || phase === "over");
     $("shield-label").textContent = mode === "set" ? "Your code" : "Code";
 
     const active = $("active-row") || board.children[Math.max(rows.length - 1, 0)];
@@ -483,6 +528,7 @@
   function place(c) {
     if (!(phase === "setup" || (mode === "break" && phase === "play"))) return;
     draft[sel] = c;
+    if (c === null) { sel = Math.min(sel + 1, SLOTS - 1); render(); return; }
     const next = draft.findIndex((v, i) => v === null && i > sel);
     const any = draft.findIndex(v => v === null);
     sel = next !== -1 ? next : any !== -1 ? any : sel;
@@ -491,8 +537,9 @@
 
   function submit() {
     if (phase === "over") return newGame(mode);
+    if (phase === "mark") return checkMarks();
     if (phase === "setup") {
-      if (!draft.every(c => c !== null)) return;
+      if (!draft.some(c => c !== null)) return;
       secret = draft.slice();
       draft = new Array(SLOTS).fill(null);
       phase = "thinking";
@@ -510,18 +557,36 @@
     render();
   }
 
+  // Computer places a guess, then waits for you to mark it.
   function computerTurn() {
     timer = setTimeout(() => {
-      const guess = nextComputerGuess(candidates, rows.length);
-      const result = score(guess, secret);
-      rows.push({ guess, result });
-      candidates = candidates.filter(c => {
-        const r = score(guess, c);
-        return r.black === result.black && r.white === result.white;
-      });
-      if (result.black === SLOTS || rows.length >= TURNS) { phase = "over"; render(); }
-      else { render(); computerTurn(); }
-    }, 900);
+      rows.push({ guess: nextComputerGuess(candidates, rows.length), result: null });
+      marks = { black: 0, white: 0 };
+      wrongMark = false;
+      phase = "mark";
+      render();
+    }, 400);
+  }
+
+  function checkMarks() {
+    const row = rows[rows.length - 1];
+    const truth = score(row.guess, secret);
+    if (truth.black !== marks.black || truth.white !== marks.white) {
+      wrongMark = true;
+      render();
+      const a = $("active-row");
+      if (a) a.classList.add("shake");
+      return;
+    }
+    row.result = { ...marks };
+    candidates = candidates.filter(c => {
+      const r = score(row.guess, c);
+      return r.black === marks.black && r.white === marks.white;
+    });
+    if (marks.black === SLOTS || rows.length >= TURNS) { phase = "over"; render(); return; }
+    phase = "thinking";
+    render();
+    computerTurn();
   }
 
   // Palette
@@ -531,8 +596,22 @@
     p.onclick = () => { place(c); };
     pal.appendChild(p);
   }
+  const blank = pegEl(null, "blank");
+  blank.textContent = "×";
+  blank.onclick = () => place(null);
+  pal.appendChild(blank);
+  const addMark = kind => {
+    if (marks.black + marks.white >= SLOTS) return;
+    marks[kind]++; wrongMark = false; render();
+  };
+  $("add-red").onclick = () => addMark("black");
+  $("add-white").onclick = () => addMark("white");
   $("btn-go").onclick = submit;
-  $("btn-clear").onclick = () => { draft = new Array(SLOTS).fill(null); sel = 0; render(); };
+  $("btn-clear").onclick = () => {
+    if (phase === "mark") { marks = { black: 0, white: 0 }; wrongMark = false; }
+    else { draft = new Array(SLOTS).fill(null); sel = 0; }
+    render();
+  };
   $("mode-break").onclick = () => newGame("break");
   $("mode-set").onclick = () => newGame("set");
 
