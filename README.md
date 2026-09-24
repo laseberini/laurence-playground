@@ -53,6 +53,14 @@ in your own browser.
   the page to your Home Screen makes this far less likely. If it ever forgets,
   just pick the file once more.
 
+## 🔴 Mastermind — [`mastermind/`](mastermind/index.html)
+
+The classic code-breaking game, built for phones. Break the computer's code, or
+set one and watch the computer crack it (Knuth's minimax strategy). Add it to
+your Home Screen to play it like an app.
+
+**Live:** https://laseberini.github.io/laurence-playground/mastermind/
+
 ## 🌀 fractal-loop — [`fractal-loop.html`](fractal-loop.html)
 
 A small interactive fractal toy.
