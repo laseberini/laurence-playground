@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mastermind">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<style>
+  html { box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); background: #23201d; }
+  body { margin: 0; overscroll-behavior: none; }
+</style>
+<title>Mastermind</title>
+<meta name="theme-color" content="#23201d">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=DM+Mono:wght@400;500&display=swap">
+<style>
+  /* Single dark look on purpose: it's the plastic game board. */
+  :root {
+    color-scheme: dark;
+    --board: #23201d;
+    --board-2: #2e2a26;
+    --hole: #151311;
+    --rail: #3a3530;
+    --ink: #f1ebe3;
+    --muted: #a39a8f;
+    --brass: #d9b36c;
+    --p0: #e4473a; /* red */
+    --p1: #f2a93b; /* orange */
+    --p2: #f3dd4b; /* yellow */
+    --p3: #3fb96b; /* green */
+    --p4: #3f8ee8; /* blue */
+    --p5: #a45fd8; /* purple */
+    --key-red: #e4473a;
+    --key-white: #f7f3ec;
+    --display: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "DM Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  html, body { height: 100%; }
+  [hidden] { display: none !important; }
+  body {
+    background: var(--board);
+    color: var(--ink);
+    font-family: var(--display);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .app {
+    height: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    padding-inline: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-sizing: border-box;
+  }
+  header {
+    padding-top: 14px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  h1 span { color: var(--brass); }
+  .turn {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .modes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: var(--hole);
+    border-radius: 999px;
+    padding: 4px;
+    gap: 4px;
+  }
+  .modes button {
+    font: 500 0.95rem var(--display);
+    color: var(--muted);
+    background: transparent;
+    border: 0;
+    border-radius: 999px;
+    padding: 10px 8px;
+    cursor: pointer;
+  }
+  .modes button[aria-pressed="true"] {
+    background: var(--rail);
+    color: var(--ink);
+  }
+
+  /* Secret shield */
+  .shield {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--board-2);
+    border-radius: 14px;
+    padding: 10px 12px;
+  }
+  .shield .label {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--brass);
+    width: 3.2em;
+  }
+
+  /* Board */
+  .board {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-block: 4px;
+    scroll-behavior: smooth;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 2em 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    border-radius: 14px;
+  }
+  .row.active { background: var(--board-2); box-shadow: inset 0 0 0 1px var(--rail); }
+  .row .n {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .pegs { display: flex; gap: 10px; }
+  .peg {
+    --size: 38px;
+    width: var(--size);
+    height: var(--size);
+    border-radius: 50%;
+    background: var(--hole);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,.6);
+    border: 0;
+    padding: 0;
+    flex: none;
+  }
+  .peg[data-c] {
+    box-shadow: inset 0 -4px 6px rgba(0,0,0,.28), inset 0 3px 4px rgba(255,255,255,.35), 0 2px 3px rgba(0,0,0,.4);
+  }
+  .peg[data-c="0"] { background: var(--p0); }
+  .peg[data-c="1"] { background: var(--p1); }
+  .peg[data-c="2"] { background: var(--p2); }
+  .peg[data-c="3"] { background: var(--p3); }
+  .peg[data-c="4"] { background: var(--p4); }
+  .peg[data-c="5"] { background: var(--p5); }
+  .peg.hidden-peg {
+    background: var(--rail);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,.4);
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+    font: 500 0.9rem var(--mono);
+  }
+  .row.active .peg { cursor: pointer; }
+  .row.active .peg.sel { outline: 2px solid var(--brass); outline-offset: 2px; }
+  .peg.pop { animation: pop .18s ease-out; }
+  @keyframes pop { 50% { transform: scale(1.15); } }
+
+  .keys {
+    display: grid;
+    grid-template-columns: repeat(2, 12px);
+    gap: 4px;
+  }
+  .key {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--rail);
+    transform: scale(.55);
+  }
+  .key.b { background: var(--key-red); box-shadow: none; transform: none; }
+  .key.w { background: var(--key-white); box-shadow: none; transform: none; }
+
+  /* Tray */
+  .tray {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 16px;
+  }
+  .palette {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    justify-items: center;
+  }
+  .palette .peg { --size: min(48px, 12vw); cursor: pointer; }
+  .palette .peg:active { transform: scale(.92); }
+  .actions { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
+  .btn {
+    font: 800 1rem var(--display);
+    border: 0;
+    border-radius: 14px;
+    padding: 14px;
+    cursor: pointer;
+    background: var(--rail);
+    color: var(--ink);
+  }
+  .btn.primary { background: var(--brass); color: var(--board); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  button:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+  .legend {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+  @media (max-width: 360px) {
+    .peg { --size: 32px; }
+    .pegs { gap: 7px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .peg.pop { animation: none; }
+    .board { scroll-behavior: auto; }
+  }
+</style>
+
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Master<span>mind</span></h1>
+    <div class="turn" id="turn">Guess 1 / 10</div>
+  </header>
+
+  <div class="modes" role="group" aria-label="Your role">
+    <button id="mode-break" aria-pressed="true">I break the code</button>
+    <button id="mode-set" aria-pressed="false">I set the code</button>
+  </div>
+
+  <div class="shield" id="shield">
+    <span class="label" id="shield-label">Your code</span>
+    <div class="pegs" id="secret"></div>
+  </div>
+
+  <div class="board" id="board" aria-live="polite"></div>
+
+  <div class="tray">
+    <div class="palette" id="palette"></div>
+    <div class="actions">
+      <button class="btn" id="btn-clear">Clear</button>
+      <button class="btn primary" id="btn-go">Check</button>
+    </div>
+    <div class="legend">
+      <span><i class="key b"></i> right colour, right spot</span>
+      <span><i class="key w"></i> right colour, wrong spot</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const COLORS = 6, SLOTS = 4, TURNS = 10;
+  const NAMES = ["red", "orange", "yellow", "green", "blue", "purple"];
+  const $ = id => document.getElementById(id);
+
+  // ---- Scoring ----
+  function score(guess, secret) {
+    let black = 0;
+    const gc = new Array(COLORS).fill(0), sc = new Array(COLORS).fill(0);
+    for (let i = 0; i < SLOTS; i++) {
+      if (guess[i] === secret[i]) black++;
+      else { if (guess[i] !== null) gc[guess[i]]++; sc[secret[i]]++; }
+    }
+    let white = 0;
+    for (let c = 0; c < COLORS; c++) white += Math.min(gc[c], sc[c]);
+    return { black, white };
+  }
+
+  // ---- All 1296 codes, for the computer player ----
+  const ALL = [];
+  (function build(prefix) {
+    if (prefix.length === SLOTS) { ALL.push(prefix); return; }
+    for (let c = 0; c < COLORS; c++) build(prefix.concat(c));
+  })([]);
+
+  // Knuth's minimax: pick the guess whose worst-case leftover set is smallest.
+  function nextComputerGuess(candidates, turn) {
+    if (turn === 0) return [0, 0, 1, 1];
+    if (candidates.length <= 2) return candidates[0];
+    const inCand = new Set(candidates.map(c => c.join("")));
+    let best = null, bestWorst = Infinity, bestIsCand = false;
+    for (const g of ALL) {
+      const counts = new Map();
+      let worst = 0;
+      for (const s of candidates) {
+        const r = score(g, s), k = r.black * 10 + r.white;
+        const v = (counts.get(k) || 0) + 1;
+        counts.set(k, v);
+        if (v > worst) { worst = v; if (worst > bestWorst) break; }
+      }
+      const isCand = inCand.has(g.join(""));
+      if (worst < bestWorst || (worst === bestWorst && isCand && !bestIsCand)) {
+        best = g; bestWorst = worst; bestIsCand = isCand;
+      }
+    }
+    return best;
+  }
+
+  // ---- State ----
+  let mode = "break";     // "break" = you guess, "set" = computer guesses
+  let secret = [];        // the code being cracked
+  let rows = [];          // [{guess, result}]
+  let draft = [];         // pegs being placed (your guess, or your secret)
+  let sel = 0;            // selected slot in draft
+  let phase = "play";     // "setup" | "play" | "thinking" | "over"
+  let candidates = [];
+  let timer = null;
+
+  function newGame(m) {
+    clearTimeout(timer);
+    mode = m;
+    rows = [];
+    draft = new Array(SLOTS).fill(null);
+    sel = 0;
+    if (mode === "break") {
+      secret = Array.from({ length: SLOTS }, () => Math.floor(Math.random() * COLORS));
+      phase = "play";
+    } else {
+      secret = [];
+      candidates = ALL.slice();
+      phase = "setup";
+    }
+    $("mode-break").setAttribute("aria-pressed", mode === "break");
+    $("mode-set").setAttribute("aria-pressed", mode === "set");
+    render();
+  }
+
+  // ---- Rendering ----
+  function pegEl(c, extra) {
+    const b = document.createElement("button");
+    b.className = "peg" + (extra ? " " + extra : "");
+    if (c !== null && c !== undefined) {
+      b.dataset.c = c;
+      b.setAttribute("aria-label", NAMES[c]);
+    } else b.setAttribute("aria-label", "empty");
+    return b;
+  }
+
+  function keysEl(result) {
+    const k = document.createElement("div");
+    k.className = "keys";
+    const list = [];
+    if (result) {
+      for (let i = 0; i < result.black; i++) list.push("b");
+      for (let i = 0; i < result.white; i++) list.push("w");
+    }
+    for (let i = 0; i < SLOTS; i++) {
+      const d = document.createElement("i");
+      d.className = "key" + (list[i] ? " " + list[i] : "");
+      k.appendChild(d);
+    }
+    if (result) k.setAttribute("aria-label", `${result.black} exact, ${result.white} colour only`);
+    return k;
+  }
+
+  function render() {
+    // Secret shield
+    const sec = $("secret");
+    sec.innerHTML = "";
+    const reveal = mode === "set" || phase === "over";
+    if (phase === "setup") {
+      draft.forEach((c, i) => {
+        const p = pegEl(c, i === sel ? "sel" : "");
+        p.style.cursor = "pointer";
+        if (i === sel) p.style.outline = "2px solid var(--brass)", p.style.outlineOffset = "2px";
+        p.onclick = () => { sel = i; render(); };
+        sec.appendChild(p);
+      });
+    } else {
+      for (let i = 0; i < SLOTS; i++) {
+        if (reveal) sec.appendChild(pegEl(secret[i]));
+        else { const p = pegEl(null, "hidden-peg"); p.textContent = "?"; p.tabIndex = -1; sec.appendChild(p); }
+      }
+    }
+
+    // Board
+    const board = $("board");
+    board.innerHTML = "";
+    const showActive = mode === "break" && phase === "play";
+    for (let r = 0; r < TURNS; r++) {
+      const row = document.createElement("div");
+      row.className = "row";
+      const n = document.createElement("span");
+      n.className = "n";
+      n.textContent = String(r + 1).padStart(2, "0");
+      const pegs = document.createElement("div");
+      pegs.className = "pegs";
+      let result = null;
+      if (r < rows.length) {
+        rows[r].guess.forEach(c => { const p = pegEl(c); p.tabIndex = -1; pegs.appendChild(p); });
+        result = rows[r].result;
+      } else if (showActive && r === rows.length) {
+        row.classList.add("active");
+        row.id = "active-row";
+        draft.forEach((c, i) => {
+          const p = pegEl(c, i === sel ? "sel" : "");
+          p.onclick = () => {
+            if (draft[i] !== null && sel === i) draft[i] = null; // tap selected filled peg to clear it
+            sel = i; render();
+          };
+          pegs.appendChild(p);
+        });
+      } else {
+        for (let i = 0; i < SLOTS; i++) { const p = pegEl(null); p.tabIndex = -1; pegs.appendChild(p); }
+      }
+      row.append(n, pegs, keysEl(result));
+      board.appendChild(row);
+    }
+
+    // Tray + text
+    const filled = draft.every(c => c !== null);
+    const anyPeg = draft.some(c => c !== null);
+    const go = $("btn-go"), clear = $("btn-clear");
+    const pal = $("palette");
+    const paletteOn = phase === "setup" || (mode === "break" && phase === "play");
+    pal.querySelectorAll(".peg").forEach(p => p.disabled = !paletteOn);
+    clear.disabled = !paletteOn || draft.every(c => c === null);
+
+    const last = rows[rows.length - 1];
+    const turnNo = Math.min(rows.length + (phase === "over" ? 0 : 1), TURNS);
+    let status = `Guess ${turnNo} / ${TURNS}`;
+    if (phase === "setup") {
+      status = "Pick your code";
+      go.textContent = "Lock it in"; go.disabled = !filled;
+    } else if (phase === "thinking") {
+      go.textContent = "Thinking…"; go.disabled = true;
+    } else if (phase === "play") {
+      go.textContent = "Check"; go.disabled = !anyPeg;
+    } else {
+      const won = last && last.result.black === SLOTS;
+      const n = rows.length;
+      if (mode === "break") status = won ? `Cracked in ${n}!` : "Out of guesses";
+      else status = won ? `Cracked in ${n}` : "You win!";
+      go.textContent = "Play again"; go.disabled = false;
+    }
+    $("turn").textContent = status;
+    // Secret row only when picking a code or revealing it at the end.
+    $("shield").hidden = !(phase === "setup" || phase === "over");
+    $("shield-label").textContent = mode === "set" ? "Your code" : "Code";
+
+    const active = $("active-row") || board.children[Math.max(rows.length - 1, 0)];
+    if (active) active.scrollIntoView({ block: "nearest" });
+  }
+
+  // ---- Input ----
+  function place(c) {
+    if (!(phase === "setup" || (mode === "break" && phase === "play"))) return;
+    draft[sel] = c;
+    const next = draft.findIndex((v, i) => v === null && i > sel);
+    const any = draft.findIndex(v => v === null);
+    sel = next !== -1 ? next : any !== -1 ? any : sel;
+    render();
+  }
+
+  function submit() {
+    if (phase === "over") return newGame(mode);
+    if (phase === "setup") {
+      if (!draft.every(c => c !== null)) return;
+      secret = draft.slice();
+      draft = new Array(SLOTS).fill(null);
+      phase = "thinking";
+      render();
+      computerTurn();
+      return;
+    }
+    if (!draft.some(c => c !== null)) return;
+    const guess = draft.slice();
+    const result = score(guess, secret);
+    rows.push({ guess, result });
+    draft = new Array(SLOTS).fill(null);
+    sel = 0;
+    if (result.black === SLOTS || rows.length >= TURNS) phase = "over";
+    render();
+  }
+
+  function computerTurn() {
+    timer = setTimeout(() => {
+      const guess = nextComputerGuess(candidates, rows.length);
+      const result = score(guess, secret);
+      rows.push({ guess, result });
+      candidates = candidates.filter(c => {
+        const r = score(guess, c);
+        return r.black === result.black && r.white === result.white;
+      });
+      if (result.black === SLOTS || rows.length >= TURNS) { phase = "over"; render(); }
+      else { render(); computerTurn(); }
+    }, 900);
+  }
+
+  // Palette
+  const pal = $("palette");
+  for (let c = 0; c < COLORS; c++) {
+    const p = pegEl(c);
+    p.onclick = () => { place(c); };
+    pal.appendChild(p);
+  }
+  $("btn-go").onclick = submit;
+  $("btn-clear").onclick = () => { draft = new Array(SLOTS).fill(null); sel = 0; render(); };
+  $("mode-break").onclick = () => newGame("break");
+  $("mode-set").onclick = () => newGame("set");
+
+  newGame("break");
+})();
+</script>
+</body>
+</html>
