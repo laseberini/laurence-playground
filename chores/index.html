@@ -141,6 +141,7 @@
     transition: transform .08s;
   }
   .chore:active{ transform: scale(.97); }
+  .chore .ci{ font-size: 28px; line-height: 1; }
   .chore .cn{ font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
   .chore .cnt + .cn{ padding-right: 30px; }
   .chore .ca{ font: 700 22px/1 var(--display); color: var(--kid); }
@@ -158,7 +159,12 @@
   .list{ display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
   .row{ display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--line); }
   .row:first-child{ border-top: 0; }
+  .row .ri{ font-size: 22px; line-height: 1; width: 28px; text-align: center; flex: none; }
   .row .what{ flex: 1; min-width: 0; }
+  .del{
+    border: 1px solid var(--line); background: none; color: var(--muted);
+    border-radius: 10px; padding: 5px 10px; font-size: 13px; font-weight: 600;
+  }
   .row .what div{ overflow-wrap: anywhere; }
   .row .when{ font-size: 12px; color: var(--muted); }
   .row .amt{ font-weight: 700; }
@@ -183,11 +189,12 @@
     padding: 20px 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
     display: flex; flex-direction: column; gap: 18px;
   }
-  .edit-row{ display: grid; grid-template-columns: 1fr 84px 40px; gap: 8px; align-items: center; }
+  .edit-row{ display: grid; grid-template-columns: 52px 1fr 84px 40px; gap: 8px; align-items: center; }
   .field{
     width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 12px;
     background: var(--surface); padding: 10px 12px;
   }
+  .field.icon{ text-align: center; font-size: 22px; padding: 6px 4px; }
   .money{ position: relative; }
   .money::before{ content: "R"; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 15px; }
   .money .field{ padding-left: 24px; }
@@ -256,6 +263,7 @@
       <h2><span class="kidname">Zac</span>'s history</h2>
       <span class="hint num" id="hist-count"></span>
     </div>
+    <p class="hint">Added one by mistake? Tap Delete next to it.</p>
     <div id="history"></div>
     <button class="btn ghost more" id="more" hidden>Show more</button>
   </section>
@@ -270,13 +278,14 @@
     </div>
 
     <div class="sec">
-      <p class="hint">Change a name or amount and it saves straight away. Past history keeps the old amount.</p>
+      <p class="hint">Change an icon, name or amount and it saves straight away. Past history keeps the old amount. Tap an icon box and pick any emoji from your keyboard.</p>
       <div class="sec" id="edit-list"></div>
     </div>
 
     <form class="sec" id="add-form" autocomplete="off">
       <h2>Add a chore</h2>
       <div class="edit-row">
+        <input class="field icon" id="add-icon" placeholder="?" maxlength="8" aria-label="Icon (optional emoji)">
         <input class="field" id="add-name" placeholder="e.g. Feed the dog" required>
         <div class="money"><input class="field" id="add-amt" type="number" inputmode="decimal" min="0" step="0.5" placeholder="10" required></div>
         <button class="btn" type="submit" aria-label="Add chore" style="padding:10px 0">+</button>
@@ -317,6 +326,21 @@
     ['Clean inside car', 30],
     ['Washing dishes', 30]
   ];
+
+  var ICONS = [
+    [/curtain|blind|window/i, '🪟'], [/water|plant|garden hose/i, '🪴'], [/weed|lawn|grass|mow|garden/i, '🌱'],
+    [/vacuum|hoover|mess|sweep|broom/i, '🧹'], [/car/i, '🚗'], [/dish|plate|kitchen/i, '🍽️'],
+    [/dog|puppy/i, '🐶'], [/cat|kitten/i, '🐱'], [/feed|pet|fish/i, '🐾'], [/bed/i, '🛏️'],
+    [/laundry|wash(ing)? clothes|fold|clothes/i, '👕'], [/bin|trash|rubbish|garbage/i, '🗑️'],
+    [/tidy|clean|room|toy/i, '🧸'], [/homework|read|study/i, '📚'], [/table/i, '🍴'],
+    [/shoe/i, '👟'], [/pool/i, '🏊'], [/leaves|rake/i, '🍂'], [/bath|toilet|bathroom/i, '🛁'],
+    [/cook|bake|lunch|breakfast|dinner/i, '🍳'], [/mop|floor/i, '🧽'], [/wash/i, '🧽']
+  ];
+  function guessIcon(name){
+    for (var i = 0; i < ICONS.length; i++) if (ICONS[i][0].test(name)) return ICONS[i][1];
+    return '⭐';
+  }
+  function iconOf(c){ return c.icon || guessIcon(c.name); }
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
@@ -402,6 +426,7 @@
       var n = counts[c.id];
       return '<button class="chore" data-id="' + c.id + '">' +
         (n ? '<span class="cnt num" title="Done today">' + n + '×</span>' : '') +
+        '<span class="ci" aria-hidden="true">' + esc(iconOf(c)) + '</span>' +
         '<span class="cn">' + esc(c.name) + '</span><span class="ca num">' + R(c.amount) + '</span></button>';
     }).join('') || '<div class="empty" style="grid-column:1/-1">No chores yet. Tap Edit chores to add some.</div>';
 
@@ -421,9 +446,10 @@
         }
         var isPay = e.type === 'payout';
         html += '<div class="row' + (isPay ? ' payout' : '') + '" data-id="' + e.id + '">' +
+          '<span class="ri" aria-hidden="true">' + (isPay ? '💰' : esc(e.icon || guessIcon(e.name))) + '</span>' +
           '<div class="what"><div>' + (isPay ? 'Paid out' : esc(e.name)) + '</div><div class="when num">' + timeLabel(e.ts) + '</div></div>' +
           '<span class="amt num">' + (isPay ? '−' : '+') + R(e.amount) + '</span>' +
-          '<button class="x" data-del="' + e.id + '" aria-label="Delete entry">×</button></div>';
+          '<button class="del" data-del="' + e.id + '" aria-label="Delete ' + (isPay ? 'payout' : esc(e.name)) + '">Delete</button></div>';
       });
       if (open) html += '</div>';
       $('history').innerHTML = html;
@@ -461,7 +487,7 @@
   $('chores').addEventListener('click', function(ev){
     var btn = ev.target.closest('.chore'); if (!btn) return;
     var c = state.chores.filter(function(x){ return x.id === btn.dataset.id; })[0]; if (!c) return;
-    var e = { id: uid(), kid: state.kid, type: 'chore', choreId: c.id, name: c.name, amount: c.amount, ts: Date.now() };
+    var e = { id: uid(), kid: state.kid, type: 'chore', choreId: c.id, name: c.name, icon: iconOf(c), amount: c.amount, ts: Date.now() };
     state.log.push(e);
     save(); render();
     var nb = document.querySelector('.chore[data-id="' + c.id + '"]');
@@ -500,6 +526,7 @@
   function renderEdit(){
     $('edit-list').innerHTML = state.chores.map(function(c){
       return '<div class="edit-row" data-id="' + c.id + '">' +
+        '<input class="field icon" id="i-' + c.id + '" data-f="icon" maxlength="8" value="' + esc(iconOf(c)) + '" aria-label="Icon for ' + esc(c.name) + '">' +
         '<input class="field" id="n-' + c.id + '" data-f="name" value="' + esc(c.name) + '" aria-label="Chore name">' +
         '<div class="money"><input class="field num" id="a-' + c.id + '" data-f="amount" type="number" inputmode="decimal" min="0" step="0.5" value="' + c.amount + '" aria-label="Amount in rand"></div>' +
         '<button class="x" data-rm="' + c.id + '" aria-label="Remove ' + esc(c.name) + '">×</button></div>';
@@ -513,7 +540,8 @@
   $('edit-list').addEventListener('input', function(ev){
     var row = ev.target.closest('.edit-row'); if (!row) return;
     var c = state.chores.filter(function(x){ return x.id === row.dataset.id; })[0]; if (!c) return;
-    if (ev.target.dataset.f === 'name') { if (ev.target.value.trim()) c.name = ev.target.value.trim(); }
+    if (ev.target.dataset.f === 'icon') { c.icon = ev.target.value.trim(); }
+    else if (ev.target.dataset.f === 'name') { if (ev.target.value.trim()) c.name = ev.target.value.trim(); }
     else { var v = parseFloat(ev.target.value); if (!isNaN(v) && v >= 0) c.amount = v; }
     save();
   });
@@ -532,9 +560,9 @@
     ev.preventDefault();
     var name = $('add-name').value.trim(), amt = parseFloat($('add-amt').value);
     if (!name || isNaN(amt) || amt < 0) return;
-    state.chores.push({ id: uid(), name: name, amount: amt });
+    state.chores.push({ id: uid(), name: name, amount: amt, icon: $('add-icon').value.trim() || guessIcon(name) });
     save(); renderEdit();
-    $('add-name').value = ''; $('add-amt').value = '';
+    $('add-icon').value = ''; $('add-name').value = ''; $('add-amt').value = '';
     $('add-name').focus();
   });
 
