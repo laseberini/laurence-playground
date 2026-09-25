@@ -372,7 +372,8 @@
     ['Vacuum a mess', 10],
     ['Clean inside car', 30],
     ['Washing dishes', 30],
-    ['Setting up table', 10]
+    ['Setting up table', 10],
+    ['Pool leaves', 20]
   ];
 
   var ICONS = [
@@ -421,12 +422,16 @@
     };
     if (!state.goals) state.goals = {};
     if (!state.seeded) state.seeded = {};
-    // chores added after launch, each added once
-    if (!state.seeded.setTable) {
-      if (!state.chores.some(function(c){ return /table/i.test(c.name); }))
-        state.chores.push({ id: uid(), name: 'Setting up table', amount: 10, icon: '🍴' });
-      state.seeded.setTable = true;
-    }
+    // chores added after launch, each added once (skipped if a similar one exists)
+    [
+      { key: 'setTable', match: /table/i, name: 'Setting up table', amount: 10, icon: '🍴' },
+      { key: 'poolLeaves', match: /pool/i, name: 'Pool leaves', amount: 20, icon: '🏊' }
+    ].forEach(function(x){
+      if (state.seeded[x.key]) return;
+      if (!state.chores.some(function(c){ return x.match.test(c.name); }))
+        state.chores.push({ id: uid(), name: x.name, amount: x.amount, icon: x.icon });
+      state.seeded[x.key] = true;
+    });
     Object.keys(starters).forEach(function(k){
       if (state.seeded[k]) return;
       if (!state.goals[k]) state.goals[k] = starters[k];
