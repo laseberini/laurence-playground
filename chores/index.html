@@ -396,7 +396,21 @@
   function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
 
   var state = load();
-  if (!state.goals) { state.goals = { adam: { name: 'LEGO Star Wars Sarlacc Pit', price: 1400 } }; save(); }
+  // starter goals, each added once (so removing one keeps it removed)
+  (function(){
+    var starters = {
+      adam: { name: 'LEGO Star Wars Sarlacc Pit', price: 1400 },
+      zac: { name: 'LEGO Star Wars U-Wing', price: 930 }
+    };
+    if (!state.goals) state.goals = {};
+    if (!state.seeded) state.seeded = {};
+    Object.keys(starters).forEach(function(k){
+      if (state.seeded[k]) return;
+      if (!state.goals[k]) state.goals[k] = starters[k];
+      state.seeded[k] = true;
+    });
+    save();
+  })();
   var showCount = 30;
 
   var $ = function(id){ return document.getElementById(id); };
