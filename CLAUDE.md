@@ -18,7 +18,12 @@ Small, self-contained web apps served by GitHub Pages straight from `main`
   `https://laseberini.github.io/laurence-playground/<name>/`).
 - Keep it a single self-contained HTML file: inline CSS/JS, no build step,
   no dependencies to install. Make it work well on a phone (viewport meta,
-  Add to Home Screen meta tags and icon).
+  Add to Home Screen meta tags).
+- Make it installable, like `mastermind/`: a `manifest.webmanifest`
+  (name, `start_url: "./"`, `display: "standalone"`, icons) linked from the
+  page, plus real PNG icons `icon-180.png` (apple-touch-icon),
+  `icon-192.png` and `icon-512.png` in the app folder. A data: URI icon is
+  not enough; phones refuse to install without the manifest and PNGs.
 - Add a link to it in `apps/index.html` and a section in `README.md`.
 - Store user data in `localStorage` (wrapped in try/catch) and offer a
   backup/restore if losing the data would hurt.
