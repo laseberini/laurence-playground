@@ -82,9 +82,21 @@
   .kid{
     border: 0; border-radius: 16px; padding: 10px 12px;
     background: transparent; text-align: left;
-    display: flex; flex-direction: column; gap: 0;
+    display: flex; align-items: center; gap: 10px; min-width: 0;
     transition: background .15s, color .15s;
   }
+  .kid .txt{ display: flex; flex-direction: column; min-width: 0; }
+  .av{
+    flex: none; width: 44px; height: 44px; border-radius: 50%;
+    background: var(--kid-soft) center/cover no-repeat; color: var(--kid);
+    display: grid; place-items: center; font: 700 20px/1 var(--display);
+    border: 2px solid rgba(255,255,255,.9);
+  }
+  .kid[data-id="zac"] .av{ --kid: var(--zac); --kid-soft: var(--zac-soft); }
+  .kid[data-id="adam"] .av{ --kid: var(--adam); --kid-soft: var(--adam-soft); }
+  .photo-row{ display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .photo-row .av{ width: 56px; height: 56px; border-color: var(--line); }
+  .photo-row .who{ font-weight: 600; min-width: 56px; }
   .kid .name{ font: 600 22px/1.1 var(--display); }
   .kid .bal{ font-size: 13px; color: var(--muted); }
   .kid[data-id="zac"][aria-pressed="true"]{ background: var(--zac); color: #fff; }
@@ -128,7 +140,8 @@
     transition: transform .08s;
   }
   .chore:active{ transform: scale(.97); }
-  .chore .cn{ font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; padding-right: 30px; }
+  .chore .cn{ font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+  .chore .cnt + .cn{ padding-right: 30px; }
   .chore .ca{ font: 700 22px/1 var(--display); color: var(--kid); }
   .chore .cnt{
     position: absolute; top: 10px; right: 10px;
@@ -202,8 +215,8 @@
 <div class="wrap">
 
   <nav class="kids" aria-label="Choose child">
-    <button class="kid" data-id="zac" aria-pressed="true"><span class="name">Zac</span><span class="bal num" id="bal-zac">R0 owed</span></button>
-    <button class="kid" data-id="adam" aria-pressed="false"><span class="name">Adam</span><span class="bal num" id="bal-adam">R0 owed</span></button>
+    <button class="kid" data-id="zac" aria-pressed="true"><span class="av" id="av-zac">Z</span><span class="txt"><span class="name">Zac</span><span class="bal num" id="bal-zac">R0 owed</span></span></button>
+    <button class="kid" data-id="adam" aria-pressed="false"><span class="av" id="av-adam">A</span><span class="txt"><span class="name">Adam</span><span class="bal num" id="bal-adam">R0 owed</span></span></button>
   </nav>
 
   <section class="jar" aria-live="polite">
@@ -231,7 +244,7 @@
   <section class="sec">
     <div class="sec-head">
       <h2>Done a chore?</h2>
-      <button class="link" id="edit-open">Edit chores</button>
+      <button class="link" id="edit-open">Edit chores &amp; photos</button>
     </div>
     <p class="hint">Tap it to add the money to <span class="kidname">Zac</span>'s jar.</p>
     <div class="chores" id="chores"></div>
@@ -251,7 +264,7 @@
 <div class="sheet-back" id="sheet" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
     <div class="sec-head">
-      <h2 id="sheet-title">Edit chores</h2>
+      <h2 id="sheet-title">Edit chores &amp; photos</h2>
       <button class="btn" id="edit-close">Done</button>
     </div>
 
@@ -268,6 +281,13 @@
         <button class="btn" type="submit" aria-label="Add chore" style="padding:10px 0">+</button>
       </div>
     </form>
+
+    <div class="sec">
+      <h2>Photos</h2>
+      <p class="hint">Pick a photo for each child's tab. Photos stay on this phone only.</p>
+      <div id="photo-list" class="sec"></div>
+      <input type="file" id="photo-file" accept="image/*" hidden>
+    </div>
 
     <div class="sec">
       <h2>Backup</h2>
@@ -358,7 +378,10 @@
     document.body.dataset.kid = kid;
     document.querySelectorAll('.kid').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.id === kid ? 'true' : 'false'); });
     document.querySelectorAll('.kidname').forEach(function(el){ el.textContent = kidName(kid); });
-    KIDS.forEach(function(k){ $('bal-' + k.id).textContent = R(totals(k.id).owed) + ' owed'; });
+    KIDS.forEach(function(k){
+      $('bal-' + k.id).textContent = R(totals(k.id).owed) + ' owed';
+      paintAvatar($('av-' + k.id), k);
+    });
 
     var t = totals(kid);
     $('owed').textContent = R(t.owed);
@@ -481,7 +504,7 @@
         '<button class="x" data-rm="' + c.id + '" aria-label="Remove ' + esc(c.name) + '">×</button></div>';
     }).join('') || '<p class="hint">No chores. Add one below.</p>';
   }
-  $('edit-open').addEventListener('click', function(){ renderEdit(); $('bk-msg').textContent = ''; $('sheet').hidden = false; });
+  $('edit-open').addEventListener('click', function(){ renderEdit(); renderPhotos(); $('bk-msg').textContent = ''; $('sheet').hidden = false; });
   function closeSheet(){ $('sheet').hidden = true; render(); }
   $('edit-close').addEventListener('click', closeSheet);
   $('sheet').addEventListener('click', function(ev){ if (ev.target === $('sheet')) closeSheet(); });
@@ -514,6 +537,45 @@
     $('add-name').focus();
   });
 
+  // ---- photos (stored on this phone only)
+  function photos(){ if (!state.photos) state.photos = {}; return state.photos; }
+  function paintAvatar(el, k){
+    var src = photos()[k.id];
+    el.style.backgroundImage = src ? 'url("' + src + '")' : '';
+    el.textContent = src ? '' : k.name[0];
+  }
+  var photoFor = null;
+  function renderPhotos(){
+    $('photo-list').innerHTML = KIDS.map(function(k){
+      var has = !!photos()[k.id];
+      return '<div class="photo-row"><span class="av" id="pav-' + k.id + '"></span><span class="who">' + k.name + '</span>' +
+        '<button class="btn" data-pick="' + k.id + '">' + (has ? 'Change photo' : 'Choose photo') + '</button>' +
+        (has ? '<button class="btn ghost" data-unpick="' + k.id + '">Remove</button>' : '') + '</div>';
+    }).join('');
+    KIDS.forEach(function(k){ paintAvatar($('pav-' + k.id), k); });
+  }
+  $('photo-list').addEventListener('click', function(ev){
+    var pick = ev.target.closest('[data-pick]'), un = ev.target.closest('[data-unpick]');
+    if (pick) { photoFor = pick.dataset.pick; $('photo-file').value = ''; $('photo-file').click(); }
+    if (un) { delete photos()[un.dataset.unpick]; save(); renderPhotos(); render(); }
+  });
+  $('photo-file').addEventListener('change', function(){
+    var f = this.files && this.files[0]; if (!f || !photoFor) return;
+    var kid = photoFor, url = URL.createObjectURL(f), img = new Image();
+    img.onload = function(){
+      // crop to a centred square, biased to the top where faces usually are
+      var side = Math.min(img.naturalWidth, img.naturalHeight), size = 200;
+      var sx = (img.naturalWidth - side) / 2, sy = Math.max(0, (img.naturalHeight - side) * 0.25);
+      var c = document.createElement('canvas'); c.width = c.height = size;
+      c.getContext('2d').drawImage(img, sx, sy, side, side, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      photos()[kid] = c.toDataURL('image/jpeg', 0.85);
+      save(); renderPhotos(); render();
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); $('bk-msg').textContent = 'That photo could not be opened. Try another one.'; };
+    img.src = url;
+  });
+
   // ---- backup / restore
   $('bk-copy').addEventListener('click', function(){
     var text = JSON.stringify(state);
@@ -526,7 +588,7 @@
     try {
       var s = JSON.parse($('backup').value);
       if (!s || !Array.isArray(s.chores) || !Array.isArray(s.log)) throw 0;
-      state = s; save(); renderEdit(); render();
+      state = s; save(); renderEdit(); renderPhotos(); render();
       $('bk-msg').textContent = 'Restored. ' + s.log.length + ' entries loaded.';
     } catch (e) {
       $('bk-msg').textContent = 'That text is not a Chore Jar backup. Copy the whole backup and try again.';
