@@ -53,6 +53,14 @@ in your own browser.
   the page to your Home Screen makes this far less likely. If it ever forgets,
   just pick the file once more.
 
+## 🫙 Chore Jar — [`chores/`](chores/index.html)
+
+Track chores and pocket money for Zac and Adam. Tap a chore to add its money,
+see what each child is owed, mark payouts, and edit the chore list. Data stays
+on the phone; use the Backup section in Edit chores to save a copy.
+
+**Live:** https://laseberini.github.io/laurence-playground/chores/
+
 ## 🔴 Mastermind — [`mastermind/`](mastermind/index.html)
 
 The classic code-breaking game, built for phones. Break the computer's code, or

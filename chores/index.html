@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Chores">
+<meta name="theme-color" content="#f3f6f1">
+<title>Chore Jar</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='180' height='180' rx='40' fill='%231d6fd1'/%3E%3Crect x='50' y='52' width='80' height='96' rx='18' fill='%23fff'/%3E%3Crect x='60' y='36' width='60' height='20' rx='6' fill='%23ffd166'/%3E%3Ctext x='90' y='118' font-family='Arial' font-weight='700' font-size='44' text-anchor='middle' fill='%231d6fd1'%3ER%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Crect width='64' height='64' rx='14' fill='%231d6fd1'/%3E%3Crect x='18' y='18' width='28' height='34' rx='7' fill='%23fff'/%3E%3Crect x='22' y='12' width='20' height='8' rx='3' fill='%23ffd166'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap">
+<style>
+  :root{
+    --bg: #f3f6f1;
+    --surface: #ffffff;
+    --ink: #1b2a22;
+    --muted: #5f6f66;
+    --line: #dfe6df;
+    --danger: #c23b2b;
+    --zac: #1d6fd1;
+    --zac-soft: #e3eefc;
+    --adam: #d9551a;
+    --adam-soft: #fdebe1;
+    --kid: var(--zac);
+    --kid-soft: var(--zac-soft);
+    --display: "Fredoka", ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+    --body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg: #111713;
+      --surface: #1a221d;
+      --ink: #e7eee9;
+      --muted: #9aa99f;
+      --line: #2b362f;
+      --danger: #ef7565;
+      --zac: #5a9cf0;
+      --zac-soft: #1a2a40;
+      --adam: #f08a55;
+      --adam-soft: #3a2418;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg: #111713; --surface: #1a221d; --ink: #e7eee9; --muted: #9aa99f; --line: #2b362f;
+    --danger: #ef7565; --zac: #5a9cf0; --zac-soft: #1a2a40; --adam: #f08a55; --adam-soft: #3a2418;
+    color-scheme: dark;
+  }
+  body[data-kid="adam"]{ --kid: var(--adam); --kid-soft: var(--adam-soft); }
+
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden]{ display: none !important; }
+  html{ background: var(--bg); }
+  body{
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.45 var(--body);
+    -webkit-font-smoothing: antialiased;
+    padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px calc(env(safe-area-inset-bottom, 0px) + 32px);
+  }
+  .wrap{ max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  button, input{ font: inherit; color: inherit; }
+  button{ cursor: pointer; }
+  button:focus-visible, input:focus-visible{ outline: 3px solid var(--kid); outline-offset: 2px; }
+  .num{ font-variant-numeric: tabular-nums; }
+
+  /* Kid switch */
+  .kids{
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    padding: 6px; border-radius: 22px;
+    background: var(--surface); border: 1px solid var(--line);
+    box-shadow: 0 6px 18px -12px rgba(0,0,0,.35);
+  }
+  .kid{
+    border: 0; border-radius: 16px; padding: 10px 12px;
+    background: transparent; text-align: left;
+    display: flex; flex-direction: column; gap: 0;
+    transition: background .15s, color .15s;
+  }
+  .kid .name{ font: 600 22px/1.1 var(--display); }
+  .kid .bal{ font-size: 13px; color: var(--muted); }
+  .kid[data-id="zac"][aria-pressed="true"]{ background: var(--zac); color: #fff; }
+  .kid[data-id="adam"][aria-pressed="true"]{ background: var(--adam); color: #fff; }
+  .kid[aria-pressed="true"] .bal{ color: rgba(255,255,255,.85); }
+
+  /* Jar summary */
+  .jar{
+    background: var(--kid-soft); border-radius: 24px; padding: 20px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .jar .label{ font-size: 14px; color: var(--muted); }
+  .jar .owed{ font: 700 52px/1 var(--display); color: var(--kid); letter-spacing: -.01em; }
+  .stats{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat{ display: flex; flex-direction: column; }
+  .stat b{ font: 600 18px/1.2 var(--display); }
+  .stat span{ font-size: 12px; color: var(--muted); }
+  .pay{ display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .btn{
+    border: 0; border-radius: 14px; padding: 10px 16px; font-weight: 600;
+    background: var(--kid); color: #fff;
+  }
+  .btn.ghost{ background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  .btn.danger{ background: var(--danger); }
+  .btn:disabled{ opacity: .45; cursor: default; }
+  .pay-confirm{ font-size: 14px; flex-basis: 100%; }
+
+  /* Chores */
+  h2{ font: 600 20px/1.2 var(--display); margin: 0; text-wrap: balance; }
+  .sec{ display: flex; flex-direction: column; gap: 10px; }
+  .sec-head{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .hint{ font-size: 13px; color: var(--muted); margin: 0; }
+  .link{ border: 0; background: none; color: var(--kid); font-weight: 600; padding: 4px 0; }
+  .chores{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .chore{
+    position: relative; overflow: hidden;
+    border: 1px solid var(--line); border-radius: 18px;
+    background: var(--surface); padding: 14px;
+    min-height: 92px; text-align: left;
+    display: flex; flex-direction: column; justify-content: space-between; gap: 8px;
+    transition: transform .08s;
+  }
+  .chore:active{ transform: scale(.97); }
+  .chore .cn{ font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; padding-right: 30px; }
+  .chore .ca{ font: 700 22px/1 var(--display); color: var(--kid); }
+  .chore .cnt{
+    position: absolute; top: 10px; right: 10px;
+    min-width: 24px; height: 24px; padding: 0 7px; border-radius: 12px;
+    background: var(--kid-soft); color: var(--kid);
+    font-size: 12px; font-weight: 700; display: grid; place-items: center;
+  }
+  .chore.pop{ animation: pop .45s ease; }
+  @keyframes pop{ 0%{ background: var(--kid); color:#fff } 100%{ background: var(--surface) } }
+
+  /* History */
+  .day{ font-size: 13px; font-weight: 600; color: var(--muted); margin: 8px 0 2px; text-transform: uppercase; letter-spacing: .05em; }
+  .list{ display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+  .row{ display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--line); }
+  .row:first-child{ border-top: 0; }
+  .row .what{ flex: 1; min-width: 0; }
+  .row .what div{ overflow-wrap: anywhere; }
+  .row .when{ font-size: 12px; color: var(--muted); }
+  .row .amt{ font-weight: 700; }
+  .row.payout .amt{ color: var(--muted); }
+  .x{
+    border: 0; background: none; color: var(--muted);
+    width: 32px; height: 32px; border-radius: 10px; font-size: 18px; line-height: 1;
+  }
+  .row .sure{ display: flex; gap: 6px; }
+  .row .sure .btn{ padding: 6px 10px; font-size: 14px; }
+  .empty{ padding: 18px; text-align: center; color: var(--muted); font-size: 14px; }
+  .more{ align-self: center; }
+
+  /* Sheet */
+  .sheet-back{
+    position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.4);
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .sheet{
+    background: var(--bg); width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto;
+    border-radius: 24px 24px 0 0;
+    padding: 20px 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  .edit-row{ display: grid; grid-template-columns: 1fr 84px 40px; gap: 8px; align-items: center; }
+  .field{
+    width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 12px;
+    background: var(--surface); padding: 10px 12px;
+  }
+  .money{ position: relative; }
+  .money::before{ content: "R"; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 15px; }
+  .money .field{ padding-left: 24px; }
+  textarea.field{ font: 13px/1.4 ui-monospace, Menlo, monospace; min-height: 90px; resize: vertical; color: var(--ink); }
+  .msg{ font-size: 13px; color: var(--muted); margin: 0; }
+
+  /* Toast */
+  .toast{
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); z-index: 30;
+    background: var(--ink); color: var(--bg);
+    border-radius: 16px; padding: 10px 10px 10px 16px;
+    display: flex; align-items: center; gap: 14px;
+    width: max-content; max-width: calc(100% - 32px);
+    box-shadow: 0 10px 30px -10px rgba(0,0,0,.5);
+  }
+  .toast button{ border: 0; background: none; color: var(--bg); font-weight: 700; padding: 6px 8px; text-decoration: underline; }
+
+  @media (prefers-reduced-motion: reduce){
+    .chore, .kid{ transition: none; }
+    .chore.pop{ animation: none; }
+  }
+</style>
+</head>
+<body data-kid="zac">
+<div class="wrap">
+
+  <nav class="kids" aria-label="Choose child">
+    <button class="kid" data-id="zac" aria-pressed="true"><span class="name">Zac</span><span class="bal num" id="bal-zac">R0 owed</span></button>
+    <button class="kid" data-id="adam" aria-pressed="false"><span class="name">Adam</span><span class="bal num" id="bal-adam">R0 owed</span></button>
+  </nav>
+
+  <section class="jar" aria-live="polite">
+    <div>
+      <div class="label"><span class="kidname">Zac</span> is owed</div>
+      <div class="owed num" id="owed">R0</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b class="num" id="st-week">R0</b><span>This week</span></div>
+      <div class="stat"><b class="num" id="st-total">R0</b><span>Earned all time</span></div>
+      <div class="stat"><b class="num" id="st-paid">R0</b><span>Paid out</span></div>
+    </div>
+    <div class="pay">
+      <button class="btn" id="pay-btn">Pay out</button>
+      <div class="pay-confirm" id="pay-confirm" hidden>
+        <p style="margin:0 0 8px">Mark <b class="num" id="pay-amt">R0</b> as paid to <span class="kidname">Zac</span>? Their jar goes back to R0. History stays.</p>
+        <div class="pay">
+          <button class="btn" id="pay-yes">Yes, paid</button>
+          <button class="btn ghost" id="pay-no">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <h2>Done a chore?</h2>
+      <button class="link" id="edit-open">Edit chores</button>
+    </div>
+    <p class="hint">Tap it to add the money to <span class="kidname">Zac</span>'s jar.</p>
+    <div class="chores" id="chores"></div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <h2><span class="kidname">Zac</span>'s history</h2>
+      <span class="hint num" id="hist-count"></span>
+    </div>
+    <div id="history"></div>
+    <button class="btn ghost more" id="more" hidden>Show more</button>
+  </section>
+
+</div>
+
+<div class="sheet-back" id="sheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sec-head">
+      <h2 id="sheet-title">Edit chores</h2>
+      <button class="btn" id="edit-close">Done</button>
+    </div>
+
+    <div class="sec">
+      <p class="hint">Change a name or amount and it saves straight away. Past history keeps the old amount.</p>
+      <div class="sec" id="edit-list"></div>
+    </div>
+
+    <form class="sec" id="add-form" autocomplete="off">
+      <h2>Add a chore</h2>
+      <div class="edit-row">
+        <input class="field" id="add-name" placeholder="e.g. Feed the dog" required>
+        <div class="money"><input class="field" id="add-amt" type="number" inputmode="decimal" min="0" step="0.5" placeholder="10" required></div>
+        <button class="btn" type="submit" aria-label="Add chore" style="padding:10px 0">+</button>
+      </div>
+    </form>
+
+    <div class="sec">
+      <h2>Backup</h2>
+      <p class="hint">Everything is saved on this phone only. Copy a backup now and then (paste it into a note or message to yourself). Paste it back here to restore.</p>
+      <textarea class="field" id="backup" aria-label="Backup text" placeholder="Paste a backup here to restore it"></textarea>
+      <div class="pay">
+        <button class="btn" id="bk-copy">Copy backup</button>
+        <button class="btn ghost" id="bk-restore">Restore from pasted text</button>
+      </div>
+      <p class="msg" id="bk-msg"></p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden><span id="toast-text"></span><button id="toast-undo">Undo</button></div>
+
+<script>
+(function(){
+  var KEY = 'chore-jar-v1';
+  var KIDS = [{ id: 'zac', name: 'Zac' }, { id: 'adam', name: 'Adam' }];
+  var DEFAULT_CHORES = [
+    ['Close or open curtains', 5],
+    ['Water plants', 10],
+    ['Weeding lawn', 30],
+    ['Vacuum a mess', 10],
+    ['Clean inside car', 30],
+    ['Washing dishes', 30]
+  ];
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  function fresh(){
+    return {
+      kid: 'zac',
+      chores: DEFAULT_CHORES.map(function(c){ return { id: uid(), name: c[0], amount: c[1] }; }),
+      log: [] // { id, kid, type: 'chore'|'payout', name, amount, ts }
+    };
+  }
+
+  function load(){
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) {
+        var s = JSON.parse(raw);
+        if (s && Array.isArray(s.chores) && Array.isArray(s.log)) return s;
+      }
+    } catch (e) {}
+    return fresh();
+  }
+  function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  var state = load();
+  var showCount = 30;
+
+  var $ = function(id){ return document.getElementById(id); };
+  function R(n){
+    n = Math.round(n * 100) / 100;
+    return 'R' + (n % 1 ? n.toFixed(2) : n);
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); }
+
+  function totals(kid){
+    var earned = 0, paid = 0, week = 0;
+    var now = new Date();
+    var monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7)).getTime();
+    state.log.forEach(function(e){
+      if (e.kid !== kid) return;
+      if (e.type === 'payout') paid += e.amount;
+      else { earned += e.amount; if (e.ts >= monday) week += e.amount; }
+    });
+    return { earned: earned, paid: paid, owed: earned - paid, week: week };
+  }
+
+  function kidName(id){ return KIDS.filter(function(k){ return k.id === id; })[0].name; }
+
+  function dayLabel(ts){
+    var d = new Date(ts), t = new Date();
+    var start = function(x){ return new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(); };
+    var diff = Math.round((start(t) - start(d)) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    return d.toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short', year: d.getFullYear() === t.getFullYear() ? undefined : 'numeric' });
+  }
+  function timeLabel(ts){ return new Date(ts).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }); }
+
+  function render(){
+    var kid = state.kid;
+    document.body.dataset.kid = kid;
+    document.querySelectorAll('.kid').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.id === kid ? 'true' : 'false'); });
+    document.querySelectorAll('.kidname').forEach(function(el){ el.textContent = kidName(kid); });
+    KIDS.forEach(function(k){ $('bal-' + k.id).textContent = R(totals(k.id).owed) + ' owed'; });
+
+    var t = totals(kid);
+    $('owed').textContent = R(t.owed);
+    $('st-week').textContent = R(t.week);
+    $('st-total').textContent = R(t.earned);
+    $('st-paid').textContent = R(t.paid);
+    $('pay-btn').disabled = t.owed <= 0;
+    $('pay-amt').textContent = R(t.owed);
+
+    // chore buttons with today's count for this kid
+    var today = new Date(); today.setHours(0,0,0,0);
+    var counts = {};
+    state.log.forEach(function(e){
+      if (e.kid === kid && e.type === 'chore' && e.ts >= today.getTime()) counts[e.choreId] = (counts[e.choreId] || 0) + 1;
+    });
+    $('chores').innerHTML = state.chores.map(function(c){
+      var n = counts[c.id];
+      return '<button class="chore" data-id="' + c.id + '">' +
+        (n ? '<span class="cnt num" title="Done today">' + n + '×</span>' : '') +
+        '<span class="cn">' + esc(c.name) + '</span><span class="ca num">' + R(c.amount) + '</span></button>';
+    }).join('') || '<div class="empty" style="grid-column:1/-1">No chores yet. Tap Edit chores to add some.</div>';
+
+    // history
+    var items = state.log.filter(function(e){ return e.kid === kid; }).sort(function(a, b){ return b.ts - a.ts; });
+    $('hist-count').textContent = items.length ? items.length + (items.length === 1 ? ' entry' : ' entries') : '';
+    if (!items.length) {
+      $('history').innerHTML = '<div class="list"><div class="empty">Nothing yet. Tap a chore above when ' + esc(kidName(kid)) + ' finishes one.</div></div>';
+    } else {
+      var html = '', lastDay = null, open = false;
+      items.slice(0, showCount).forEach(function(e){
+        var d = dayLabel(e.ts);
+        if (d !== lastDay) {
+          if (open) html += '</div>';
+          html += '<div class="day">' + d + '</div><div class="list">';
+          open = true; lastDay = d;
+        }
+        var isPay = e.type === 'payout';
+        html += '<div class="row' + (isPay ? ' payout' : '') + '" data-id="' + e.id + '">' +
+          '<div class="what"><div>' + (isPay ? 'Paid out' : esc(e.name)) + '</div><div class="when num">' + timeLabel(e.ts) + '</div></div>' +
+          '<span class="amt num">' + (isPay ? '−' : '+') + R(e.amount) + '</span>' +
+          '<button class="x" data-del="' + e.id + '" aria-label="Delete entry">×</button></div>';
+      });
+      if (open) html += '</div>';
+      $('history').innerHTML = html;
+    }
+    $('more').hidden = items.length <= showCount;
+  }
+
+  // ---- toast with undo
+  var toastTimer = null, undoId = null;
+  function toast(text, id){
+    undoId = id;
+    $('toast-text').textContent = text;
+    $('toast-undo').hidden = !id;
+    $('toast').hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ $('toast').hidden = true; undoId = null; }, 4000);
+  }
+  $('toast-undo').addEventListener('click', function(){
+    if (!undoId) return;
+    state.log = state.log.filter(function(e){ return e.id !== undoId; });
+    save(); render();
+    toast('Undone');
+  });
+
+  // ---- kid switch
+  document.querySelectorAll('.kid').forEach(function(b){
+    b.addEventListener('click', function(){
+      state.kid = b.dataset.id; showCount = 30;
+      $('pay-confirm').hidden = true; $('pay-btn').hidden = false;
+      save(); render();
+    });
+  });
+
+  // ---- log a chore
+  $('chores').addEventListener('click', function(ev){
+    var btn = ev.target.closest('.chore'); if (!btn) return;
+    var c = state.chores.filter(function(x){ return x.id === btn.dataset.id; })[0]; if (!c) return;
+    var e = { id: uid(), kid: state.kid, type: 'chore', choreId: c.id, name: c.name, amount: c.amount, ts: Date.now() };
+    state.log.push(e);
+    save(); render();
+    var nb = document.querySelector('.chore[data-id="' + c.id + '"]');
+    if (nb) nb.classList.add('pop');
+    if (navigator.vibrate) try { navigator.vibrate(15); } catch (x) {}
+    toast(c.name + ' +' + R(c.amount) + ' for ' + kidName(state.kid), e.id);
+  });
+
+  // ---- pay out
+  $('pay-btn').addEventListener('click', function(){ $('pay-confirm').hidden = false; $('pay-btn').hidden = true; });
+  $('pay-no').addEventListener('click', function(){ $('pay-confirm').hidden = true; $('pay-btn').hidden = false; });
+  $('pay-yes').addEventListener('click', function(){
+    var owed = totals(state.kid).owed;
+    $('pay-confirm').hidden = true; $('pay-btn').hidden = false;
+    if (owed <= 0) return;
+    var e = { id: uid(), kid: state.kid, type: 'payout', name: 'Paid out', amount: owed, ts: Date.now() };
+    state.log.push(e); save(); render();
+    toast('Paid ' + R(owed) + ' to ' + kidName(state.kid), e.id);
+  });
+
+  // ---- delete history entries (inline confirm)
+  $('history').addEventListener('click', function(ev){
+    var del = ev.target.closest('[data-del]');
+    var yes = ev.target.closest('[data-yes]');
+    var no = ev.target.closest('[data-no]');
+    if (del) {
+      del.outerHTML = '<span class="sure"><button class="btn danger" data-yes="' + del.dataset.del + '">Delete</button><button class="btn ghost" data-no>Keep</button></span>';
+    } else if (yes) {
+      state.log = state.log.filter(function(e){ return e.id !== yes.dataset.yes; });
+      save(); render();
+    } else if (no) { render(); }
+  });
+  $('more').addEventListener('click', function(){ showCount += 50; render(); });
+
+  // ---- edit chores sheet
+  function renderEdit(){
+    $('edit-list').innerHTML = state.chores.map(function(c){
+      return '<div class="edit-row" data-id="' + c.id + '">' +
+        '<input class="field" id="n-' + c.id + '" data-f="name" value="' + esc(c.name) + '" aria-label="Chore name">' +
+        '<div class="money"><input class="field num" id="a-' + c.id + '" data-f="amount" type="number" inputmode="decimal" min="0" step="0.5" value="' + c.amount + '" aria-label="Amount in rand"></div>' +
+        '<button class="x" data-rm="' + c.id + '" aria-label="Remove ' + esc(c.name) + '">×</button></div>';
+    }).join('') || '<p class="hint">No chores. Add one below.</p>';
+  }
+  $('edit-open').addEventListener('click', function(){ renderEdit(); $('bk-msg').textContent = ''; $('sheet').hidden = false; });
+  function closeSheet(){ $('sheet').hidden = true; render(); }
+  $('edit-close').addEventListener('click', closeSheet);
+  $('sheet').addEventListener('click', function(ev){ if (ev.target === $('sheet')) closeSheet(); });
+
+  $('edit-list').addEventListener('input', function(ev){
+    var row = ev.target.closest('.edit-row'); if (!row) return;
+    var c = state.chores.filter(function(x){ return x.id === row.dataset.id; })[0]; if (!c) return;
+    if (ev.target.dataset.f === 'name') { if (ev.target.value.trim()) c.name = ev.target.value.trim(); }
+    else { var v = parseFloat(ev.target.value); if (!isNaN(v) && v >= 0) c.amount = v; }
+    save();
+  });
+  $('edit-list').addEventListener('click', function(ev){
+    var rm = ev.target.closest('[data-rm]');
+    var yes = ev.target.closest('[data-rmyes]');
+    var no = ev.target.closest('[data-rmno]');
+    if (rm) {
+      rm.outerHTML = '<button class="x" data-rmyes="' + rm.dataset.rm + '" aria-label="Confirm remove" style="color:var(--danger);font-size:14px;font-weight:700">Del?</button>';
+    } else if (yes) {
+      state.chores = state.chores.filter(function(c){ return c.id !== yes.dataset.rmyes; });
+      save(); renderEdit();
+    } else if (no) renderEdit();
+  });
+  $('add-form').addEventListener('submit', function(ev){
+    ev.preventDefault();
+    var name = $('add-name').value.trim(), amt = parseFloat($('add-amt').value);
+    if (!name || isNaN(amt) || amt < 0) return;
+    state.chores.push({ id: uid(), name: name, amount: amt });
+    save(); renderEdit();
+    $('add-name').value = ''; $('add-amt').value = '';
+    $('add-name').focus();
+  });
+
+  // ---- backup / restore
+  $('bk-copy').addEventListener('click', function(){
+    var text = JSON.stringify(state);
+    $('backup').value = text;
+    var done = function(){ $('bk-msg').textContent = 'Backup copied. Paste it somewhere safe.'; };
+    var fallback = function(){ $('backup').select(); $('bk-msg').textContent = 'Backup is in the box above. Select it and copy.'; };
+    try { navigator.clipboard.writeText(text).then(done, fallback); } catch (e) { fallback(); }
+  });
+  $('bk-restore').addEventListener('click', function(){
+    try {
+      var s = JSON.parse($('backup').value);
+      if (!s || !Array.isArray(s.chores) || !Array.isArray(s.log)) throw 0;
+      state = s; save(); renderEdit(); render();
+      $('bk-msg').textContent = 'Restored. ' + s.log.length + ' entries loaded.';
+    } catch (e) {
+      $('bk-msg').textContent = 'That text is not a Chore Jar backup. Copy the whole backup and try again.';
+    }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
