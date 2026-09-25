@@ -105,6 +105,29 @@
   .kid[aria-pressed="true"] .bal{ color: rgba(255,255,255,.85); }
 
   /* Jar summary */
+  .goal{
+    background: var(--surface); border: 2px solid var(--kid); border-radius: 24px;
+    padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .goal .eyebrow{ font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--kid); }
+  .goal-pic{
+    border: 0; padding: 0; width: 100%; border-radius: 16px; background: #fff;
+    display: grid; place-items: center; overflow: hidden; min-height: 120px;
+  }
+  .goal-pic img{ display: block; width: 100%; max-height: 260px; object-fit: contain; }
+  .goal-pic .ph{ color: #5f6f66; font-size: 14px; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .goal-pic .ph b{ font-size: 40px; line-height: 1; }
+  .goal-top{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .goal-name{ font: 600 20px/1.2 var(--display); margin: 0; text-wrap: balance; overflow-wrap: anywhere; }
+  .goal-price{ font: 700 20px/1 var(--display); white-space: nowrap; }
+  .bar{ height: 18px; border-radius: 9px; background: var(--kid-soft); overflow: hidden; }
+  .bar i{ display: block; height: 100%; width: 0; border-radius: 9px; background: var(--kid); transition: width .5s ease; }
+  .goal-left{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .goal-left .togo{ font: 700 28px/1 var(--display); color: var(--kid); }
+  .goal-left .have{ font-size: 14px; color: var(--muted); }
+  .goal-edit{ display: grid; grid-template-columns: 1fr 110px; gap: 8px; }
+  .goal-box{ display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+  .goal-box .who{ font-weight: 600; }
   .jar{
     background: var(--kid-soft); border-radius: 24px; padding: 20px;
     display: flex; flex-direction: column; gap: 14px;
@@ -201,20 +224,8 @@
   textarea.field{ font: 13px/1.4 ui-monospace, Menlo, monospace; min-height: 90px; resize: vertical; color: var(--ink); }
   .msg{ font-size: 13px; color: var(--muted); margin: 0; }
 
-  /* Toast */
-  .toast{
-    position: fixed; left: 50%; transform: translateX(-50%);
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); z-index: 30;
-    background: var(--ink); color: var(--bg);
-    border-radius: 16px; padding: 10px 10px 10px 16px;
-    display: flex; align-items: center; gap: 14px;
-    width: max-content; max-width: calc(100% - 32px);
-    box-shadow: 0 10px 30px -10px rgba(0,0,0,.5);
-  }
-  .toast button{ border: 0; background: none; color: var(--bg); font-weight: 700; padding: 6px 8px; text-decoration: underline; }
-
   @media (prefers-reduced-motion: reduce){
-    .chore, .kid{ transition: none; }
+    .chore, .kid, .bar i{ transition: none; }
     .chore.pop{ animation: none; }
   }
 </style>
@@ -249,10 +260,24 @@
     </div>
   </section>
 
+  <section class="goal" id="goal" hidden aria-live="polite">
+    <div class="eyebrow">Saving up for</div>
+    <button class="goal-pic" id="goal-pic" aria-label="Choose a picture of the goal"></button>
+    <div class="goal-top">
+      <h2 class="goal-name" id="goal-name"></h2>
+      <span class="goal-price num" id="goal-price"></span>
+    </div>
+    <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="goal-bar"><i id="goal-fill"></i></div>
+    <div class="goal-left">
+      <span class="togo num" id="goal-togo"></span>
+      <span class="have num" id="goal-have"></span>
+    </div>
+  </section>
+
   <section class="sec">
     <div class="sec-head">
       <h2>Done a chore?</h2>
-      <button class="link" id="edit-open">Edit chores &amp; photos</button>
+      <button class="link" id="edit-open">Edit</button>
     </div>
     <p class="hint">Tap it to add the money to <span class="kidname">Zac</span>'s jar.</p>
     <div class="chores" id="chores"></div>
@@ -273,7 +298,7 @@
 <div class="sheet-back" id="sheet" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
     <div class="sec-head">
-      <h2 id="sheet-title">Edit chores &amp; photos</h2>
+      <h2 id="sheet-title">Edit</h2>
       <button class="btn" id="edit-close">Done</button>
     </div>
 
@@ -291,6 +316,13 @@
         <button class="btn" type="submit" aria-label="Add chore" style="padding:10px 0">+</button>
       </div>
     </form>
+
+    <div class="sec">
+      <h2>Savings goals</h2>
+      <p class="hint">Something each child is saving for. Progress uses the money in their jar, so hold off on paying out until it's reached.</p>
+      <div id="goal-list" class="sec"></div>
+      <input type="file" id="goal-file" accept="image/*" hidden>
+    </div>
 
     <div class="sec">
       <h2>Photos</h2>
@@ -312,7 +344,6 @@
   </div>
 </div>
 
-<div class="toast" id="toast" role="status" hidden><span id="toast-text"></span><button id="toast-undo">Undo</button></div>
 
 <script>
 (function(){
@@ -365,6 +396,21 @@
   function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
 
   var state = load();
+  // starter goals, each added once (so removing one keeps it removed)
+  (function(){
+    var starters = {
+      adam: { name: 'LEGO Star Wars Sarlacc Pit', price: 1400 },
+      zac: { name: 'LEGO Star Wars U-Wing', price: 930 }
+    };
+    if (!state.goals) state.goals = {};
+    if (!state.seeded) state.seeded = {};
+    Object.keys(starters).forEach(function(k){
+      if (state.seeded[k]) return;
+      if (!state.goals[k]) state.goals[k] = starters[k];
+      state.seeded[k] = true;
+    });
+    save();
+  })();
   var showCount = 30;
 
   var $ = function(id){ return document.getElementById(id); };
@@ -415,6 +461,7 @@
     $('st-paid').textContent = R(t.paid);
     $('pay-btn').disabled = t.owed <= 0;
     $('pay-amt').textContent = R(t.owed);
+    renderGoal(kid, t.owed);
 
     // chore buttons with today's count for this kid
     var today = new Date(); today.setHours(0,0,0,0);
@@ -457,22 +504,6 @@
     $('more').hidden = items.length <= showCount;
   }
 
-  // ---- toast with undo
-  var toastTimer = null, undoId = null;
-  function toast(text, id){
-    undoId = id;
-    $('toast-text').textContent = text;
-    $('toast-undo').hidden = !id;
-    $('toast').hidden = false;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function(){ $('toast').hidden = true; undoId = null; }, 4000);
-  }
-  $('toast-undo').addEventListener('click', function(){
-    if (!undoId) return;
-    state.log = state.log.filter(function(e){ return e.id !== undoId; });
-    save(); render();
-    toast('Undone');
-  });
 
   // ---- kid switch
   document.querySelectorAll('.kid').forEach(function(b){
@@ -493,7 +524,6 @@
     var nb = document.querySelector('.chore[data-id="' + c.id + '"]');
     if (nb) nb.classList.add('pop');
     if (navigator.vibrate) try { navigator.vibrate(15); } catch (x) {}
-    toast(c.name + ' +' + R(c.amount) + ' for ' + kidName(state.kid), e.id);
   });
 
   // ---- pay out
@@ -505,7 +535,6 @@
     if (owed <= 0) return;
     var e = { id: uid(), kid: state.kid, type: 'payout', name: 'Paid out', amount: owed, ts: Date.now() };
     state.log.push(e); save(); render();
-    toast('Paid ' + R(owed) + ' to ' + kidName(state.kid), e.id);
   });
 
   // ---- delete history entries (inline confirm)
@@ -532,7 +561,7 @@
         '<button class="x" data-rm="' + c.id + '" aria-label="Remove ' + esc(c.name) + '">×</button></div>';
     }).join('') || '<p class="hint">No chores. Add one below.</p>';
   }
-  $('edit-open').addEventListener('click', function(){ renderEdit(); renderPhotos(); $('bk-msg').textContent = ''; $('sheet').hidden = false; });
+  $('edit-open').addEventListener('click', function(){ renderEdit(); renderGoals(); renderPhotos(); $('bk-msg').textContent = ''; $('sheet').hidden = false; });
   function closeSheet(){ $('sheet').hidden = true; render(); }
   $('edit-close').addEventListener('click', closeSheet);
   $('sheet').addEventListener('click', function(ev){ if (ev.target === $('sheet')) closeSheet(); });
@@ -564,6 +593,71 @@
     save(); renderEdit();
     $('add-icon').value = ''; $('add-name').value = ''; $('add-amt').value = '';
     $('add-name').focus();
+  });
+
+  // ---- savings goal
+  function goals(){ if (!state.goals) state.goals = {}; return state.goals; }
+  function renderGoal(kid, have){
+    var g = goals()[kid];
+    $('goal').hidden = !g;
+    if (!g) return;
+    var price = g.price || 0, left = Math.max(0, price - have);
+    var pct = price > 0 ? Math.min(100, Math.max(0, have / price * 100)) : 0;
+    $('goal-name').textContent = g.name || 'My goal';
+    $('goal-price').textContent = R(price);
+    $('goal-fill').style.width = pct + '%';
+    $('goal-bar').setAttribute('aria-valuenow', Math.round(pct));
+    $('goal-togo').textContent = left > 0 ? R(left) + ' to go' : 'Goal reached! 🎉';
+    $('goal-have').textContent = kidName(kid) + ' has ' + R(Math.max(0, have)) + ' (' + Math.floor(pct) + '%)';
+    $('goal-pic').innerHTML = g.photo
+      ? '<img src="' + g.photo + '" alt="' + esc(g.name || 'Goal') + '">'
+      : '<span class="ph"><b>🎁</b>Tap to add a picture</span>';
+  }
+  var goalFor = null;
+  $('goal-pic').addEventListener('click', function(){ goalFor = state.kid; $('goal-file').value = ''; $('goal-file').click(); });
+  function renderGoals(){
+    $('goal-list').innerHTML = KIDS.map(function(k){
+      var g = goals()[k.id];
+      if (!g) return '<div class="goal-box"><span class="who">' + k.name + '</span><button class="btn ghost" data-gadd="' + k.id + '">Add a goal for ' + k.name + '</button></div>';
+      return '<div class="goal-box" data-kid="' + k.id + '"><span class="who">' + k.name + '</span>' +
+        '<div class="goal-edit">' +
+        '<input class="field" id="gn-' + k.id + '" data-g="name" value="' + esc(g.name || '') + '" placeholder="What is it?" aria-label="Goal for ' + k.name + '">' +
+        '<div class="money"><input class="field num" id="gp-' + k.id + '" data-g="price" type="number" inputmode="decimal" min="0" step="1" value="' + (g.price || '') + '" aria-label="Price in rand"></div>' +
+        '</div><div class="pay">' +
+        '<button class="btn" data-gpic="' + k.id + '">' + (g.photo ? 'Change picture' : 'Choose picture') + '</button>' +
+        '<button class="btn ghost" data-grm="' + k.id + '">Remove goal</button></div></div>';
+    }).join('');
+  }
+  $('goal-list').addEventListener('input', function(ev){
+    var box = ev.target.closest('[data-kid]'); if (!box) return;
+    var g = goals()[box.dataset.kid]; if (!g) return;
+    if (ev.target.dataset.g === 'name') g.name = ev.target.value.trim();
+    else { var v = parseFloat(ev.target.value); if (!isNaN(v) && v >= 0) g.price = v; }
+    save();
+  });
+  $('goal-list').addEventListener('click', function(ev){
+    var add = ev.target.closest('[data-gadd]'), pic = ev.target.closest('[data-gpic]');
+    var rm = ev.target.closest('[data-grm]'), yes = ev.target.closest('[data-grmyes]');
+    if (add) { goals()[add.dataset.gadd] = { name: '', price: 0 }; save(); renderGoals(); $('gn-' + add.dataset.gadd).focus(); }
+    if (pic) { goalFor = pic.dataset.gpic; $('goal-file').value = ''; $('goal-file').click(); }
+    if (rm) rm.outerHTML = '<button class="btn danger" data-grmyes="' + rm.dataset.grm + '">Yes, remove</button>';
+    if (yes) { delete goals()[yes.dataset.grmyes]; save(); renderGoals(); render(); }
+  });
+  $('goal-file').addEventListener('change', function(){
+    var f = this.files && this.files[0], kid = goalFor; if (!f || !kid || !goals()[kid]) return;
+    var url = URL.createObjectURL(f), img = new Image();
+    img.onload = function(){
+      var max = 700, sc = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      var c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * sc); c.height = Math.round(img.naturalHeight * sc);
+      var ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      goals()[kid].photo = c.toDataURL('image/jpeg', 0.82);
+      save(); if (!$('sheet').hidden) renderGoals(); render();
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); };
+    img.src = url;
   });
 
   // ---- photos (stored on this phone only)
@@ -617,7 +711,7 @@
     try {
       var s = JSON.parse($('backup').value);
       if (!s || !Array.isArray(s.chores) || !Array.isArray(s.log)) throw 0;
-      state = s; save(); renderEdit(); renderPhotos(); render();
+      state = s; save(); renderEdit(); renderGoals(); renderPhotos(); render();
       $('bk-msg').textContent = 'Restored. ' + s.log.length + ' entries loaded.';
     } catch (e) {
       $('bk-msg').textContent = 'That text is not a Chore Jar backup. Copy the whole backup and try again.';
