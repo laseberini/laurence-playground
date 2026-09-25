@@ -371,7 +371,8 @@
     ['Weeding lawn', 30],
     ['Vacuum a mess', 10],
     ['Clean inside car', 30],
-    ['Washing dishes', 30]
+    ['Washing dishes', 30],
+    ['Setting up table', 10]
   ];
 
   var ICONS = [
@@ -420,6 +421,12 @@
     };
     if (!state.goals) state.goals = {};
     if (!state.seeded) state.seeded = {};
+    // chores added after launch, each added once
+    if (!state.seeded.setTable) {
+      if (!state.chores.some(function(c){ return /table/i.test(c.name); }))
+        state.chores.push({ id: uid(), name: 'Setting up table', amount: 10, icon: '🍴' });
+      state.seeded.setTable = true;
+    }
     Object.keys(starters).forEach(function(k){
       if (state.seeded[k]) return;
       if (!state.goals[k]) state.goals[k] = starters[k];
