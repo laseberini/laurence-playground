@@ -128,6 +128,12 @@
   .goal-edit{ display: grid; grid-template-columns: 1fr 110px; gap: 8px; }
   .goal-box{ display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
   .goal-box .who{ font-weight: 600; }
+  .nudge{
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    background: var(--surface); border: 1px dashed var(--muted); border-radius: 16px;
+    padding: 10px 12px 10px 14px; font-size: 14px;
+  }
+  .nudge .btn{ padding: 8px 12px; font-size: 14px; }
   .jar{
     background: var(--kid-soft); border-radius: 24px; padding: 20px;
     display: flex; flex-direction: column; gap: 14px;
@@ -238,6 +244,11 @@
     <button class="kid" data-id="adam" aria-pressed="false"><span class="av" id="av-adam">A</span><span class="txt"><span class="name">Adam</span><span class="bal num" id="bal-adam">R0 owed</span></span></button>
   </nav>
 
+  <div class="nudge" id="nudge" hidden>
+    <span id="nudge-text">No backup yet.</span>
+    <button class="btn" id="nudge-btn">Back up now</button>
+  </div>
+
   <section class="jar" aria-live="polite">
     <div>
       <div class="label"><span class="kidname">Zac</span> is owed</div>
@@ -331,13 +342,18 @@
       <input type="file" id="photo-file" accept="image/*" hidden>
     </div>
 
-    <div class="sec">
+    <div class="sec" id="backup-sec">
       <h2>Backup</h2>
-      <p class="hint">Everything is saved on this phone only. Copy a backup now and then (paste it into a note or message to yourself). Paste it back here to restore.</p>
-      <textarea class="field" id="backup" aria-label="Backup text" placeholder="Paste a backup here to restore it"></textarea>
+      <p class="hint">Everything is saved on this phone only. Save a backup file and keep it in Google Drive, iCloud, Files or a WhatsApp chat to yourself. If you lose the phone or clear the browser, restore from that file.</p>
       <div class="pay">
-        <button class="btn" id="bk-copy">Copy backup</button>
-        <button class="btn ghost" id="bk-restore">Restore from pasted text</button>
+        <button class="btn" id="bk-save">Save backup</button>
+        <button class="btn ghost" id="bk-load">Restore from file</button>
+      </div>
+      <input type="file" id="bk-file" accept=".txt,.json,text/plain,application/json" hidden>
+      <div class="pay" id="bk-confirm" hidden>
+        <p class="msg" style="flex-basis:100%;color:var(--ink)" id="bk-confirm-text"></p>
+        <button class="btn danger" id="bk-yes">Yes, restore</button>
+        <button class="btn ghost" id="bk-no">Cancel</button>
       </div>
       <p class="msg" id="bk-msg"></p>
     </div>
@@ -355,7 +371,9 @@
     ['Weeding lawn', 30],
     ['Vacuum a mess', 10],
     ['Clean inside car', 30],
-    ['Washing dishes', 30]
+    ['Washing dishes', 30],
+    ['Setting up table', 10],
+    ['Pool leaves', 20]
   ];
 
   var ICONS = [
@@ -404,6 +422,16 @@
     };
     if (!state.goals) state.goals = {};
     if (!state.seeded) state.seeded = {};
+    // chores added after launch, each added once (skipped if a similar one exists)
+    [
+      { key: 'setTable', match: /table/i, name: 'Setting up table', amount: 10, icon: '🍴' },
+      { key: 'poolLeaves', match: /pool/i, name: 'Pool leaves', amount: 20, icon: '🏊' }
+    ].forEach(function(x){
+      if (state.seeded[x.key]) return;
+      if (!state.chores.some(function(c){ return x.match.test(c.name); }))
+        state.chores.push({ id: uid(), name: x.name, amount: x.amount, icon: x.icon });
+      state.seeded[x.key] = true;
+    });
     Object.keys(starters).forEach(function(k){
       if (state.seeded[k]) return;
       if (!state.goals[k]) state.goals[k] = starters[k];
@@ -462,6 +490,7 @@
     $('pay-btn').disabled = t.owed <= 0;
     $('pay-amt').textContent = R(t.owed);
     renderGoal(kid, t.owed);
+    renderNudge();
 
     // chore buttons with today's count for this kid
     var today = new Date(); today.setHours(0,0,0,0);
@@ -699,23 +728,67 @@
     img.src = url;
   });
 
-  // ---- backup / restore
-  $('bk-copy').addEventListener('click', function(){
-    var text = JSON.stringify(state);
-    $('backup').value = text;
-    var done = function(){ $('bk-msg').textContent = 'Backup copied. Paste it somewhere safe.'; };
-    var fallback = function(){ $('backup').select(); $('bk-msg').textContent = 'Backup is in the box above. Select it and copy.'; };
-    try { navigator.clipboard.writeText(text).then(done, fallback); } catch (e) { fallback(); }
+  // ---- backup / restore (a small text file the parent keeps somewhere safe)
+  var DAY = 86400000;
+  function renderNudge(){
+    var last = state.lastBackup, has = state.log.length > 0;
+    var days = last ? Math.floor((Date.now() - last) / DAY) : null;
+    $('nudge').hidden = !has || (last && days < 7);
+    $('nudge-text').textContent = last ? 'Last backup ' + days + ' days ago.' : 'No backup yet.';
+  }
+  function backupDone(){
+    state.lastBackup = Date.now(); save(); renderNudge();
+    $('bk-msg').textContent = 'Backup saved. Keep that file somewhere safe.';
+  }
+  function saveBackup(){
+    var d = new Date(), stamp = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+    var name = 'chore-jar-backup-' + stamp + '.txt';
+    var copy = JSON.parse(JSON.stringify(state)); copy.lastBackup = Date.now();
+    var text = JSON.stringify(copy);
+    var file = null;
+    try { file = new File([text], name, { type: 'text/plain' }); } catch (e) {}
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'Chore Jar backup' }).then(backupDone, function(err){
+        if (err && err.name === 'AbortError') return; // user closed the share sheet
+        download(text, name);
+      });
+    } else download(text, name);
+  }
+  function download(text, name){
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+    a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    backupDone();
+  }
+  $('bk-save').addEventListener('click', saveBackup);
+  $('nudge-btn').addEventListener('click', saveBackup);
+
+  var pending = null;
+  $('bk-load').addEventListener('click', function(){ $('bk-file').value = ''; $('bk-file').click(); });
+  $('bk-file').addEventListener('change', function(){
+    var f = this.files && this.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function(){
+      try {
+        var s = JSON.parse(r.result);
+        if (!s || !Array.isArray(s.chores) || !Array.isArray(s.log)) throw 0;
+        pending = s;
+        $('bk-confirm-text').textContent = 'This backup has ' + s.log.length + ' entries. Restoring replaces everything on this phone now. Restore it?';
+        $('bk-confirm').hidden = false; $('bk-msg').textContent = '';
+      } catch (e) {
+        $('bk-msg').textContent = 'That file is not a Chore Jar backup. Pick the file that starts with chore-jar-backup.';
+      }
+    };
+    r.readAsText(f);
   });
-  $('bk-restore').addEventListener('click', function(){
-    try {
-      var s = JSON.parse($('backup').value);
-      if (!s || !Array.isArray(s.chores) || !Array.isArray(s.log)) throw 0;
-      state = s; save(); renderEdit(); renderGoals(); renderPhotos(); render();
-      $('bk-msg').textContent = 'Restored. ' + s.log.length + ' entries loaded.';
-    } catch (e) {
-      $('bk-msg').textContent = 'That text is not a Chore Jar backup. Copy the whole backup and try again.';
-    }
+  $('bk-no').addEventListener('click', function(){ pending = null; $('bk-confirm').hidden = true; });
+  $('bk-yes').addEventListener('click', function(){
+    if (!pending) return;
+    state = pending; pending = null; save();
+    $('bk-confirm').hidden = true;
+    renderEdit(); renderGoals(); renderPhotos(); render();
+    $('bk-msg').textContent = 'Restored. ' + state.log.length + ' entries loaded.';
   });
 
   render();
