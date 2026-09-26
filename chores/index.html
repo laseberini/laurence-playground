@@ -306,6 +306,8 @@
 
 </div>
 
+<canvas id="fx" aria-hidden="true" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:40"></canvas>
+
 <div class="sheet-back" id="sheet" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
     <div class="sec-head">
@@ -551,9 +553,52 @@
     state.log.push(e);
     save(); render();
     var nb = document.querySelector('.chore[data-id="' + c.id + '"]');
-    if (nb) nb.classList.add('pop');
+    if (nb) {
+      nb.classList.add('pop');
+      var r = nb.getBoundingClientRect();
+      fireworks(r.left + r.width / 2, r.top + r.height / 2);
+    }
     if (navigator.vibrate) try { navigator.vibrate(15); } catch (x) {}
   });
+
+  // ---- fireworks after a chore tap
+  var fx = $('fx'), fxc = fx.getContext('2d'), sparks = [], fxRunning = false;
+  var calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function fireworks(x, y){
+    if (calm) return;
+    var dpr = window.devicePixelRatio || 1;
+    if (fx.width !== innerWidth * dpr || fx.height !== innerHeight * dpr) {
+      fx.width = innerWidth * dpr; fx.height = innerHeight * dpr;
+    }
+    fxc.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var kidColor = getComputedStyle(document.body).getPropertyValue('--kid').trim() || '#1d6fd1';
+    var colors = [kidColor, '#ffd166', '#ff5d8f', '#4cd98a', '#7bdff2', '#ffffff'];
+    // one burst at the tap, then two smaller ones nearby
+    [[x, y, 46, 0], [x - 60, y - 70, 28, 180], [x + 60, y - 50, 28, 320]].forEach(function(b){
+      setTimeout(function(){
+        for (var i = 0; i < b[2]; i++) {
+          var a = Math.PI * 2 * i / b[2] + Math.random() * .2, v = 2.2 + Math.random() * 3.2;
+          sparks.push({ x: b[0], y: b[1], vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1,
+            decay: .014 + Math.random() * .012, size: 2 + Math.random() * 2,
+            color: colors[(Math.random() * colors.length) | 0] });
+        }
+        if (!fxRunning) { fxRunning = true; requestAnimationFrame(fxStep); }
+      }, b[3]);
+    });
+  }
+  function fxStep(){
+    fxc.clearRect(0, 0, innerWidth, innerHeight);
+    sparks = sparks.filter(function(p){ return p.life > 0; });
+    sparks.forEach(function(p){
+      p.x += p.vx; p.y += p.vy; p.vy += .07; p.vx *= .985; p.vy *= .985; p.life -= p.decay;
+      fxc.globalAlpha = Math.max(0, p.life);
+      fxc.fillStyle = p.color;
+      fxc.beginPath(); fxc.arc(p.x, p.y, p.size, 0, Math.PI * 2); fxc.fill();
+    });
+    fxc.globalAlpha = 1;
+    if (sparks.length) requestAnimationFrame(fxStep);
+    else { fxRunning = false; fxc.clearRect(0, 0, innerWidth, innerHeight); }
+  }
 
   // ---- pay out
   $('pay-btn').addEventListener('click', function(){ $('pay-confirm').hidden = false; $('pay-btn').hidden = true; });
