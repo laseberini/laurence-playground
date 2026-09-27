@@ -55,7 +55,8 @@ in your own browser.
 
 ## 🫙 Chore Jar — [`chores/`](chores/index.html)
 
-Track chores and pocket money for Zac and Adam. Tap a chore to add its money,
+Track chores and pocket money for up to four children (it asks for their
+names the first time it opens). Tap a chore to add its money,
 see what each child is owed, mark payouts, and edit the chore list. Data stays
 on the phone; use the Backup section in Edit chores to save a copy.
 

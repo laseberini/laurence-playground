@@ -23,12 +23,13 @@
     --muted: #5f6f66;
     --line: #dfe6df;
     --danger: #c23b2b;
-    --zac: #1d6fd1;
-    --zac-soft: #e3eefc;
-    --adam: #d9551a;
-    --adam-soft: #fdebe1;
-    --kid: var(--zac);
-    --kid-soft: var(--zac-soft);
+    /* one colour per child, in the order they were added */
+    --c0: #1d6fd1; --c0s: #e3eefc;
+    --c1: #d9551a; --c1s: #fdebe1;
+    --c2: #1f8a4c; --c2s: #e0f3e7;
+    --c3: #8a3fc7; --c3s: #f1e6fa;
+    --kid: var(--c0);
+    --kid-soft: var(--c0s);
     --display: "Fredoka", ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
     --body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     color-scheme: light;
@@ -41,19 +42,20 @@
       --muted: #9aa99f;
       --line: #2b362f;
       --danger: #ef7565;
-      --zac: #5a9cf0;
-      --zac-soft: #1a2a40;
-      --adam: #f08a55;
-      --adam-soft: #3a2418;
+      --c0: #5a9cf0; --c0s: #1a2a40;
+      --c1: #f08a55; --c1s: #3a2418;
+      --c2: #4cc27f; --c2s: #16301f;
+      --c3: #b58af0; --c3s: #2c1f3d;
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"]{
     --bg: #111713; --surface: #1a221d; --ink: #e7eee9; --muted: #9aa99f; --line: #2b362f;
-    --danger: #ef7565; --zac: #5a9cf0; --zac-soft: #1a2a40; --adam: #f08a55; --adam-soft: #3a2418;
+    --danger: #ef7565;
+    --c0: #5a9cf0; --c0s: #1a2a40; --c1: #f08a55; --c1s: #3a2418;
+    --c2: #4cc27f; --c2s: #16301f; --c3: #b58af0; --c3s: #2c1f3d;
     color-scheme: dark;
   }
-  body[data-kid="adam"]{ --kid: var(--adam); --kid-soft: var(--adam-soft); }
 
   *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   [hidden]{ display: none !important; }
@@ -75,7 +77,7 @@
   /* Kid switch */
   .kids{
     position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
-    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px;
     padding: 6px; border-radius: 22px;
     background: var(--surface); border: 1px solid var(--line);
     box-shadow: 0 6px 18px -12px rgba(0,0,0,.35);
@@ -93,15 +95,19 @@
     display: grid; place-items: center; font: 700 20px/1 var(--display);
     border: 2px solid rgba(255,255,255,.9);
   }
-  .kid[data-id="zac"] .av{ --kid: var(--zac); --kid-soft: var(--zac-soft); }
-  .kid[data-id="adam"] .av{ --kid: var(--adam); --kid-soft: var(--adam-soft); }
+  .kid .av, .photo-row .av{ --kid: var(--kc); --kid-soft: var(--kcs); }
   .photo-row{ display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .photo-row .av{ width: 56px; height: 56px; border-color: var(--line); }
   .photo-row .who{ font-weight: 600; min-width: 56px; }
   .kid .name{ font: 600 22px/1.1 var(--display); }
   .kid .bal{ font-size: 13px; color: var(--muted); }
-  .kid[data-id="zac"][aria-pressed="true"]{ background: var(--zac); color: #fff; }
-  .kid[data-id="adam"][aria-pressed="true"]{ background: var(--adam); color: #fff; }
+  .kid[aria-pressed="true"]{ background: var(--kc); color: #fff; }
+  .kids.many .kid{ flex-direction: column; text-align: center; gap: 4px; padding: 8px 4px; }
+  .kids.many .kid .txt{ align-items: center; }
+  .kids.many .av{ width: 38px; height: 38px; font-size: 17px; }
+  .kids.many .name{ font-size: 17px; overflow-wrap: anywhere; }
+  .kids.many .bal{ font-size: 12px; }
+  .child-row{ display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
   .kid[aria-pressed="true"] .bal{ color: rgba(255,255,255,.85); }
 
   /* Jar summary */
@@ -236,13 +242,10 @@
   }
 </style>
 </head>
-<body data-kid="zac">
+<body>
 <div class="wrap">
 
-  <nav class="kids" aria-label="Choose child">
-    <button class="kid" data-id="zac" aria-pressed="true"><span class="av" id="av-zac">Z</span><span class="txt"><span class="name">Zac</span><span class="bal num" id="bal-zac">R0 owed</span></span></button>
-    <button class="kid" data-id="adam" aria-pressed="false"><span class="av" id="av-adam">A</span><span class="txt"><span class="name">Adam</span><span class="bal num" id="bal-adam">R0 owed</span></span></button>
-  </nav>
+  <nav class="kids" id="kids" aria-label="Choose child"></nav>
 
   <div class="nudge" id="nudge" hidden>
     <span id="nudge-text">No backup yet.</span>
@@ -251,7 +254,7 @@
 
   <section class="jar" aria-live="polite">
     <div>
-      <div class="label"><span class="kidname">Zac</span> is owed</div>
+      <div class="label"><span class="kidname"></span> is owed</div>
       <div class="owed num" id="owed">R0</div>
     </div>
     <div class="stats">
@@ -262,7 +265,7 @@
     <div class="pay">
       <button class="btn" id="pay-btn">Pay out</button>
       <div class="pay-confirm" id="pay-confirm" hidden>
-        <p style="margin:0 0 8px">Mark <b class="num" id="pay-amt">R0</b> as paid to <span class="kidname">Zac</span>? Their jar goes back to R0. History stays.</p>
+        <p style="margin:0 0 8px">Mark <b class="num" id="pay-amt">R0</b> as paid to <span class="kidname"></span>? Their jar goes back to R0. History stays.</p>
         <div class="pay">
           <button class="btn" id="pay-yes">Yes, paid</button>
           <button class="btn ghost" id="pay-no">Cancel</button>
@@ -290,13 +293,13 @@
       <h2>Done a chore?</h2>
       <button class="link" id="edit-open">Edit</button>
     </div>
-    <p class="hint">Tap it to add the money to <span class="kidname">Zac</span>'s jar.</p>
+    <p class="hint">Tap it to add the money to <span class="kidname"></span>'s jar.</p>
     <div class="chores" id="chores"></div>
   </section>
 
   <section class="sec">
     <div class="sec-head">
-      <h2><span class="kidname">Zac</span>'s history</h2>
+      <h2><span class="kidname"></span>'s history</h2>
       <span class="hint num" id="hist-count"></span>
     </div>
     <p class="hint">Added one by mistake? Tap Delete next to it.</p>
@@ -307,6 +310,16 @@
 </div>
 
 <canvas id="fx" aria-hidden="true" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:40"></canvas>
+
+<div class="sheet-back" id="setup" hidden>
+  <form class="sheet" id="setup-form" role="dialog" aria-modal="true" aria-labelledby="setup-title" autocomplete="off">
+    <h2 id="setup-title">Who's doing chores?</h2>
+    <p class="hint">Type your children's names. You can change them later under Edit.</p>
+    <div id="setup-list" class="sec"></div>
+    <button class="btn ghost" type="button" id="setup-more">+ Add another child</button>
+    <button class="btn" type="submit">Start</button>
+  </form>
+</div>
 
 <div class="sheet-back" id="sheet" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
@@ -329,6 +342,11 @@
         <button class="btn" type="submit" aria-label="Add chore" style="padding:10px 0">+</button>
       </div>
     </form>
+
+    <div class="sec">
+      <h2>Children</h2>
+      <div id="child-list" class="sec"></div>
+    </div>
 
     <div class="sec">
       <h2>Savings goals</h2>
@@ -366,7 +384,7 @@
 <script>
 (function(){
   var KEY = 'chore-jar-v1';
-  var KIDS = [{ id: 'zac', name: 'Zac' }, { id: 'adam', name: 'Adam' }];
+  var MAX_KIDS = 4;
   var DEFAULT_CHORES = [
     ['Close or open curtains', 5],
     ['Water plants', 10],
@@ -374,8 +392,7 @@
     ['Vacuum a mess', 10],
     ['Clean inside car', 30],
     ['Washing dishes', 30],
-    ['Setting up table', 10],
-    ['Pool leaves', 20]
+    ['Setting up table', 10]
   ];
 
   var ICONS = [
@@ -397,10 +414,19 @@
 
   function fresh(){
     return {
-      kid: 'zac',
+      kids: [], // { id, name, color } — asked for on first open
+      kid: null,
       chores: DEFAULT_CHORES.map(function(c){ return { id: uid(), name: c[0], amount: c[1] }; }),
-      log: [] // { id, kid, type: 'chore'|'payout', name, amount, ts }
+      log: [], // { id, kid, type: 'chore'|'payout', name, amount, ts }
+      goals: {},
+      // a new phone skips the extras that were added for the first family
+      seeded: { zac: true, adam: true, setTable: true, poolLeaves: true }
     };
+  }
+  // data saved before children could be named belongs to Zac and Adam
+  function normalize(s){
+    if (!Array.isArray(s.kids)) s.kids = [{ id: 'zac', name: 'Zac', color: 0 }, { id: 'adam', name: 'Adam', color: 1 }];
+    return s;
   }
 
   function load(){
@@ -408,7 +434,7 @@
       var raw = localStorage.getItem(KEY);
       if (raw) {
         var s = JSON.parse(raw);
-        if (s && Array.isArray(s.chores) && Array.isArray(s.log)) return s;
+        if (s && Array.isArray(s.chores) && Array.isArray(s.log)) return normalize(s);
       }
     } catch (e) {}
     return fresh();
@@ -462,7 +488,10 @@
     return { earned: earned, paid: paid, owed: earned - paid, week: week };
   }
 
-  function kidName(id){ return KIDS.filter(function(k){ return k.id === id; })[0].name; }
+  function kids(){ return state.kids; }
+  function kidById(id){ return kids().filter(function(k){ return k.id === id; })[0]; }
+  function kidName(id){ var k = kidById(id); return k ? k.name : ''; }
+  function colorVars(k){ return '--kc:var(--c' + k.color + ');--kcs:var(--c' + k.color + 's)'; }
 
   function dayLabel(ts){
     var d = new Date(ts), t = new Date();
@@ -475,14 +504,19 @@
   function timeLabel(ts){ return new Date(ts).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }); }
 
   function render(){
-    var kid = state.kid;
-    document.body.dataset.kid = kid;
-    document.querySelectorAll('.kid').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.id === kid ? 'true' : 'false'); });
-    document.querySelectorAll('.kidname').forEach(function(el){ el.textContent = kidName(kid); });
-    KIDS.forEach(function(k){
-      $('bal-' + k.id).textContent = R(totals(k.id).owed) + ' owed';
-      paintAvatar($('av-' + k.id), k);
-    });
+    if (!kids().length) { showSetup(); return; }
+    if (!kidById(state.kid)) state.kid = kids()[0].id;
+    var kid = state.kid, cur = kidById(kid);
+    document.body.style.setProperty('--kid', 'var(--c' + cur.color + ')');
+    document.body.style.setProperty('--kid-soft', 'var(--c' + cur.color + 's)');
+    $('kids').classList.toggle('many', kids().length > 2);
+    $('kids').innerHTML = kids().map(function(k){
+      return '<button class="kid" data-id="' + k.id + '" style="' + colorVars(k) + '" aria-pressed="' + (k.id === kid) + '">' +
+        '<span class="av" id="av-' + k.id + '"></span><span class="txt"><span class="name">' + esc(k.name) + '</span>' +
+        '<span class="bal num">' + R(totals(k.id).owed) + ' owed</span></span></button>';
+    }).join('');
+    kids().forEach(function(k){ paintAvatar($('av-' + k.id), k); });
+    document.querySelectorAll('.kidname').forEach(function(el){ el.textContent = cur.name; });
 
     var t = totals(kid);
     $('owed').textContent = R(t.owed);
@@ -537,12 +571,70 @@
 
 
   // ---- kid switch
-  document.querySelectorAll('.kid').forEach(function(b){
-    b.addEventListener('click', function(){
-      state.kid = b.dataset.id; showCount = 30;
-      $('pay-confirm').hidden = true; $('pay-btn').hidden = false;
-      save(); render();
-    });
+  $('kids').addEventListener('click', function(ev){
+    var b = ev.target.closest('.kid'); if (!b) return;
+    state.kid = b.dataset.id; showCount = 30;
+    $('pay-confirm').hidden = true; $('pay-btn').hidden = false;
+    save(); render();
+  });
+
+  // ---- first-time setup: name the children
+  function setupRow(){
+    var n = $('setup-list').children.length + 1;
+    var d = document.createElement('input');
+    d.className = 'field'; d.id = 'setup-' + n; d.placeholder = 'Child ' + n + "'s name"; d.setAttribute('aria-label', 'Child ' + n + "'s name");
+    $('setup-list').appendChild(d);
+    $('setup-more').hidden = $('setup-list').children.length >= MAX_KIDS;
+    return d;
+  }
+  function showSetup(){
+    if (!$('setup').hidden) return;
+    $('setup-list').innerHTML = ''; setupRow(); setupRow();
+    document.querySelector('.wrap').hidden = true;
+    $('setup').hidden = false;
+  }
+  $('setup-more').addEventListener('click', function(){ setupRow().focus(); });
+  $('setup-form').addEventListener('submit', function(ev){
+    ev.preventDefault();
+    var names = Array.prototype.map.call($('setup-list').children, function(i){ return i.value.trim(); }).filter(Boolean);
+    if (!names.length) { $('setup-1').focus(); return; }
+    state.kids = names.map(function(n, i){ return { id: uid(), name: n, color: i }; });
+    state.kid = state.kids[0].id;
+    save(); $('setup').hidden = true; document.querySelector('.wrap').hidden = false; render();
+  });
+
+  // ---- children in the Edit sheet
+  function renderChildren(){
+    var many = kids().length > 1;
+    $('child-list').innerHTML = kids().map(function(k){
+      return '<div class="child-row" data-kid="' + k.id + '">' +
+        '<input class="field" id="kn-' + k.id + '" value="' + esc(k.name) + '" aria-label="Name">' +
+        (many ? '<button class="btn ghost" data-krm="' + k.id + '">Remove</button>' : '<span></span>') + '</div>';
+    }).join('') + (kids().length < MAX_KIDS ? '<button class="btn ghost" id="kid-add">+ Add a child</button>' : '');
+  }
+  $('child-list').addEventListener('input', function(ev){
+    var row = ev.target.closest('[data-kid]'); if (!row) return;
+    var k = kidById(row.dataset.kid), v = ev.target.value.trim();
+    if (k && v) { k.name = v; save(); }
+  });
+  $('child-list').addEventListener('click', function(ev){
+    var rm = ev.target.closest('[data-krm]'), yes = ev.target.closest('[data-krmyes]');
+    if (ev.target.id === 'kid-add') {
+      var used = kids().map(function(k){ return k.color; }), color = 0;
+      while (used.indexOf(color) >= 0 && color < MAX_KIDS - 1) color++;
+      var k = { id: uid(), name: 'Child ' + (kids().length + 1), color: color };
+      kids().push(k); save(); renderChildren(); renderGoals(); renderPhotos(); render();
+      var f = $('kn-' + k.id); f.focus(); f.select();
+    }
+    if (rm) rm.outerHTML = '<button class="btn danger" data-krmyes="' + rm.dataset.krm + '">Remove with history?</button>';
+    if (yes) {
+      var id = yes.dataset.krmyes;
+      state.kids = kids().filter(function(k){ return k.id !== id; });
+      state.log = state.log.filter(function(e){ return e.kid !== id; });
+      if (state.goals) delete state.goals[id];
+      if (state.photos) delete state.photos[id];
+      save(); renderChildren(); renderGoals(); renderPhotos(); render();
+    }
   });
 
   // ---- log a chore
@@ -635,7 +727,7 @@
         '<button class="x" data-rm="' + c.id + '" aria-label="Remove ' + esc(c.name) + '">×</button></div>';
     }).join('') || '<p class="hint">No chores. Add one below.</p>';
   }
-  $('edit-open').addEventListener('click', function(){ renderEdit(); renderGoals(); renderPhotos(); $('bk-msg').textContent = ''; $('sheet').hidden = false; });
+  $('edit-open').addEventListener('click', function(){ renderChildren(); renderEdit(); renderGoals(); renderPhotos(); $('bk-msg').textContent = ''; $('sheet').hidden = false; });
   function closeSheet(){ $('sheet').hidden = true; render(); }
   $('edit-close').addEventListener('click', closeSheet);
   $('sheet').addEventListener('click', function(ev){ if (ev.target === $('sheet')) closeSheet(); });
@@ -690,12 +782,12 @@
   var goalFor = null;
   $('goal-pic').addEventListener('click', function(){ goalFor = state.kid; $('goal-file').value = ''; $('goal-file').click(); });
   function renderGoals(){
-    $('goal-list').innerHTML = KIDS.map(function(k){
+    $('goal-list').innerHTML = kids().map(function(k){
       var g = goals()[k.id];
-      if (!g) return '<div class="goal-box"><span class="who">' + k.name + '</span><button class="btn ghost" data-gadd="' + k.id + '">Add a goal for ' + k.name + '</button></div>';
-      return '<div class="goal-box" data-kid="' + k.id + '"><span class="who">' + k.name + '</span>' +
+      if (!g) return '<div class="goal-box"><span class="who">' + esc(k.name) + '</span><button class="btn ghost" data-gadd="' + k.id + '">Add a goal for ' + esc(k.name) + '</button></div>';
+      return '<div class="goal-box" data-kid="' + k.id + '"><span class="who">' + esc(k.name) + '</span>' +
         '<div class="goal-edit">' +
-        '<input class="field" id="gn-' + k.id + '" data-g="name" value="' + esc(g.name || '') + '" placeholder="What is it?" aria-label="Goal for ' + k.name + '">' +
+        '<input class="field" id="gn-' + k.id + '" data-g="name" value="' + esc(g.name || '') + '" placeholder="What is it?" aria-label="Goal for ' + esc(k.name) + '">' +
         '<div class="money"><input class="field num" id="gp-' + k.id + '" data-g="price" type="number" inputmode="decimal" min="0" step="1" value="' + (g.price || '') + '" aria-label="Price in rand"></div>' +
         '</div><div class="pay">' +
         '<button class="btn" data-gpic="' + k.id + '">' + (g.photo ? 'Change picture' : 'Choose picture') + '</button>' +
@@ -743,13 +835,13 @@
   }
   var photoFor = null;
   function renderPhotos(){
-    $('photo-list').innerHTML = KIDS.map(function(k){
+    $('photo-list').innerHTML = kids().map(function(k){
       var has = !!photos()[k.id];
-      return '<div class="photo-row"><span class="av" id="pav-' + k.id + '"></span><span class="who">' + k.name + '</span>' +
+      return '<div class="photo-row" style="' + colorVars(k) + '"><span class="av" id="pav-' + k.id + '"></span><span class="who">' + esc(k.name) + '</span>' +
         '<button class="btn" data-pick="' + k.id + '">' + (has ? 'Change photo' : 'Choose photo') + '</button>' +
         (has ? '<button class="btn ghost" data-unpick="' + k.id + '">Remove</button>' : '') + '</div>';
     }).join('');
-    KIDS.forEach(function(k){ paintAvatar($('pav-' + k.id), k); });
+    kids().forEach(function(k){ paintAvatar($('pav-' + k.id), k); });
   }
   $('photo-list').addEventListener('click', function(ev){
     var pick = ev.target.closest('[data-pick]'), un = ev.target.closest('[data-unpick]');
@@ -830,9 +922,9 @@
   $('bk-no').addEventListener('click', function(){ pending = null; $('bk-confirm').hidden = true; });
   $('bk-yes').addEventListener('click', function(){
     if (!pending) return;
-    state = pending; pending = null; save();
+    state = normalize(pending); pending = null; save();
     $('bk-confirm').hidden = true;
-    renderEdit(); renderGoals(); renderPhotos(); render();
+    renderChildren(); renderEdit(); renderGoals(); renderPhotos(); render();
     $('bk-msg').textContent = 'Restored. ' + state.log.length + ' entries loaded.';
   });
 
