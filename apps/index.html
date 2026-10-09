@@ -31,18 +31,15 @@
   .sub{color:var(--muted);font-size:15px;margin:4px 0 22px}
   h2{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;
      letter-spacing:.6px;margin:26px 0 10px}
-  a.app{
-    display:flex;align-items:center;gap:14px;text-decoration:none;color:inherit;
-    background:var(--card);border:1px solid var(--line);border-radius:14px;
-    padding:14px 16px;margin-bottom:10px;
-  }
-  a.app:active{opacity:.7}
-  .ico{font-size:26px;line-height:1;width:34px;text-align:center;flex:none}
-  .txt{min-width:0;flex:1}
-  .name{display:block;font-size:17px;font-weight:650}
-  .desc{display:block;font-size:13px;color:var(--muted);margin-top:1px;
-         overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .chev{color:var(--muted);font-size:20px;flex:none}
+  .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 12px}
+  @media (min-width:480px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  a.tile{display:flex;flex-direction:column;align-items:center;gap:7px;text-decoration:none;color:inherit;text-align:center}
+  a.tile:active{opacity:.7}
+  .ico{width:100%;aspect-ratio:1;border-radius:22%;display:grid;place-items:center;
+       font-size:clamp(30px,10vw,44px);line-height:1;border:1px solid var(--line);
+       background:var(--c,var(--card))}
+  .name{font-size:13px;font-weight:600;line-height:1.2;max-width:100%;
+        overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .foot{color:var(--muted);font-size:12px;margin-top:28px;text-align:center}
 </style>
 </head>
@@ -52,73 +49,57 @@
 
 <h2>Playground</h2>
 
-<a class="app" href="../">
-  <span class="ico">📖</span>
-  <span class="txt"><span class="name">Resume Reader</span>
-  <span class="desc">PDF reader that remembers your place</span></span>
-  <span class="chev">›</span>
+<div class="grid">
+<a class="tile" href="../" title="PDF reader that remembers your place">
+  <span class="ico" style="--c:#dbeafe">📖</span>
+  <span class="name">Resume Reader</span>
 </a>
-
-<a class="app" href="../cards/">
-  <span class="ico">🎫</span>
-  <span class="txt"><span class="name">Loyalty Cards</span>
-  <span class="desc">Your barcodes, one tap away</span></span>
-  <span class="chev">›</span>
+<a class="tile" href="../cards/" title="Your barcodes, one tap away">
+  <span class="ico" style="--c:#fde68a">🎫</span>
+  <span class="name">Loyalty Cards</span>
 </a>
-
-<a class="app" href="../chores/">
-  <span class="ico">🫙</span>
-  <span class="txt"><span class="name">Chore Jar</span>
-  <span class="desc">Chores, pocket money and savings goals for the kids</span></span>
-  <span class="chev">›</span>
+<a class="tile" href="../chores/" title="Chores, pocket money and savings goals for the kids">
+  <span class="ico" style="--c:#d1fae5">🫙</span>
+  <span class="name">Chore Jar</span>
 </a>
-<a class="app" href="../mastermind/">
-  <span class="ico">🔴</span>
-  <span class="txt"><span class="name">Mastermind</span>
-  <span class="desc">Crack the code, or set one for the computer</span></span>
-  <span class="chev">›</span>
+<a class="tile" href="../mastermind/" title="Crack the code, or set one for the computer">
+  <span class="ico" style="--c:#3a3530">🔴</span>
+  <span class="name">Mastermind</span>
 </a>
-<a class="app" href="../kings-quest/">
-  <span class="ico">👑</span>
-  <span class="txt"><span class="name">King’s Quest</span>
-  <span class="desc">A classic-style adventure: The Crown of Aldermere</span></span>
-  <span class="chev">›</span>
+<a class="tile" href="../kings-quest/" title="A classic-style adventure: The Crown of Aldermere">
+  <span class="ico" style="--c:#141625">👑</span>
+  <span class="name">King’s Quest</span>
 </a>
-<a class="app" href="../picture-sudoku/">
-  <span class="ico">🧩</span>
-  <span class="txt"><span class="name">Picture Sudoku</span>
-  <span class="desc">Sudoku with animals and fruit, for the kids</span></span>
-  <span class="chev">›</span>
+<a class="tile" href="../picture-sudoku/" title="Sudoku with animals and fruit, for the kids">
+  <span class="ico" style="--c:#ffe1c7">🧩</span>
+  <span class="name">Picture Sudoku</span>
 </a>
-<a class="app" href="../fractal-loop.html">
-  <span class="ico">🌀</span>
-  <span class="txt"><span class="name">Fractal Loop</span>
-  <span class="desc">An endless zoom to play with</span></span>
-  <span class="chev">›</span>
+<a class="tile" href="../fractal-loop.html" title="An endless zoom to play with">
+  <span class="ico" style="--c:#ede9fe">🌀</span>
+  <span class="name">Fractal Loop</span>
 </a>
+</div>
 
 <h2>Other sites</h2>
 
-<a class="app" href="https://laseberini.github.io/two-heights/">
-  <span class="ico">🏔️</span>
-  <span class="txt"><span class="name">Two Heights</span>
-  <span class="desc">laseberini.github.io/two-heights</span></span>
-  <span class="chev">›</span>
+<div class="grid">
+<a class="tile" href="https://laseberini.github.io/two-heights/" title="laseberini.github.io/two-heights">
+  <span class="ico" style="--c:#e0f2fe">🏔️</span>
+  <span class="name">Two Heights</span>
 </a>
-
-<a class="app" href="https://laseberini.github.io/luisa-trombetta/">
-  <span class="ico">📜</span>
-  <span class="txt"><span class="name">The Life of Luisa Trombetta</span>
-  <span class="desc">laseberini.github.io/luisa-trombetta</span></span>
-  <span class="chev">›</span>
+<a class="tile" href="https://laseberini.github.io/luisa-trombetta/" title="The Life of Luisa Trombetta">
+  <span class="ico" style="--c:#f5ead6">📜</span>
+  <span class="name">Luisa Trombetta</span>
 </a>
-
-<a class="app" href="https://laseberini.github.io/sheilas-recipes/">
-  <span class="ico">🍰</span>
-  <span class="txt"><span class="name">Sheila's Recipes</span>
-  <span class="desc">laseberini.github.io/sheilas-recipes</span></span>
-  <span class="chev">›</span>
+<a class="tile" href="https://laseberini.github.io/sheilas-recipes/" title="laseberini.github.io/sheilas-recipes">
+  <span class="ico" style="--c:#fce7f3">🍰</span>
+  <span class="name">Sheila's Recipes</span>
 </a>
+<a class="tile" href="https://ai.studio/apps/8641041f-62e9-4f54-a8b6-e8b0832ae4b4" title="Adaptive maths trainer for the kids (opens in AI Studio)">
+  <span class="ico" style="--c:#dcfce7">🧮</span>
+  <span class="name">Math Buddy</span>
+</a>
+</div>
 
 <p class="foot">Built with Claude Code. Everything runs in your browser.</p>
 </body>
