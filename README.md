@@ -70,6 +70,24 @@ your Home Screen to play it like an app.
 
 **Live:** https://laseberini.github.io/laurence-playground/mastermind/
 
+## 👑 King’s Quest — [`kings-quest/`](kings-quest/index.html)
+
+*The Crown of Aldermere*, a classic Sierra-style adventure game built for
+phones. Tap to walk, read the story aloud with a phone or AI voice. Your game
+saves on the phone. Add it to your Home Screen to play full screen.
+
+**Live:** https://laseberini.github.io/laurence-playground/kings-quest/
+
+## 🧩 Picture Sudoku — [`picture-sudoku/`](picture-sudoku/index.html)
+
+Sudoku for kids, with pictures instead of numbers: animals, fruit, vehicles
+or sea creatures. Pick a 4×4, 6×6 or 9×9 grid and Easy, Medium or Hard. Wrong
+picks turn red (this can be switched off), there's a Hint button, and a
+star rating when the puzzle is done. The game in progress is saved on the
+phone.
+
+**Live:** https://laseberini.github.io/laurence-playground/picture-sudoku/
+
 ## 🌀 fractal-loop — [`fractal-loop.html`](fractal-loop.html)
 
 A small interactive fractal toy.

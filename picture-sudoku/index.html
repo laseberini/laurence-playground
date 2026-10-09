@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Picture Sudoku">
+<meta name="theme-color" content="#fff7e8">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>Picture Sudoku</title>
+<style>
+  /* One bright, light look on purpose: it's a kids' game board. */
+  :root{
+    color-scheme: light;
+    --bg:#fff7e8; --card:#ffffff; --ink:#3b2f2a; --muted:#8a7a70;
+    --line:#eadfcf; --box:#7a5c4a; --accent:#ff8a3d; --accent-2:#ffd36b;
+    --sel:#ffe7a3; --peer:#fff1d6; --same:#d8f0ff; --wrong:#ffd2d2; --wrong-ink:#e0413a;
+    --hint:#d9f7d4; --given:#f6efe4;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:var(--bg);color:var(--ink);overscroll-behavior:none}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;-webkit-user-select:none;user-select:none;
+    padding:calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 20px);
+    max-width:560px;margin:0 auto;min-height:100vh;
+  }
+  button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+
+  header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  h1{font-size:22px;font-weight:800;letter-spacing:-.3px;flex:1;min-width:0}
+  h1 small{display:block;font-size:13px;font-weight:600;color:var(--muted);letter-spacing:0}
+  .round{width:44px;height:44px;border-radius:50%;background:var(--card);border:2px solid var(--line);
+         font-size:20px;display:grid;place-items:center;flex:none}
+  .round:active{transform:scale(.94)}
+
+  .rule{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:9px 12px;
+        font-size:14px;line-height:1.35;margin-bottom:12px;text-align:center}
+  .rule b{color:var(--accent)}
+
+  #board{display:grid;width:100%;aspect-ratio:1;background:var(--box);border:3px solid var(--box);
+         border-radius:14px;overflow:hidden;gap:1px}
+  .cell{background:var(--card);display:grid;place-items:center;line-height:1;position:relative;
+        font-size:var(--fs,32px)}
+  .cell.given{background:var(--given)}
+  .cell.peer{background:var(--peer)}
+  .cell.same{background:var(--same)}
+  .cell.sel{background:var(--sel);box-shadow:inset 0 0 0 3px var(--accent)}
+  .cell.wrong{background:var(--wrong)}
+  .cell.wrong::after{content:"";position:absolute;inset:3px;border:2px dashed var(--wrong-ink);border-radius:8px}
+  .cell.hinted{animation:glow 1.2s ease}
+  .cell.pop span{animation:pop .28s ease}
+  .cell.shake span{animation:shake .4s ease}
+  .bR{margin-right:2px} .bB{margin-bottom:2px}
+  @keyframes pop{0%{transform:scale(.4)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+  @keyframes glow{0%{background:var(--hint)}100%{}}
+
+  #tray{display:grid;gap:8px;margin-top:14px}
+  .pick{background:var(--card);border:2px solid var(--line);border-radius:14px;aspect-ratio:1;
+        display:grid;place-items:center;font-size:var(--tfs,34px);line-height:1;position:relative}
+  .pick:active{transform:scale(.93)}
+  .pick.done{opacity:.35}
+  .pick.on{border-color:var(--accent);background:var(--sel)}
+
+  .tools{display:flex;gap:8px;margin-top:12px}
+  .tool{flex:1;background:var(--card);border:2px solid var(--line);border-radius:14px;padding:10px 4px;
+        font-size:14px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:2px}
+  .tool span{font-size:22px}
+  .tool:active{transform:scale(.96)}
+  .tool.off{opacity:.45}
+
+  /* Setup sheet */
+  .sheet{position:fixed;inset:0;background:rgba(59,47,42,.45);display:none;align-items:flex-end;justify-content:center;z-index:10}
+  .sheet.show{display:flex}
+  .panel{background:var(--bg);width:100%;max-width:560px;border-radius:22px 22px 0 0;
+         padding:18px 16px calc(env(safe-area-inset-bottom) + 18px);max-height:92vh;overflow:auto}
+  .panel h2{font-size:20px;font-weight:800;margin-bottom:4px}
+  .panel h3{font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:16px 0 8px}
+  .opts{display:grid;gap:8px}
+  .opts.c4{grid-template-columns:repeat(4,1fr)} .opts.c3{grid-template-columns:repeat(3,1fr)}
+  .opt{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:10px 4px;text-align:center;
+       font-weight:700;font-size:14px}
+  .opt .big{display:block;font-size:28px;line-height:1.15;margin-bottom:2px}
+  .opt.on{border-color:var(--accent);background:var(--sel)}
+  .go{display:block;width:100%;margin-top:18px;background:var(--accent);color:#fff;font-size:19px;font-weight:800;
+      padding:15px;border-radius:16px}
+  .go:active{transform:scale(.98)}
+
+  /* Win */
+  .win .panel{border-radius:22px;margin:auto 16px;text-align:center;padding:26px 18px}
+  .win{align-items:center}
+  .win .stars{font-size:46px;letter-spacing:4px}
+  .win p{color:var(--muted);margin:6px 0 0}
+  .confetti{position:fixed;top:-40px;font-size:28px;pointer-events:none;z-index:11;animation:fall linear forwards}
+  @keyframes fall{to{transform:translateY(110vh) rotate(540deg)}}
+  .foot{color:var(--muted);font-size:12px;margin-top:16px;text-align:center}
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="title">Picture Sudoku<small id="subtitle"></small></h1>
+  <button class="round" id="soundBtn" aria-label="Sound on or off">🔊</button>
+  <button class="round" id="newBtn" aria-label="New puzzle">✨</button>
+</header>
+
+<div class="rule">Every <b>row</b>, every <b>column</b> and every <b>box</b> gets each picture <b>once</b>.</div>
+
+<div id="board" role="grid" aria-label="Puzzle"></div>
+<div id="tray" aria-label="Pictures"></div>
+
+<div class="tools">
+  <button class="tool" id="eraseBtn"><span>🧽</span>Rub out</button>
+  <button class="tool" id="hintBtn"><span>💡</span>Hint</button>
+  <button class="tool" id="checkBtn"><span>🔍</span>Spot mistakes</button>
+</div>
+
+<p class="foot">Tap a square, then tap a picture. <span id="ver">v1.0</span></p>
+
+<!-- New puzzle sheet -->
+<div class="sheet" id="setup">
+  <div class="panel">
+    <h2>New puzzle</h2>
+    <h3>Pictures</h3>
+    <div class="opts c4" id="themeOpts"></div>
+    <h3>Size</h3>
+    <div class="opts c3" id="sizeOpts"></div>
+    <h3>How tricky?</h3>
+    <div class="opts c3" id="levelOpts"></div>
+    <button class="go" id="goBtn">Let's play!</button>
+  </div>
+</div>
+
+<!-- Win sheet -->
+<div class="sheet win" id="winSheet">
+  <div class="panel">
+    <div class="stars" id="winStars">⭐⭐⭐</div>
+    <h2 id="winTitle">You did it!</h2>
+    <p id="winMsg"></p>
+    <button class="go" id="againBtn">Play again</button>
+  </div>
+</div>
+
+<script>
+const VERSION = 'v1.0';
+const THEMES = {
+  animals:  { name:'Animals',  icon:'🐶', pics:['🐶','🐱','🐰','🐸','🦁','🐵','🐼','🐷','🐮'] },
+  fruit:    { name:'Fruit',    icon:'🍎', pics:['🍎','🍌','🍇','🍓','🍊','🍉','🍒','🍍','🥝'] },
+  vehicles: { name:'Vehicles', icon:'🚗', pics:['🚗','🚌','🚒','🚀','✈️','🚲','🚂','🚜','⛵'] },
+  sea:      { name:'Sea',      icon:'🐠', pics:['🐠','🐙','🦀','🐳','🐢','🦈','🐬','🦑','🐚'] },
+};
+// Box shape for each grid size: [box rows, box cols]
+const SIZES = { 4:{label:'4 × 4', sub:'Little', box:[2,2]}, 6:{label:'6 × 6', sub:'Middle', box:[2,3]}, 9:{label:'9 × 9', sub:'Big', box:[3,3]} };
+// How many squares start filled in, per size and level
+const GIVENS = { 4:{easy:10, medium:8, hard:6}, 6:{easy:24, medium:19, hard:15}, 9:{easy:42, medium:34, hard:28} };
+const LEVELS = { easy:{label:'Easy', icon:'🙂'}, medium:{label:'Medium', icon:'🤔'}, hard:{label:'Hard', icon:'🧠'} };
+const KEY = 'picture-sudoku-v1';
+
+let S = null;          // game state
+let sel = -1;          // selected cell index
+let spot = true;       // show mistakes as you go
+let sound = true;
+let pending = { theme:'animals', size:4, level:'easy' };
+
+// ---------- puzzle maker ----------
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function canPlace(g,n,br,bc,i,v){
+  const r=Math.floor(i/n), c=i%n;
+  for(let k=0;k<n;k++){ if(g[r*n+k]===v||g[k*n+c]===v) return false; }
+  const r0=r-r%br, c0=c-c%bc;
+  for(let y=r0;y<r0+br;y++) for(let x=c0;x<c0+bc;x++) if(g[y*n+x]===v) return false;
+  return true;
+}
+function fill(g,n,br,bc){
+  const i=g.indexOf(0); if(i<0) return true;
+  for(const v of shuffle([...Array(n)].map((_,k)=>k+1))){
+    if(canPlace(g,n,br,bc,i,v)){ g[i]=v; if(fill(g,n,br,bc)) return true; g[i]=0; }
+  }
+  return false;
+}
+function countSolutions(g,n,br,bc,limit){
+  const i=g.indexOf(0); if(i<0) return 1;
+  let total=0;
+  for(let v=1;v<=n;v++){
+    if(canPlace(g,n,br,bc,i,v)){ g[i]=v; total+=countSolutions(g,n,br,bc,limit-total); g[i]=0; if(total>=limit) break; }
+  }
+  return total;
+}
+function makePuzzle(n,level){
+  const [br,bc]=SIZES[n].box;
+  const sol=Array(n*n).fill(0); fill(sol,n,br,bc);
+  const puz=sol.slice(); let left=n*n; const target=GIVENS[n][level];
+  for(const i of shuffle([...Array(n*n).keys()])){
+    if(left<=target) break;
+    const keep=puz[i]; puz[i]=0;
+    if(countSolutions(puz.slice(),n,br,bc,2)!==1) puz[i]=keep; else left--;
+  }
+  return {sol,puz};
+}
+
+// ---------- save / load ----------
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify({S,spot,sound,pending})); }catch(e){} }
+function load(){
+  try{
+    const d=JSON.parse(localStorage.getItem(KEY));
+    if(d){ S=d.S; spot=d.spot!==false; sound=d.sound!==false; if(d.pending) pending=d.pending; }
+  }catch(e){}
+}
+
+// ---------- sound ----------
+let ac=null;
+function beep(freqs,len=.09,type='sine',vol=.12){
+  if(!sound) return;
+  try{
+    ac=ac||new (window.AudioContext||window.webkitAudioContext)();
+    let t=ac.currentTime;
+    for(const f of freqs){
+      const o=ac.createOscillator(), g=ac.createGain();
+      o.type=type; o.frequency.value=f; g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.001,t+len);
+      o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+len); t+=len*.8;
+    }
+  }catch(e){}
+}
+
+// ---------- game ----------
+function newGame(theme,n,level){
+  const {sol,puz}=makePuzzle(n,level);
+  const pics=shuffle(THEMES[theme].pics.slice()).slice(0,n);
+  S={theme,n,level,pics,sol,puz,cur:puz.slice(),hints:0,mistakes:0,done:false};
+  sel=-1; save(); build();
+}
+const $=id=>document.getElementById(id);
+function box(){ return SIZES[S.n].box; }
+function isPeer(a,b){
+  const n=S.n,[br,bc]=box(); const ra=Math.floor(a/n),ca=a%n,rb=Math.floor(b/n),cb=b%n;
+  return ra===rb||ca===cb||(Math.floor(ra/br)===Math.floor(rb/br)&&Math.floor(ca/bc)===Math.floor(cb/bc));
+}
+
+function build(){
+  const n=S.n,[br,bc]=box(), board=$('board'), tray=$('tray');
+  board.style.gridTemplateColumns=`repeat(${n},minmax(0,1fr))`;
+  board.style.setProperty('--fs', n===9?'min(6.6vw,30px)':n===6?'min(9.5vw,44px)':'min(15vw,68px)');
+  board.innerHTML='';
+  for(let i=0;i<n*n;i++){
+    const c=document.createElement('button'); c.className='cell'; c.dataset.i=i;
+    const r=Math.floor(i/n), col=i%n;
+    if(col%bc===bc-1&&col<n-1) c.classList.add('bR');
+    if(r%br===br-1&&r<n-1) c.classList.add('bB');
+    c.appendChild(document.createElement('span'));
+    c.addEventListener('click',()=>tapCell(i));
+    board.appendChild(c);
+  }
+  const cols = n;
+  tray.style.gridTemplateColumns=`repeat(${cols},minmax(0,1fr))`;
+  tray.style.gap = n===9 ? "4px" : "8px";
+  tray.style.setProperty('--tfs', n===9?'min(6vw,28px)':n===6?'min(9vw,40px)':'min(11vw,48px)');
+  tray.innerHTML='';
+  S.pics.forEach((p,k)=>{
+    const b=document.createElement('button'); b.className='pick'; b.textContent=p; b.dataset.v=k+1;
+    b.addEventListener('click',()=>tapPick(k+1));
+    tray.appendChild(b);
+  });
+  $('subtitle').textContent=`${THEMES[S.theme].name} · ${SIZES[S.n].label} · ${LEVELS[S.level].label}`;
+  render();
+}
+
+function render(){
+  const n=S.n, cells=$('board').children;
+  const selV = sel>=0 ? S.cur[sel] : 0;
+  for(let i=0;i<n*n;i++){
+    const c=cells[i], v=S.cur[i];
+    c.firstChild.textContent = v ? S.pics[v-1] : '';
+    c.classList.toggle('given', !!S.puz[i]);
+    c.classList.toggle('sel', i===sel);
+    c.classList.toggle('peer', sel>=0 && i!==sel && isPeer(i,sel));
+    c.classList.toggle('same', !!selV && i!==sel && v===selV);
+    c.classList.toggle('wrong', spot && !!v && !S.puz[i] && v!==S.sol[i]);
+  }
+  // Grey out a picture once all of it is placed correctly
+  [...$('tray').children].forEach(b=>{
+    const v=+b.dataset.v;
+    let right=0; for(let i=0;i<n*n;i++) if(S.cur[i]===v&&S.sol[i]===v) right++;
+    b.classList.toggle('done', right===n);
+    b.classList.toggle('on', !!selV && v===selV);
+  });
+  $('checkBtn').classList.toggle('off', !spot);
+  $('soundBtn').textContent = sound ? '🔊' : '🔈';
+}
+
+function tapCell(i){
+  if(S.done) return;
+  sel = (sel===i) ? -1 : i;
+  beep([520],.05,'triangle',.06);
+  render();
+}
+function tapPick(v){
+  if(S.done) return;
+  if(sel<0 || S.puz[sel]){
+    // No square picked: show where this picture already is
+    sel = -1; render();
+    [...$('board').children].forEach((c,i)=>c.classList.toggle('same', S.cur[i]===v));
+    return;
+  }
+  const i=sel;
+  S.cur[i] = (S.cur[i]===v) ? 0 : v;
+  const cell=$('board').children[i];
+  if(S.cur[i] && S.cur[i]!==S.sol[i]){
+    S.mistakes++;
+    if(spot){ cell.classList.remove('shake'); void cell.offsetWidth; cell.classList.add('shake'); beep([220,180],.12,'square',.05); }
+    else beep([660],.07);
+  } else if(S.cur[i]){
+    cell.classList.remove('pop'); void cell.offsetWidth; cell.classList.add('pop'); beep([660,880],.07);
+  }
+  save(); render(); checkWin();
+}
+function erase(){
+  if(S.done || sel<0 || S.puz[sel] || !S.cur[sel]) return;
+  S.cur[sel]=0; beep([300],.06); save(); render();
+}
+function hint(){
+  if(S.done) return;
+  let i = (sel>=0 && !S.puz[sel] && S.cur[sel]!==S.sol[sel]) ? sel : -1;
+  if(i<0){
+    const wrongOrEmpty=[...Array(S.n*S.n).keys()].filter(k=>S.cur[k]!==S.sol[k]);
+    if(!wrongOrEmpty.length) return;
+    i=wrongOrEmpty[Math.floor(Math.random()*wrongOrEmpty.length)];
+  }
+  S.cur[i]=S.sol[i]; S.hints++; sel=i;
+  const cell=$('board').children[i];
+  cell.classList.remove('hinted','pop'); void cell.offsetWidth; cell.classList.add('hinted','pop');
+  beep([520,780,1040],.08);
+  save(); render(); checkWin();
+}
+function checkWin(){
+  if(S.cur.some((v,i)=>v!==S.sol[i])) return;
+  S.done=true; sel=-1; save(); render();
+  const stars = S.hints===0 && S.mistakes===0 ? 3 : (S.hints+S.mistakes<=3 ? 2 : 1);
+  $('winStars').textContent='⭐'.repeat(stars);
+  $('winTitle').textContent=['','Well done!','Great job!','Perfect!'][stars];
+  $('winMsg').textContent = stars===3 ? 'No hints and no mistakes. Wow!'
+    : `You used ${S.hints} hint${S.hints===1?'':'s'} and fixed ${S.mistakes} mistake${S.mistakes===1?'':'s'}.`;
+  setTimeout(()=>{ $('winSheet').classList.add('show'); confetti(); beep([523,659,784,1047],.16,'triangle',.12); }, 350);
+}
+function confetti(){
+  const bits=[...S.pics,'⭐','🎉'];
+  for(let k=0;k<28;k++){
+    const e=document.createElement('div'); e.className='confetti';
+    e.textContent=bits[k%bits.length];
+    e.style.left=Math.random()*100+'vw';
+    e.style.animationDuration=(1.8+Math.random()*1.6)+'s';
+    e.style.animationDelay=(Math.random()*.6)+'s';
+    document.body.appendChild(e); setTimeout(()=>e.remove(),4200);
+  }
+}
+
+// ---------- setup sheet ----------
+function opt(parent,key,val,big,label){
+  const b=document.createElement('button'); b.className='opt'+(pending[key]==val?' on':'');
+  b.innerHTML=`<span class="big">${big}</span>${label}`;
+  b.addEventListener('click',()=>{ pending[key]=val; drawSetup(); beep([600],.04,'triangle',.06); });
+  parent.appendChild(b);
+}
+function drawSetup(){
+  const t=$('themeOpts'), s=$('sizeOpts'), l=$('levelOpts'); t.innerHTML=s.innerHTML=l.innerHTML='';
+  for(const [k,v] of Object.entries(THEMES)) opt(t,'theme',k,v.icon,v.name);
+  for(const [k,v] of Object.entries(SIZES)) opt(s,'size',+k,v.label,v.sub);
+  for(const [k,v] of Object.entries(LEVELS)) opt(l,'level',k,v.icon,v.label);
+}
+function openSetup(){ drawSetup(); $('setup').classList.add('show'); }
+
+$('setup').addEventListener('click',e=>{ if(e.target.id==='setup' && S) $('setup').classList.remove('show'); });
+$('goBtn').addEventListener('click',()=>{ $('setup').classList.remove('show'); newGame(pending.theme,pending.size,pending.level); });
+$('againBtn').addEventListener('click',()=>{ $('winSheet').classList.remove('show'); openSetup(); });
+$('newBtn').addEventListener('click',openSetup);
+$('eraseBtn').addEventListener('click',erase);
+$('hintBtn').addEventListener('click',hint);
+$('checkBtn').addEventListener('click',()=>{ spot=!spot; save(); render(); });
+$('soundBtn').addEventListener('click',()=>{ sound=!sound; save(); render(); beep([660],.06); });
+$('ver').textContent=VERSION;
+
+load();
+if(S && S.sol && !S.done){ build(); }
+else if(S && S.done){ build(); openSetup(); }
+else { newGame(pending.theme,pending.size,pending.level); openSetup(); }
+</script>
+</body>
+</html>

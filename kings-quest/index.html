@@ -1,0 +1,4086 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#141625">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="King’s Quest">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>King’s Quest: The Crown of Aldermere</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; }
+  html, body { height:100%; }
+  body {
+    position:fixed; inset:0; display:flex; flex-direction:column;
+    background:#0d0f1a; color:#f4e3b2; overscroll-behavior:none;
+    font-family:ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
+  }
+  #hdr {
+    display:flex; align-items:center; gap:8px; padding:8px 12px;
+    background:#141625; border-bottom:2px solid #2c3050; font-size:13px;
+  }
+  #ttl { font-weight:bold; color:#ffd54f; white-space:nowrap; }
+  #inv { flex:1; text-align:center; font-size:16px; letter-spacing:3px; min-height:1em; }
+  #inv span { cursor:pointer; padding:1px 2px; }
+  #score { color:#ffd54f; white-space:nowrap; }
+  #hdr button {
+    background:#2c3050; color:#f4e3b2; border:0; border-radius:6px;
+    font-size:14px; padding:4px 9px; font-family:inherit;
+  }
+  #stage { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; touch-action:none; }
+  canvas { background:#000; }
+  #msg {
+    min-height:3.4em; padding:8px 14px; font-size:13px; line-height:1.35;
+    background:#141625; border-top:2px solid #2c3050; color:#f4e3b2;
+    display:flex; align-items:flex-start; gap:10px;
+  }
+  #speak, #eye {
+    background:#2c3050; color:#f4e3b2; border:0; border-radius:6px;
+    font-size:15px; padding:4px 9px; flex:0 0 auto; font-family:inherit;
+  }
+  #msgTxt { flex:1; }
+  @media (orientation: landscape) and (max-height: 520px) {
+    #hdr { padding:4px 10px; font-size:12px; }
+    #inv { font-size:14px; }
+    #msg { min-height:2.6em; padding:5px 12px; font-size:12px; }
+  }
+  .overlay {
+    position:fixed; inset:0; background:rgba(8,9,18,.93); display:flex;
+    align-items:center; justify-content:center; text-align:center; padding:20px; z-index:10;
+  }
+  .card { max-width:440px; }
+  .card h1 { color:#ffd54f; font-size:22px; margin-bottom:10px; }
+  .card p { font-size:13px; line-height:1.5; margin-bottom:12px; }
+  .card .big { font-size:44px; margin-bottom:8px; }
+  #close .card { animation: pop .28s ease-out; }
+  @keyframes pop {
+    from { transform: scale(.72); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .card button {
+    background:#ffd54f; color:#141625; border:0; border-radius:8px; font-family:inherit;
+    font-size:15px; font-weight:bold; padding:10px 22px; margin:4px;
+  }
+  .card button.ghost { background:#2c3050; color:#f4e3b2; }
+  #voiceList { max-height:38vh; overflow-y:auto; margin:10px 0; display:flex; flex-direction:column; gap:6px; }
+  .card button.vrow {
+    background:#1b1e33; border:1px solid #2c3050; border-radius:8px; color:#f4e3b2;
+    font-family:inherit; font-size:12px; font-weight:normal; padding:8px 10px;
+    text-align:left; width:100%; margin:0;
+  }
+  .card button.vrow.sel { border-color:#ffd54f; color:#ffd54f; background:#26240f; }
+  .card button.vrow small { color:#8b90ad; display:block; font-size:10px; margin-top:2px; }
+  #ccv {
+    width:min(74vw, 330px); image-rendering:pixelated; image-rendering:crisp-edges;
+    border:3px solid #2c3050; border-radius:10px; background:#000;
+  }
+  #mapGrid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin:10px 0 14px; }
+  .mc {
+    background:#1b1e33; border:1px solid #2c3050; border-radius:6px;
+    padding:7px 2px; font-size:10px; color:#585d7d; min-width:66px; line-height:1.5;
+  }
+  .mc.on { color:#f4e3b2; cursor:pointer; background:#232744; }
+  .mc.cur { border-color:#ffd54f; color:#ffd54f; }
+  .mc .ic { font-size:16px; display:block; }
+  .hidden { display:none !important; }
+  #updBtn {
+    position:fixed; right:10px; top:48px; z-index:30;
+    background:#ffd54f; color:#141625; border:0; border-radius:8px;
+    font-family:inherit; font-size:12px; font-weight:bold; padding:8px 12px;
+    box-shadow:0 2px 10px rgba(0,0,0,.5);
+  }
+</style>
+</head>
+<body>
+  <div id="hdr">
+    <span id="ttl">👑 King’s Quest</span>
+    <span id="inv"></span>
+    <span id="score">⭐ 0/18</span>
+    <button id="narBtn" title="Auto read-aloud">🗣️</button>
+    <button id="mapBtn" title="Map">🗺</button>
+    <button id="fs" title="Fullscreen">⛶</button>
+    <button id="reset" title="New game">↺</button>
+  </div>
+  <div id="stage"><canvas id="cv" width="320" height="200"></canvas></div>
+  <div id="msg"><button id="eye" title="Describe the scene">👁️</button><button id="speak" title="Read aloud">🔊</button><span id="msgTxt"></span></div>
+
+  <div id="intro" class="overlay">
+    <div class="card">
+      <div class="big">👑</div>
+      <h1>King’s Quest<br><small style="font-size:13px;color:#f4e3b2">The Crown of Aldermere</small></h1>
+      <p>The king’s crown is lost. Find it, sit the throne, and rule Aldermere —
+         but beware: there’s a dragon in this tale.</p>
+      <p><b>Tap the ground</b> to walk. <b>Tap things</b> to use them.
+         <b>Golden arrows</b> lead to new lands. ✦ marks things to try,
+         👁️ describes the scene, 🗺 shows the map,
+         🗣️ picks the storyteller’s voice.</p>
+      <button id="begin">▶ Begin</button>
+      <p style="font-size:10px;color:#585d7d;margin-top:12px">King’s Quest <span id="ver"></span></p>
+    </div>
+  </div>
+
+  <div id="map" class="overlay hidden">
+    <div class="card">
+      <h1>🗺 Aldermere</h1>
+      <div id="mapGrid"></div>
+      <p style="font-size:11px;color:#8b90ad">Tap an explored land to travel there • Tap outside to close</p>
+    </div>
+  </div>
+
+  <div id="nar" class="overlay hidden">
+    <div class="card" style="width:min(92vw,440px)">
+      <h1>🗣️ Narrator</h1>
+      <button id="autoBtn"></button>
+      <button id="sndBtn"></button>
+      <div id="voiceList"></div>
+      <p id="aiDiag" style="font-size:10px;color:#585d7d"></p>
+      <p style="font-size:11px;color:#8b90ad;text-align:left">These voices come from your phone. <b>Android tip:</b> the game follows the
+      Google engine’s default voice — to upgrade it, open your phone’s
+      <i>Text-to-speech</i> settings → tap the ⚙ beside the Google engine →
+      <i>Install voice data</i> → English → pick the Voice that sounds nicest,
+      then restart the game.</p>
+      <p style="font-size:11px;color:#8b90ad">Tap a voice to hear it • Tap outside this card to close</p>
+    </div>
+  </div>
+
+  <div id="close" class="overlay hidden">
+    <div class="card">
+      <canvas id="ccv" width="120" height="90"></canvas>
+      <p id="closeTxt" style="margin-top:10px"></p>
+      <p style="font-size:11px;color:#8b90ad">Tap anywhere to close</p>
+    </div>
+  </div>
+
+  <div id="item" class="overlay hidden">
+    <div class="card">
+      <div class="big" id="itIc"></div>
+      <h1 id="itName"></h1>
+      <p id="itDesc"></p>
+      <button id="speakItem" class="ghost">🔊 Listen</button>
+      <p style="font-size:11px;color:#8b90ad">Tap anywhere to close</p>
+    </div>
+  </div>
+
+  <div id="win" class="overlay hidden">
+    <div class="card">
+      <div class="big">👑</div>
+      <h1>Long live the Sovereign!</h1>
+      <p id="winText"></p>
+      <button id="again">Play again</button>
+      <button id="keep" class="ghost">Keep exploring</button>
+    </div>
+  </div>
+
+<noscript><div class="overlay"><div class="card"><p>This game needs JavaScript.</p></div></noscript>
+
+<script>
+'use strict';
+const W = 320, H = 200, MAX = 18;
+// chunk size: every device renders the full 320x200, matching the classic
+// Sierra resolution — sharper detail and true 1px dithering on phones too.
+let PX = 1;
+const CRISP = (window.matchMedia && matchMedia('(pointer: fine)').matches);
+const OV = 400;    // decorative overdraw beyond world edges for wide screens
+const cv = document.getElementById('cv'), dctx = cv.getContext('2d');
+const os = document.createElement('canvas');
+let ctx = os.getContext('2d'); // reassigned briefly when rendering close-ups
+// "HD grade" post-processing: a small blurred copy of the scene is added back
+// as bloom, colours are deepened, and the corners darken into a vignette.
+const bl = document.createElement('canvas'), blctx = bl.getContext('2d');
+const HD = {
+  color: 'saturate(1.16) contrast(1.06) brightness(1.02)', // richer, deeper colour
+  bloom: .28,   // strength of the soft glow on bright things (0 = off)
+  vignette: .26, // darkness of the corners (0 = off)
+};
+let DETAIL = false; // true while rendering close-ups: sprites add fine features
+let DW = W, OX = 0; // display width in logical px, world x-offset
+const CINE = { on:false, t0:0 }; // coronation cinematic: input frozen, confetti
+const msgEl = document.getElementById('msg');
+const invEl = document.getElementById('inv');
+const scoreEl = document.getElementById('score');
+
+// ---------- state ----------
+function freshFlags(){
+  return { flower:false, gaveFlower:false, rod:false, fish:false, gaveFish:false,
+           key:false, gateOpen:false,
+           quest:false, sawCave:false, lantern:false, geode:false, gaveGeode:false,
+           book:false, warm:false, posy:false, honey:false, honeyOut:false,
+           cat:false, catHome:false, coin:false, wished:false,
+           crown:false, throne:false };
+}
+let F = freshFlags();
+let seen = {};  // revealed on the map (the well's wish fills this)
+let been = {};  // physically visited — drives first-visit narration
+let score = 0;
+let cur = 'forest';
+const player = { x:160, y:150, tx:160, ty:150, dir:1, step:0, moving:false };
+let pending = null;
+let fishing = false;
+
+function save(){
+  try { localStorage.setItem('kq-save2', JSON.stringify({ F, seen, been, score, cur, x:player.x, y:player.y })); }
+  catch(e){}
+}
+function loadSave(){
+  try {
+    const s = JSON.parse(localStorage.getItem('kq-save2'));
+    if (s && rooms[s.cur] && s.F) return s;
+  } catch(e){}
+  return null;
+}
+function clearSave(){ try { localStorage.removeItem('kq-save2'); } catch(e){} }
+
+// ---------- audio ----------
+let AC = null;
+function ac(){
+  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
+  if (AC && AC.state === 'suspended') AC.resume();
+  return AC;
+}
+function beep(f, d, t0, type, vol){
+  const a = ac(); if (!a) return;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type || 'square'; o.frequency.value = f;
+  const t = a.currentTime + (t0 || 0);
+  g.gain.setValueAtTime(vol || .04, t);
+  g.gain.exponentialRampToValueAtTime(.0001, t + d);
+  o.connect(g); g.connect(a.destination);
+  o.start(t); o.stop(t + d);
+}
+function sfxPickup(){ beep(660,.09); beep(990,.12,.08); }
+function sfxTalk(){ beep(220,.06,0,'triangle'); }
+function sfxUnlock(){ beep(330,.08); beep(440,.08,.09); beep(587,.16,.18); }
+function sfxFanfare(){ [523,659,784,1047].forEach((f,i)=>beep(f,.22,i*.13,'square',.05)); }
+function sfxCoronation(){
+  // the game's only tune: a 3-second triumphant fanfare, once per kingdom
+  const m = [[392,.16,0],[523,.16,.17],[659,.16,.34],[784,.32,.51],
+             [659,.14,.95],[784,.5,1.1],
+             [523,.8,1.75],[659,.8,1.75],[784,.8,1.75],[1047,1,1.75]];
+  m.forEach(n => beep(n[0], n[1], n[2], 'square', .035));
+  m.forEach(n => beep(n[0]/2, n[1], n[2], 'triangle', .045));
+}
+function sfxGrowl(){ beep(72,.5,0,'sawtooth',.09); beep(54,.55,.12,'sawtooth',.09); }
+
+// ---------- ambient scene sound ----------
+// Each land gets a quiet living soundscape, synthesised on the fly (no audio
+// files, so the game stays one offline page). A looping "bed" (wind, water,
+// fire…) plus occasional one-shot "critters" (birds, gulls, a dozing dragon).
+// Music was deliberately dropped — these are environment sounds, never a tune.
+let ambNodes = [];    // looping sources/LFOs to stop when the scene changes
+let ambGain = null;   // master tap for all ambience (lets us mute in one place)
+let ambGen = 0;       // bumped on every scene change to cancel stale schedules
+let ambScene = null;
+let ambOn = true;
+try { ambOn = localStorage.getItem('kq-amb') !== '0'; } catch(e){}
+
+function ambMaster(){
+  const a = ac(); if (!a) return null;
+  if (!ambGain){ ambGain = a.createGain(); ambGain.gain.value = ambOn ? 1 : 0; ambGain.connect(a.destination); }
+  return ambGain;
+}
+let _noiseBuf = null;
+function noiseBuf(){
+  const a = ac(); if (!a) return null;
+  if (!_noiseBuf){
+    const n = (a.sampleRate * 2) | 0;
+    _noiseBuf = a.createBuffer(1, n, a.sampleRate);
+    const d = _noiseBuf.getChannelData(0);
+    for (let i=0;i<n;i++) d[i] = Math.random()*2 - 1;
+  }
+  return _noiseBuf;
+}
+// self-cancelling scheduler: reschedules itself until the scene changes
+function schedule(fn, minMs, maxMs){
+  const gen = ambGen;
+  const tick = ()=>{
+    if (gen !== ambGen || !ambOn) return;
+    fn();
+    setTimeout(tick, minMs + Math.random()*(maxMs-minMs));
+  };
+  setTimeout(tick, minMs + Math.random()*(maxMs-minMs));
+}
+
+// --- the ONLY looping bed: gently moving water (rivers, lake, sea) ---
+function bWater(a, level, cut, swell){
+  const m = ambMaster(); if (!m) return;
+  const s = a.createBufferSource(); s.buffer = noiseBuf(); s.loop = true;
+  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = cut||600;
+  const g = a.createGain(); g.gain.value = level;
+  const lfo = a.createOscillator(); lfo.frequency.value = swell||.18;
+  const lg = a.createGain(); lg.gain.value = level*.8;
+  lfo.connect(lg); lg.connect(g.gain);
+  s.connect(lp); lp.connect(g); g.connect(m);
+  s.start(); lfo.start(); ambNodes.push(s, lfo);
+}
+// a single fire crackle pop (used by cCrackle bursts, no constant fire bed)
+function firePop(peak){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime;
+  const s = a.createBufferSource(); s.buffer = noiseBuf();
+  const bp = a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = 1400+Math.random()*2600; bp.Q.value = 3;
+  const g = a.createGain();
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(peak,t+.004); g.gain.exponentialRampToValueAtTime(.0001,t+.06);
+  s.connect(bp); bp.connect(g); g.connect(m); s.start(t); s.stop(t+.08);
+}
+
+// --- one-shot critters (short, so they can finish after a scene change) ---
+function cBird(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t0 = a.currentTime, n = 2 + ((Math.random()*3)|0);
+  for (let i=0;i<n;i++){
+    const s = t0 + i*.09, f = 2200 + Math.random()*1800;
+    const o = a.createOscillator(); o.type='sine'; const g = a.createGain();
+    o.frequency.setValueAtTime(f,s); o.frequency.linearRampToValueAtTime(f*1.4,s+.05);
+    g.gain.setValueAtTime(.0001,s); g.gain.linearRampToValueAtTime(.045,s+.01); g.gain.exponentialRampToValueAtTime(.0001,s+.08);
+    o.connect(g); g.connect(m); o.start(s); o.stop(s+.1);
+  }
+}
+function cGull(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime;
+  const o = a.createOscillator(); o.type='sawtooth';
+  const bp = a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = 1200; bp.Q.value = 4;
+  const g = a.createGain();
+  o.frequency.setValueAtTime(880,t); o.frequency.linearRampToValueAtTime(1500,t+.12); o.frequency.linearRampToValueAtTime(1050,t+.3);
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.05,t+.05); g.gain.setValueAtTime(.05,t+.24); g.gain.exponentialRampToValueAtTime(.0001,t+.4);
+  o.connect(bp); bp.connect(g); g.connect(m); o.start(t); o.stop(t+.42);
+}
+function cCrow(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t0 = a.currentTime, reps = 1 + ((Math.random()*2)|0);
+  for (let r=0;r<reps;r++){
+    const t = t0 + r*.24;
+    const o = a.createOscillator(); o.type='sawtooth';
+    const bp = a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = 700; bp.Q.value = 5;
+    const g = a.createGain();
+    o.frequency.setValueAtTime(540,t); o.frequency.linearRampToValueAtTime(410,t+.15);
+    g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.06,t+.02); g.gain.setValueAtTime(.06,t+.11); g.gain.exponentialRampToValueAtTime(.0001,t+.18);
+    o.connect(bp); bp.connect(g); g.connect(m); o.start(t); o.stop(t+.2);
+  }
+}
+function cFrog(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime;
+  const o = a.createOscillator(); o.type='sawtooth'; o.frequency.value = 135;
+  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 520;
+  const g = a.createGain();
+  const trem = a.createOscillator(); trem.type='square'; trem.frequency.value = 24;
+  const tg = a.createGain(); tg.gain.value = .035; trem.connect(tg); tg.connect(g.gain);
+  g.gain.setValueAtTime(.04,t); g.gain.exponentialRampToValueAtTime(.0001,t+.34);
+  o.connect(lp); lp.connect(g); g.connect(m); o.start(t); trem.start(t); o.stop(t+.36); trem.stop(t+.36);
+}
+function cCat(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime;
+  const o = a.createOscillator(); o.type='sawtooth';
+  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 1500;
+  const g = a.createGain();
+  o.frequency.setValueAtTime(520,t); o.frequency.linearRampToValueAtTime(760,t+.18); o.frequency.linearRampToValueAtTime(600,t+.45);
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.055,t+.06); g.gain.setValueAtTime(.045,t+.3); g.gain.exponentialRampToValueAtTime(.0001,t+.5);
+  o.connect(lp); lp.connect(g); g.connect(m); o.start(t); o.stop(t+.52);
+}
+function cHen(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t0 = a.currentTime, n = 2 + ((Math.random()*3)|0);
+  for (let i=0;i<n;i++){
+    const t = t0 + i*.12*(.7+Math.random()*.6), f = 500 + Math.random()*300;
+    const o = a.createOscillator(); o.type='square'; const g = a.createGain();
+    o.frequency.setValueAtTime(f,t); o.frequency.linearRampToValueAtTime(f*.6,t+.05);
+    g.gain.setValueAtTime(.045,t); g.gain.exponentialRampToValueAtTime(.0001,t+.07);
+    o.connect(g); g.connect(m); o.start(t); o.stop(t+.08);
+  }
+}
+function cDrip(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime, f = 800 + Math.random()*1200;
+  const o = a.createOscillator(); o.type='sine'; const g = a.createGain();
+  o.frequency.setValueAtTime(f,t); o.frequency.exponentialRampToValueAtTime(f*.5,t+.12);
+  g.gain.setValueAtTime(.001,t); g.gain.linearRampToValueAtTime(.07,t+.005); g.gain.exponentialRampToValueAtTime(.0001,t+.25);
+  const d = a.createDelay(); d.delayTime.value = .19; const dg = a.createGain(); dg.gain.value = .3;
+  o.connect(g); g.connect(m); g.connect(d); d.connect(dg); dg.connect(m);
+  o.start(t); o.stop(t+.28);
+}
+function cSnore(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime;
+  const o = a.createOscillator(); o.type='sawtooth';
+  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 190;
+  const g = a.createGain();
+  o.frequency.setValueAtTime(46,t); o.frequency.linearRampToValueAtTime(60,t+.8); o.frequency.linearRampToValueAtTime(42,t+1.8);
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.08,t+.6); g.gain.linearRampToValueAtTime(.02,t+1.2); g.gain.exponentialRampToValueAtTime(.0001,t+1.9);
+  o.connect(lp); lp.connect(g); g.connect(m); o.start(t); o.stop(t+2);
+}
+function cFlap(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t0 = a.currentTime, n = 3 + ((Math.random()*3)|0);
+  for (let i=0;i<n;i++){
+    const t = t0 + i*.13;
+    const s = a.createBufferSource(); s.buffer = noiseBuf();
+    const bp = a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = 300+Math.random()*200; bp.Q.value = 1.4;
+    const g = a.createGain();
+    g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.045,t+.03); g.gain.exponentialRampToValueAtTime(.0001,t+.12);
+    s.connect(bp); bp.connect(g); g.connect(m); s.start(t); s.stop(t+.14);
+  }
+}
+function cSplash(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime;
+  const s = a.createBufferSource(); s.buffer = noiseBuf();
+  const lp = a.createBiquadFilter(); lp.type='lowpass';
+  lp.frequency.setValueAtTime(2800,t); lp.frequency.exponentialRampToValueAtTime(400,t+.25);
+  const g = a.createGain(); g.gain.setValueAtTime(.05,t); g.gain.exponentialRampToValueAtTime(.0001,t+.3);
+  s.connect(lp); lp.connect(g); g.connect(m); s.start(t); s.stop(t+.32);
+}
+function cCricket(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t0 = a.currentTime;
+  for (let i=0;i<3;i++){
+    const t = t0 + i*.04;
+    const o = a.createOscillator(); o.type='square'; o.frequency.value = 4500;
+    const g = a.createGain(); g.gain.setValueAtTime(.018,t); g.gain.exponentialRampToValueAtTime(.0001,t+.02);
+    o.connect(g); g.connect(m); o.start(t); o.stop(t+.025);
+  }
+}
+
+// a bee buzzing past — swells up then fades as it "passes"
+function cBuzz(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime, dur = .55 + Math.random()*.4;
+  const o = a.createOscillator(); o.type='sawtooth'; o.frequency.value = 175 + Math.random()*45;
+  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 850;
+  const vib = a.createOscillator(); vib.frequency.value = 13; const vg = a.createGain(); vg.gain.value = 9;
+  vib.connect(vg); vg.connect(o.frequency);
+  const g = a.createGain();
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.028,t+dur*.4); g.gain.linearRampToValueAtTime(.0001,t+dur);
+  o.connect(lp); lp.connect(g); g.connect(m); o.start(t); vib.start(t); o.stop(t+dur+.02); vib.stop(t+dur+.02);
+}
+// a single wind gust that rises and falls (no constant howl)
+function cGust(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime, dur = .9 + Math.random()*.9;
+  const s = a.createBufferSource(); s.buffer = noiseBuf(); s.loop = true;
+  const bp = a.createBiquadFilter(); bp.type='bandpass'; bp.Q.value = .7;
+  bp.frequency.setValueAtTime(380,t); bp.frequency.linearRampToValueAtTime(900,t+dur*.5); bp.frequency.linearRampToValueAtTime(380,t+dur);
+  const g = a.createGain();
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.035,t+dur*.4); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  s.connect(bp); bp.connect(g); g.connect(m); s.start(t); s.stop(t+dur+.05);
+}
+// a magic shimmer — a quick sparkle of high bell tones
+function cSparkle(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t0 = a.currentTime, notes = [1568,2093,2637,3136];
+  for (let i=0;i<4;i++){
+    const t = t0 + i*.08, o = a.createOscillator(); o.type='sine'; o.frequency.value = notes[i];
+    const g = a.createGain();
+    g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.022,t+.01); g.gain.exponentialRampToValueAtTime(.0001,t+.3);
+    o.connect(g); g.connect(m); o.start(t); o.stop(t+.32);
+  }
+}
+// a short burst of fire crackles
+function cCrackle(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const n = 3 + ((Math.random()*4)|0);
+  for (let i=0;i<n;i++) setTimeout(()=>firePop(.055+Math.random()*.05), i*(60+Math.random()*130));
+}
+// a low volcanic rumble that swells once and fades
+function cRumbleShot(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const t = a.currentTime, dur = 1.3 + Math.random()*.8;
+  const s = a.createBufferSource(); s.buffer = noiseBuf(); s.loop = true;
+  const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 120;
+  const g = a.createGain();
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.05,t+dur*.4); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  s.connect(lp); lp.connect(g); g.connect(m); s.start(t); s.stop(t+dur+.05);
+}
+
+// footstep: a soft sound each footfall, tinted by the ground surface
+const SURFACE = { bridge:'wood', pass:'snow', cave:'stone', foothills:'stone',
+                  emberpeak:'stone', lair:'stone', throne:'stone', gate:'stone' };
+function sfxStep(){
+  const a = ac(), m = ambMaster(); if (!a||!m||!ambOn||document.hidden) return;
+  const surf = SURFACE[cur] || 'grass';
+  const t = a.currentTime;
+  const s = a.createBufferSource(); s.buffer = noiseBuf();
+  const f = a.createBiquadFilter(); const g = a.createGain();
+  let peak = .026, dur = .06;
+  if (surf === 'wood'){
+    f.type='bandpass'; f.frequency.value = 360; f.Q.value = 2; peak = .04; dur = .09;
+    const o = a.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(155,t); o.frequency.exponentialRampToValueAtTime(85,t+.08);
+    const og = a.createGain(); og.gain.setValueAtTime(.045,t); og.gain.exponentialRampToValueAtTime(.0001,t+.09);
+    o.connect(og); og.connect(m); o.start(t); o.stop(t+.1);
+  } else if (surf === 'snow'){ f.type='highpass'; f.frequency.value = 2400; peak = .03; dur = .05; }
+  else if (surf === 'stone'){ f.type='bandpass'; f.frequency.value = 1600; f.Q.value = 1.4; peak = .024; dur = .045; }
+  else { f.type='lowpass'; f.frequency.value = 620; peak = .028; dur = .06; } // grass
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(peak,t+.005); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  s.connect(f); f.connect(g); g.connect(m); s.start(t); s.stop(t+dur+.02);
+}
+
+// which sounds belong to which land: an entry cue + occasional one-shots.
+// Only water scenes keep a gently looping bed; everything else is quiet
+// between its occasional critters.
+const AMB = {
+  forest:    { enter:cBird,   every:[[cBird,2500,6500],[cCricket,6000,13000]] },
+  meadow:    { enter:cBird,   every:[[cBird,2500,6000],[cCricket,4000,9000]] },
+  cottage:   { enter:cBird,   every:[[cBird,3000,7000],[cHen,4000,9000],[cCrackle,7000,15000]] },
+  bridge:    { water:[.05,950,.4], every:[[cSplash,4500,11000],[cBird,4000,9000]] },
+  lake:      { water:[.028,600,.14], enter:cGull, every:[[cGull,4000,9000],[cSplash,5000,12000]] },
+  gate:      { enter:cFlap,   every:[[cFlap,4500,10000],[cGust,8000,16000]] },
+  throne:    { enter:cCrackle,every:[[cCrackle,5000,11000]] },
+  darkwoods: { enter:cCrow,   every:[[cCrow,3500,8500],[cGust,7000,15000]] },
+  beeglade:  { enter:cBuzz,   every:[[cBuzz,2200,5500],[cBird,5000,11000]] },
+  tower:     { enter:cSparkle,every:[[cSparkle,4500,10000]] },
+  foothills: { enter:cBird,   every:[[cBird,3500,8000],[cGust,7000,15000]] },
+  cave:      { enter:cDrip,   every:[[cDrip,2500,6000]] },
+  pass:      { enter:cGust,   every:[[cGust,()=>F.warm?5500:2800,()=>F.warm?12000:6500]] },
+  emberpeak: { enter:cCrackle,every:[[cCrackle,4000,9000],[cRumbleShot,8000,16000]] },
+  lair:      { enter:cSnore,  every:[[cSnore,4500,8500]] },
+  marsh:     { enter:cFrog,   every:[[cFrog,3000,7000],[cCricket,4000,9000]] },
+  hamlet:    { enter:cHen,    every:[[cHen,3500,8000],[cBird,4000,9000]] },
+  orchard:   { enter:cCrow,   every:[[cCrow,4500,10000],[cBird,4000,9000],[()=>{ if(!F.cat && !F.catHome) cCat(); },6000,13000]] },
+  cliffs:    { water:[.04,520,.09], enter:cGull, every:[[cGull,3500,8000]] },
+};
+
+function stopAmb(){
+  ambGen++; // cancels every pending schedule() tick
+  ambNodes.forEach(n => { try { n.stop(); } catch(e){} try { n.disconnect(); } catch(e){} });
+  ambNodes.length = 0;
+}
+function sceneAudio(id){
+  ambScene = id;
+  stopAmb();
+  if (!ambOn) return;
+  const a = ac(); if (!a) return;
+  const cfg = AMB[id]; if (!cfg) return;
+  if (cfg.water) bWater(a, cfg.water[0], cfg.water[1], cfg.water[2]); // moving water loops
+  if (cfg.enter){ const fn = cfg.enter; setTimeout(()=>{ if (ambScene === id) fn(); }, 350 + Math.random()*400); }
+  (cfg.every||[]).forEach(([fn,mn,mx]) => schedule(fn, typeof mn==='function'?mn():mn, typeof mx==='function'?mx():mx));
+}
+// on phones/laptops, pause the whole soundscape when the game isn't on screen
+document.addEventListener('visibilitychange', ()=>{
+  if (!AC) return;
+  try { document.hidden ? AC.suspend() : AC.resume(); } catch(e){}
+});
+
+let speaking = false; // true while the narrator reads aloud
+
+// ---------- read-aloud (for adventurers who can't read yet) ----------
+const msgTxtEl = document.getElementById('msgTxt');
+const speakBtn = document.getElementById('speak');
+const hasTTS = 'speechSynthesis' in window;
+let autoRead = true;
+try { autoRead = localStorage.getItem('kq-autoread') !== '0'; } catch(e){}
+let speakBtnActive = null, curU = null, speakSeq = 0, speakStart = 0;
+
+// pick the best storyteller voice the device offers — neural/enhanced/network
+// voices sound far better than the default, but are never chosen automatically.
+// Android exposes Google's HD voices as cryptic ids ending in "-network".
+let voice = null;
+function vid(v){ return v.voiceURI || v.name; }
+function vrank(v){
+  const id = ((v.voiceURI || '') + ' ' + v.name).toLowerCase();
+  let s = 0;
+  if (/network/.test(id)) s += 90;            // Android Google HD voices
+  if (/natural|neural/.test(id)) s += 100;    // Edge neural voices
+  if (/enhanced|premium/.test(id)) s += 80;   // iOS enhanced voices
+  if (/google uk english female|google uk english male|google us english/.test(id)) s += 60;
+  if (/samantha|serena|karen|martha|daniel|moira|stephanie/.test(id)) s += 40;
+  if (!v.localService) s += 15;
+  if (/^en-(gb|us)/i.test(v.lang)) s += 5;
+  if (/female/.test(id)) s += 2;
+  return s;
+}
+function allVoices(){
+  const vs = (speechSynthesis.getVoices() || []).filter(v => /^en/i.test(v.lang));
+  vs.sort((a,b) => vrank(b) - vrank(a));
+  return vs;
+}
+const VFLAGS = { us:'🇺🇸', gb:'🇬🇧', au:'🇦🇺', in:'🇮🇳', ng:'🇳🇬', ie:'🇮🇪', za:'🇿🇦', ca:'🇨🇦', nz:'🇳🇿' };
+function voiceLabel(v){
+  const id = ((v.voiceURI || '') + ' ' + v.name).toLowerCase();
+  const region = ((v.lang || '').split('-')[1] || '').toLowerCase();
+  const flag = VFLAGS[region] ? VFLAGS[region] + ' ' : '';
+  const m = id.match(/en-([a-z]{2})-x-[a-z0-9]+(?:#([a-z]+)_(\d))?[-#]?(network|local)/);
+  if (m){
+    return flag + 'English ' + m[1].toUpperCase()
+      + (m[2] ? ' — ' + m[2][0].toUpperCase() + m[2].slice(1) + ' ' + m[3] : '')
+      + (m[4] === 'network' ? '  ✨HD' : '  (compact)');
+  }
+  let n = flag + v.name;
+  if (/natural|neural|enhanced|premium/i.test(id)) n += '  ✨HD';
+  return n;
+}
+function pickVoice(){
+  if (!hasTTS) return;
+  const vs = allVoices();
+  if (!vs.length) return;
+  let stored = null;
+  try { stored = localStorage.getItem('kq-voice'); } catch(e){}
+  voice = (stored && vs.find(v => vid(v) === stored)) || vs[0];
+}
+if (hasTTS){
+  pickVoice();
+  try { speechSynthesis.onvoiceschanged = pickVoice; } catch(e){}
+}
+// ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
+const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
+const KQ_VER = 'v47';
+const KQ_WEB = 'https://laseberini.github.io/laurence-playground/kings-quest/';
+const IS_WEB = location.protocol.indexOf('http') === 0;
+// The voice library persists models via OPFS createWritable(), which Chrome on
+// Android does not support — models silently failed to save and re-downloaded
+// every session. We intercept the model/runtime downloads and keep them in
+// Cache Storage ourselves, which works everywhere; repeat loads never hit the
+// network again.
+const AI_CACHEABLE = /huggingface\.co\/[^\s]*piper-voices[^\s]*\.(onnx|json)(\?|$)|piper_phonemize\.(data|wasm)(\?|$)|onnxruntime-web[^\s]*\.wasm(\?|$)/;
+async function aiCachePut(c, url, res){
+  // Hugging Face replies carry 'Vary: Origin', which makes cache.match() reject
+  // the entry later (the lookup request has no Origin header) — the bytes were
+  // stored but never served, causing phantom re-downloads. Store a clean copy
+  // with Vary stripped and the redirect flag cleared.
+  const clone = res.clone();
+  const headers = new Headers(clone.headers);
+  headers.delete('Vary');
+  await c.put(url, new Response(clone.body, {
+    status: clone.status, statusText: clone.statusText, headers,
+  }));
+}
+if ('caches' in window && IS_WEB){
+  const origFetch = window.fetch.bind(window);
+  window.fetch = async function(input, init){
+    const url = typeof input === 'string' ? input : (input && input.url) || '';
+    if (AI_CACHEABLE.test(url) && (!init || !init.method || init.method === 'GET')){
+      try {
+        const c = await caches.open('kq-piper');
+        const hit = await c.match(url, { ignoreVary: true });
+        if (hit) return hit;
+        const res = await origFetch(input, init);
+        if (res && res.ok){ try { await aiCachePut(c, url, res); } catch(e){} }
+        return res;
+      } catch(e){ return origFetch(input, init); }
+    }
+    return origFetch(input, init);
+  };
+}
+const AIVOICES = [
+  ['en_GB-alba-medium', 'Alba — British storyteller'],
+  ['en_US-amy-medium', 'Amy — American'],
+  ['en_GB-alan-medium', 'Alan — British male'],
+];
+let aiActive = false, aiAudio = null;
+const aiCache = new Map();
+async function makeAISession(mod, voiceId, onProgress){
+  let s = null, createErr = null, cleared = false;
+  // Switching voices: the library reuses a singleton and only relabels its
+  // voiceId — re-initialising that old session can hang on desktop browsers.
+  // Drop the singleton so create() builds a genuinely fresh session (the same
+  // code path as a cold load, which works); fall back to relabel+init only if
+  // the library hides its singleton under a name we don't know.
+  if (AI.initVoice && AI.initVoice !== voiceId && mod.TtsSession){
+    for (const k of ['_instance', 'instance']){
+      try {
+        if (k in mod.TtsSession){ mod.TtsSession[k] = null; cleared = mod.TtsSession[k] == null; }
+      } catch(e){}
+    }
+  }
+  try {
+    if (mod.TtsSession && typeof mod.TtsSession.create === 'function')
+      s = await mod.TtsSession.create({ voiceId, progress: onProgress });
+    else if (mod.TtsSession)
+      s = new mod.TtsSession({ voiceId, progress: onProgress });
+  } catch(e){ createErr = e; }
+  if (s && typeof s.predict === 'function'){
+    if (!cleared && AI.initVoice && AI.initVoice !== voiceId && typeof s.init === 'function'){
+      s.voiceId = voiceId;
+      await s.init();
+    }
+    AI.initVoice = voiceId;
+    return s;
+  }
+  if (typeof mod.predict === 'function')
+    return { predict: t => mod.predict({ text: t, voiceId }) };
+  throw createErr || new Error('voice engine has no usable API');
+}
+// the engine module, with a fallback CDN in case the first is blocked
+async function importPiper(stall){
+  const urls = [
+    'https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1/+esm',
+    'https://esm.sh/@mintplex-labs/piper-tts-web@1?bundle',
+  ];
+  let lastErr = null;
+  for (const u of urls){
+    try {
+      const im = import(u);
+      return await (stall ? Promise.race([im, stall]) : im);
+    } catch(e){
+      lastErr = e;
+      if (/took too long/.test(String(e && e.message))) throw e;
+    }
+  }
+  throw lastErr || new Error('voice engine unreachable');
+}
+// when a load fails, name the culprit in plain words (and purge broken copies)
+async function aiSelfTest(voiceId){
+  const probe = async url => {
+    try {
+      const ctl = new AbortController();
+      const tm = setTimeout(()=>ctl.abort(), 8000);
+      const r = await fetch(url, { method:'HEAD', cache:'no-store', signal: ctl.signal });
+      clearTimeout(tm);
+      return r.ok;
+    } catch(e){ return false; }
+  };
+  let savedOk = null;
+  try { // a real voice model is tens of MB — a small cached file is a broken download
+    const c = await caches.open('kq-piper');
+    for (const req of await c.keys()){
+      if (req.url.indexOf(voiceId) >= 0 && /\.onnx(\?|$)/.test(req.url)){
+        const hit = await c.match(req, { ignoreVary: true });
+        const b = hit && await hit.blob();
+        savedOk = !!b && b.size > 10*1024*1024;
+        if (!savedOk) await c.delete(req);
+      }
+    }
+  } catch(e){}
+  if (savedOk === false) return 'saved copy was broken and has been cleared — retry to re-download';
+  const vp = (voiceId || 'en_GB-alba-medium').split('-');
+  const engine = await probe('https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1/package.json');
+  const models = await probe('https://huggingface.co/rhasspy/piper-voices/resolve/main/'
+    + vp[0].split('_')[0] + '/' + vp[0] + '/' + vp[1] + '/' + vp[2] + '/' + voiceId + '.onnx.json');
+  if (!engine && !models) return 'this network blocks both voice sites (jsdelivr + huggingface)';
+  if (!engine) return 'this network blocks the voice engine site (cdn.jsdelivr.net)';
+  if (!models) return 'this network blocks the voice download site (huggingface.co)';
+  return '';
+}
+async function loadAI(voiceId){
+  if (AI.state === 'loading') return;
+  AI.state = 'loading'; AI.pct = 0; AI.err = '';
+  AI.fromCache = AI.storedIds.indexOf(voiceId) >= 0;
+  // retry ladder: repeat attempts on the same voice escalate the cleanup.
+  // 2nd try wipes the voice library's private copy (a half-written file there
+  // can hang the load forever — seen on laptops, where that storage works);
+  // the saved download in the browser cache still serves it instantly.
+  // 3rd try wipes everything and downloads fresh from the internet.
+  AI.tries = (AI.lastTryVoice === voiceId) ? (AI.tries || 0) + 1 : 1;
+  AI.lastTryVoice = voiceId;
+  // keep the working session at hand: if switching voices fails, restore it
+  const prev = (AI.session && AI.voiceId && AI.voiceId !== voiceId)
+    ? { session: AI.session, voiceId: AI.voiceId, initVoice: AI.initVoice } : null;
+  if (!narEl.classList.contains('hidden')) buildNarMenu();
+  // watchdog: a load that makes no progress for 35s is stuck — fail it so the
+  // player gets a retry button instead of an eternal spinner
+  let beat = Date.now(), watching = true;
+  const stall = new Promise((_, rej) => {
+    const iv = setInterval(()=>{
+      if (!watching){ clearInterval(iv); return; }
+      if (Date.now() - beat > 35000){
+        clearInterval(iv);
+        rej(new Error('took too long — tap to try again'));
+      }
+    }, 1000);
+  });
+  stall.catch(()=>{});
+  try {
+    const soft = ms => new Promise(res => setTimeout(res, ms)); // cleanup never blocks
+    if (AI.tries === 2){ await Promise.race([opfsDelete(voiceId), soft(4000)]); }
+    else if (AI.tries >= 3){
+      await Promise.race([opfsDelete(voiceId), soft(4000)]);
+      await Promise.race([cacheDelete(voiceId), soft(4000)]);
+      AI.fromCache = false;
+    }
+    if (!AI.mod) AI.mod = await importPiper(stall);
+    beat = Date.now();
+    let lastPct = -1;
+    const onProgress = p => {
+      beat = Date.now();
+      let pct = null;
+      if (typeof p === 'number') pct = p <= 1 ? Math.round(p*100) : Math.round(p);
+      else if (p && p.total) pct = Math.round(p.loaded / p.total * 100);
+      if (pct != null && pct !== lastPct){
+        lastPct = pct; AI.pct = Math.max(0, Math.min(100, pct));
+        if (!narEl.classList.contains('hidden')) buildNarMenu();
+      }
+    };
+    const next = await Promise.race([makeAISession(AI.mod, voiceId, onProgress), stall]);
+    if (prev && prev.session && prev.session !== next){
+      // the old session is no longer needed — free it if the library allows
+      for (const k of ['release','dispose','destroy','close']){
+        try { if (typeof prev.session[k] === 'function') prev.session[k](); } catch(e){}
+      }
+    }
+    AI.session = next;
+    AI.voiceId = voiceId; AI.state = 'ready'; AI.tries = 0;
+    aiCache.clear(); // generated lines from another voice must not replay
+    if (AI.storedIds.indexOf(voiceId) < 0) AI.storedIds.push(voiceId);
+    try { localStorage.setItem('kq-aivoice', voiceId); } catch(e){}
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e){}
+    try { schedulePregen(); } catch(e){}
+  } catch(e){
+    AI.state = 'error'; AI.err = String(e && e.message || e).slice(0, 90);
+    AI.session = null; AI.voiceId = null;
+    if (prev){ // the switch failed — quietly restore the voice that worked
+      AI.session = prev.session; AI.voiceId = prev.voiceId; AI.initVoice = prev.initVoice;
+      AI.state = 'ready';
+    }
+    aiSelfTest(voiceId).then(hint => { // diagnose and say WHY in the retry row
+      if (hint && AI.state === 'error' && AI.err.indexOf(hint) < 0){
+        AI.err = (AI.err ? AI.err + ' · ' : '') + hint;
+        if (!narEl.classList.contains('hidden')) buildNarMenu();
+      }
+    }).catch(()=>{});
+  }
+  watching = false;
+  if (!narEl.classList.contains('hidden')) buildNarMenu();
+}
+// targeted cleanup for the retry ladder: remove one voice's files from the
+// voice library's private storage and from the game's download cache
+async function opfsDelete(voiceId){
+  try {
+    const root = await navigator.storage.getDirectory();
+    const scan = async (dir, depth) => {
+      for await (const entry of dir.values()){
+        if (entry.kind === 'file' && entry.name.indexOf(voiceId) >= 0){
+          try { await dir.removeEntry(entry.name); } catch(e){}
+        } else if (entry.kind === 'directory' && depth < 2) await scan(entry, depth + 1);
+      }
+    };
+    await scan(root, 0);
+  } catch(e){}
+}
+async function cacheDelete(voiceId){
+  try {
+    const c = await caches.open('kq-piper');
+    for (const req of await c.keys()){
+      if (req.url.indexOf(voiceId) >= 0){ try { await c.delete(req); } catch(e){} }
+    }
+  } catch(e){}
+}
+let aiSrc = null;
+function aiParts(text){
+  // split into sentences, but merge tiny fragments so there are fewer seams
+  const raw = (text.match(/[^.!?…]+[.!?…]*/g) || [text]).map(s => s.trim()).filter(Boolean);
+  const out = [];
+  for (const p of raw){
+    if (out.length && (out[out.length-1].length < 20 || p.length < 12))
+      out[out.length-1] += ' ' + p;
+    else out.push(p);
+  }
+  return out;
+}
+// generation scheduler: user speech runs at high priority, scene pre-generation
+// at low priority (and only while the narrator is quiet), all through ONE
+// serialized pipeline so the model never runs two jobs at once
+const aiHi = [], aiLo = [];
+let aiPumping = false;
+async function aiPump(){
+  if (aiPumping) return;
+  aiPumping = true;
+  try {
+    while (aiHi.length || aiLo.length){
+      if (!AI.session || !AI.voiceId){ aiLo.length = 0; break; }
+      if (!aiHi.length && (speaking || document.hidden || player.moving)){
+        // background generation waits while the player walks — the speech
+        // model chews the main thread, and smooth walking wins
+        await new Promise(r => setTimeout(r, 250));
+        continue;
+      }
+      const hij = aiHi.shift();
+      const line = hij ? hij.line : aiLo.shift();
+      const key = AI.voiceId + '|' + line;
+      let ent = aiCache.get(key);
+      if (!ent){
+        try {
+          const blob = await AI.session.predict(line);
+          ent = { blob, buf: null };
+          aiCache.set(key, ent);
+          if (aiCache.size > 64) aiCache.delete(aiCache.keys().next().value);
+        } catch(e){ if (hij) hij.rej(e); continue; }
+        // background jobs also pre-decode, so playback needs zero work at tap time
+        if (!hij && AC && AC.state === 'running'){
+          try {
+            ent.buf = trimBuf(AC, await AC.decodeAudioData(await ent.blob.arrayBuffer()));
+          } catch(e){}
+        }
+      }
+      if (hij) hij.res(ent);
+    }
+  } finally { aiPumping = false; }
+}
+function aiGen(line){
+  const key = AI.voiceId + '|' + line;
+  const hit = aiCache.get(key);
+  if (hit) return Promise.resolve(hit);
+  return new Promise((res, rej) => { aiHi.push({ line, res, rej }); aiPump(); });
+}
+function trimBuf(a, buf){
+  // cut the model's leading/trailing silence — the main cause of long pauses
+  try {
+    const ch = buf.getChannelData(0), thr = .012;
+    let s = 0, e = ch.length - 1;
+    while (s < e && Math.abs(ch[s]) < thr) s++;
+    while (e > s && Math.abs(ch[e]) < thr) e--;
+    s = Math.max(0, s - (buf.sampleRate * .04 | 0));
+    e = Math.min(ch.length, e + (buf.sampleRate * .1 | 0));
+    if (e - s < buf.sampleRate * .05) return buf;
+    const out = a.createBuffer(buf.numberOfChannels, e - s, buf.sampleRate);
+    for (let c = 0; c < buf.numberOfChannels; c++)
+      out.getChannelData(c).set(buf.getChannelData(c).subarray(s, e));
+    return out;
+  } catch(err){ return buf; }
+}
+async function playAIBlob(ent, seq){
+  const a = ac();
+  if (a && a.state === 'running'){
+    try {
+      let buf = ent.buf;
+      if (!buf){
+        const ab = await ent.blob.arrayBuffer();
+        if (seq !== speakSeq) return;
+        buf = trimBuf(a, await a.decodeAudioData(ab));
+        ent.buf = buf; // decode once, replay instantly forever after
+      }
+      if (seq !== speakSeq) return;
+      await new Promise(res => {
+        const src = a.createBufferSource();
+        src.buffer = buf;
+        src.connect(a.destination);
+        aiSrc = src; src.onended = res;
+        src.start();
+      });
+      return;
+    } catch(e){}
+  }
+  const url = URL.createObjectURL(ent.blob);
+  await new Promise(res => {
+    aiAudio = new Audio(url);
+    aiAudio.onended = aiAudio.onerror = () => res();
+    aiAudio.play().catch(()=> res());
+  });
+  URL.revokeObjectURL(url);
+}
+async function aiSpeak(text, btn){
+  const seq = ++speakSeq;
+  speaking = true; aiActive = true; speakStart = Date.now();
+  speakBtnActive = btn;
+  btn.textContent = btn.id === 'speak' ? '⏳' : '⏳ …';
+  try {
+    const parts = aiParts(text);
+    let next = aiGen(parts[0]);
+    for (let i = 0; i < parts.length; i++){
+      const blob = await next;
+      if (seq !== speakSeq) return;
+      // start generating the NEXT sentence while this one plays
+      if (i + 1 < parts.length) next = aiGen(parts[i + 1]);
+      btn.textContent = btn.id === 'speak' ? '⏹' : '⏹ Stop';
+      await playAIBlob(blob, seq);
+      if (seq !== speakSeq) return;
+    }
+    if (seq === speakSeq){ aiActive = false; stopSpeak(); }
+  } catch(e){
+    // model hiccup — fall back to the phone voice for this line
+    if (seq === speakSeq){
+      aiActive = false; speaking = false;
+      if (hasTTS) startSpeechSys(text, btn); else stopSpeak();
+    }
+  }
+}
+
+function stopSpeak(){
+  speakSeq++; curU = null;
+  try { speechSynthesis.cancel(); } catch(e){}
+  if (aiAudio){ try { aiAudio.pause(); } catch(e){} aiAudio = null; }
+  if (aiSrc){ try { aiSrc.onended = null; aiSrc.stop(); } catch(e){} aiSrc = null; }
+  aiActive = false;
+  speaking = false;
+  if (speakBtnActive) speakBtnActive.textContent = speakBtnActive.id === 'speak' ? '🔊' : '🔊 Listen';
+  speakBtnActive = null;
+}
+function cleanSpeech(raw){
+  return (raw || '')
+    .replace(/\(\+\d+\)/g, '')
+    .replace(/[🗺✦🎵⛄]/g, '')
+    .replace(/^[—\s]+|[—\s]+$/g, '')
+    .replace(/—/g, ', ')
+    .trim();
+}
+function startSpeech(raw, btn){
+  stopSpeak();
+  if (!raw) return;
+  const text = cleanSpeech(raw);
+  if (!text) return;
+  if (AI.session && AI.voiceId){ aiSpeak(text, btn); return; }
+  if (!hasTTS) return;
+  startSpeechSys(text, btn);
+}
+function startSpeechSys(text, btn){
+  const u = new SpeechSynthesisUtterance(text);
+  if (voice){ u.voice = voice; u.lang = voice.lang; } else { u.lang = 'en'; }
+  u.rate = .92; u.pitch = 1.05;
+  u.onend = u.onerror = () => { if (curU === u) stopSpeak(); };
+  curU = u; speaking = true; speakStart = Date.now();
+  speakBtnActive = btn;
+  btn.textContent = btn.id === 'speak' ? '⏹' : '⏹ Stop';
+  const seq = speakSeq;
+  // tiny delay after cancel() — some engines drop an utterance queued in the same tick
+  setTimeout(()=>{
+    if (seq !== speakSeq) return;
+    try { speechSynthesis.speak(u); } catch(e){ stopSpeak(); }
+  }, 60);
+}
+function speakText(raw, btn){
+  if (speaking){ stopSpeak(); return; }
+  startSpeech(raw, btn);
+}
+if (!hasTTS){
+  speakBtn.style.display = 'none';
+  document.getElementById('narBtn').style.display = 'none';
+} else {
+  setInterval(()=>{
+    if (speaking && !aiActive && Date.now() - speakStart > 900 &&
+        !speechSynthesis.speaking && !speechSynthesis.pending) stopSpeak();
+  }, 600);
+}
+function narBtnIcon(){ document.getElementById('narBtn').textContent = autoRead ? '🗣️' : '💬'; }
+const narEl = document.getElementById('nar');
+function refreshAutoBtn(){
+  document.getElementById('autoBtn').textContent = autoRead ? '🗣️ Auto-narrate: ON' : '💬 Auto-narrate: OFF';
+}
+function refreshSndBtn(){
+  document.getElementById('sndBtn').textContent = ambOn ? '🔊 Scene sounds: ON' : '🔇 Scene sounds: OFF';
+}
+function aiPreview(){
+  startSpeech('Once upon a time, in the kingdom of Aldermere, a brave adventurer set out to find a crown.', speakBtn);
+}
+function aiRow(label, small, cls, onTap){
+  const b = document.createElement('button');
+  b.className = 'vrow' + (cls || '');
+  b.textContent = label;
+  if (small){ const sm = document.createElement('small'); sm.textContent = small; b.appendChild(sm); }
+  if (onTap) b.addEventListener('click', e => { e.stopPropagation(); onTap(); });
+  return b;
+}
+async function aiDiag(){
+  const bits = [KQ_VER];
+  bits.push(IS_WEB ? 'web page ✓' : '⚠ opened as a FILE — downloads cannot be kept');
+  try {
+    const saved = await cacheVoices();
+    bits.push('saved on phone: ' + (saved.length ? saved.map(v => v.split('-')[1]).join(', ') : 'none'));
+  } catch(e){ bits.push('saved on phone: unknown'); }
+  try {
+    if (navigator.storage && navigator.storage.persisted)
+      bits.push('protected: ' + ((await navigator.storage.persisted()) ? 'yes' : 'no'));
+  } catch(e){}
+  if (AI.err) bits.push('last voice error: ' + AI.err);
+  return bits.join('  •  ');
+}
+function buildNarMenu(){
+  refreshAutoBtn();
+  refreshSndBtn();
+  const list = document.getElementById('voiceList');
+  list.innerHTML = '';
+  // not on the web = throwaway storage; give a one-tap way to the real thing
+  if (!IS_WEB){
+    list.appendChild(aiRow('🌐 Open the web version',
+      'Required for the AI voice to stay on your phone. Tap to switch — then add it to your home screen.',
+      '', ()=>{ location.href = KQ_WEB; }));
+  }
+  // --- AI Storyteller section ---
+  if (AI.state === 'off'){
+    if (AI.storedIds && AI.storedIds.length){
+      AIVOICES.forEach(v => {
+        const has = AI.storedIds.indexOf(v[0]) >= 0;
+        list.appendChild(aiRow('✨ ' + v[1],
+          has ? 'On your phone — tap to use' : '~60 MB download',
+          '', ()=> loadAI(v[0]).then(()=>{ if (AI.state === 'ready') aiPreview(); })));
+      });
+    } else if (AI.pref){
+      const v = AIVOICES.find(x => x[0] === AI.pref);
+      list.appendChild(aiRow('✨ Reload your storyteller' + (v ? ' — ' + v[1] : ''),
+        'Uses the saved download if it’s still on your phone; otherwise downloads again (~60 MB).',
+        '', ()=> loadAI(AI.pref).then(()=>{ if (AI.state === 'ready') aiPreview(); })));
+    } else {
+      list.appendChild(aiRow('✨ Get the AI Storyteller voice',
+        'Natural, not robotic. ~60 MB download, kept on your phone. Wi-Fi recommended.'
+        + (!IS_WEB ? ' Tip: open the game via its web link so the download is remembered.' : ''),
+        '', ()=> loadAI(AIVOICES[0][0])));
+    }
+  } else if (AI.state === 'loading'){
+    list.appendChild(aiRow(
+      AI.fromCache ? '⏳ Loading storyteller from your phone… ' + (AI.pct ? AI.pct + '%' : '')
+                   : '⏳ Downloading storyteller… ' + (AI.pct ? AI.pct + '%' : ''),
+      AI.fromCache ? 'No download needed — using the saved voice.'
+                   : 'First time only — the voice stays on your phone.', ''));
+  } else if (AI.state === 'error'){
+    list.appendChild(aiRow('⚠️ AI voice failed — tap to retry',
+      (AI.err ? AI.err + ' · ' : '') + 'Retrying uses a fresh copy of the voice.',
+      '', ()=> loadAI(AI.lastTryVoice || AIVOICES[0][0])));
+    AIVOICES.forEach(v => { // the other storytellers stay one tap away
+      if (v[0] === AI.lastTryVoice) return;
+      const has = AI.storedIds.indexOf(v[0]) >= 0;
+      list.appendChild(aiRow('✨ ' + v[1],
+        has ? 'On your phone — tap to use' : 'Tap to download (~60 MB)',
+        '', ()=> loadAI(v[0]).then(()=>{ if (AI.state === 'ready') aiPreview(); })));
+    });
+  } else {
+    AIVOICES.forEach(v => {
+      const sel = AI.voiceId === v[0];
+      const has = AI.storedIds.indexOf(v[0]) >= 0;
+      list.appendChild(aiRow('✨ ' + v[1],
+        sel ? 'AI Storyteller — active' : (has ? 'On your phone — tap to use' : 'Tap to download (~60 MB)'),
+        sel ? ' sel' : '', ()=>{
+          if (AI.voiceId === v[0]){ aiPreview(); return; }
+          loadAI(v[0]).then(()=>{ if (AI.state === 'ready') aiPreview(); });
+        }));
+    });
+  }
+  // --- phone voices ---
+  const vs = allVoices();
+  if (!vs.length){
+    list.appendChild(aiRow('No phone voices found on this device.', '', ''));
+    return;
+  }
+  vs.slice(0, 16).forEach(v => {
+    const b = document.createElement('button');
+    b.className = 'vrow' + (!AI.voiceId && voice && vid(v) === vid(voice) ? ' sel' : '');
+    const sm = document.createElement('small');
+    sm.textContent = v.name + (v.voiceURI && v.voiceURI !== v.name ? ' · ' + v.voiceURI : '');
+    b.textContent = voiceLabel(v);
+    b.appendChild(sm);
+    b.addEventListener('click', e => {
+      e.stopPropagation();
+      voice = v;
+      AI.voiceId = null; // phone voice takes over; AI stays downloaded
+      try { localStorage.setItem('kq-voice', vid(v)); localStorage.setItem('kq-aivoice', ''); } catch(e2){}
+      buildNarMenu();
+      startSpeech('Once upon a time, in the kingdom of Aldermere, a brave adventurer set out to find a crown.', speakBtn);
+    });
+    list.appendChild(b);
+  });
+}
+document.getElementById('narBtn').addEventListener('click', ()=>{
+  buildNarMenu();
+  narEl.classList.remove('hidden');
+  aiDiag().then(t => { const d = document.getElementById('aiDiag'); if (d) d.textContent = t; });
+});
+document.getElementById('autoBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  autoRead = !autoRead;
+  try { localStorage.setItem('kq-autoread', autoRead ? '1' : '0'); } catch(e2){}
+  if (!autoRead) stopSpeak();
+  narBtnIcon(); refreshAutoBtn();
+});
+document.getElementById('sndBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  ambOn = !ambOn;
+  try { localStorage.setItem('kq-amb', ambOn ? '1' : '0'); } catch(e2){}
+  if (ambGain) ambGain.gain.value = ambOn ? 1 : 0;
+  if (ambOn) sceneAudio(cur); else stopAmb();
+  refreshSndBtn();
+});
+narEl.addEventListener('click', e => {
+  if (e.target === narEl) narEl.classList.add('hidden');
+});
+speakBtn.addEventListener('click', ()=> speakText(msgTxtEl.textContent, speakBtn));
+document.getElementById('speakItem').addEventListener('click', e => {
+  e.stopPropagation();
+  speakText(document.getElementById('itName').textContent + '. ' + document.getElementById('itDesc').textContent,
+            document.getElementById('speakItem'));
+});
+
+// ---------- ui ----------
+const closeEl = document.getElementById('close');
+const closeTxtEl = document.getElementById('closeTxt');
+function say(t, silent){
+  msgTxtEl.textContent = t;
+  if (!closeEl.classList.contains('hidden')) closeTxtEl.textContent = t;
+  if (!silent && autoRead && t) startSpeech(t, speakBtn);
+}
+const ITEMS = {
+  flower:['🌸','Moonpetal','A glowing flower that hums softly. Elda needs it for her potion.'],
+  fish:['🐟','Silver trout','Fat and flapping. Grukk looks hungry…'],
+  key:['🗝️','Brass key','Heavy and cold. It fits the castle gate.'],
+  geode:['💎','Glittering geode','A fist of purple stars. The raven wants it.'],
+  book:['📖','Fenwick’s spellbook','A dusty grimoire. Fenwick wants it back.'],
+  posy:['💐','Wildflower posy','Bright flowers from the meadow. The bees approve.'],
+  honey:['🍯','Honeycomb','Dripping gold. Dragons love sweetness.'],
+  cat:['🐱','Biscuit','Warm and purring. Tilly misses her.'],
+  coin:['🪙','Old copper coin','From a scarecrow’s pocket. The wishing well wants it.'],
+  crown:['👑','Crown of Aldermere','Warm from a dragon’s hoard. It belongs on your head.'],
+  warm:['✨','Everwarm charm','Fenwick’s golden fire. No blizzard can touch you.'],
+  rod:['🎣','Bertram’s rod','Elda’s old fishing rod. The lake is full of trout.'],
+  lantern:['🏮','Bertram’s lantern','A warm circle of light. Mind the bats!'],
+};
+const ITEMORDER = ['flower','fish','key','geode','book','posy','honey','cat','coin','crown','warm','rod','lantern'];
+function hud(){
+  scoreEl.textContent = '⭐ ' + score + '/' + MAX;
+  invEl.innerHTML = ITEMORDER.filter(k => F[k])
+    .map(k => '<span data-i="' + k + '">' + ITEMS[k][0] + '</span>').join(' ');
+}
+invEl.addEventListener('click', e => {
+  const k = e.target.getAttribute && e.target.getAttribute('data-i');
+  if (!k || !F[k]) return;
+  document.getElementById('itIc').textContent = ITEMS[k][0];
+  document.getElementById('itName').textContent = ITEMS[k][1];
+  document.getElementById('itDesc').textContent = ITEMS[k][2];
+  document.getElementById('item').classList.remove('hidden');
+});
+document.getElementById('item').addEventListener('click', ()=>{
+  document.getElementById('item').classList.add('hidden');
+  if (speakBtnActive && speakBtnActive.id === 'speakItem') stopSpeak();
+});
+function addScore(n){ score += n; hud(); }
+
+// ---------- drawing helpers ----------
+function R(x, y, w, h, c){ ctx.fillStyle = c; ctx.fillRect(x|0, y|0, w, h); }
+function disc(x, y, r, c){ ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+function hash(a, b){ const s = Math.sin(a*127.1 + b*311.7) * 43758.5453; return s - Math.floor(s); }
+
+function sky(){
+  R(-OV,0,W+2*OV,H,'#7ec9f2'); R(-OV,0,W+2*OV,46,'#66b8ec'); R(-OV,0,W+2*OV,20,'#54a8e6');
+  disc(286,24,11,'#fff6c4'); disc(286,24,8,'#ffe9a0');
+}
+function cloud(x, y){
+  disc(x,y,7,'rgba(255,255,255,.9)'); disc(x+9,y+2,5,'rgba(255,255,255,.9)');
+  disc(x-9,y+2,5,'rgba(255,255,255,.9)');
+}
+function clouds(t){
+  const span = W + 2*OV + 120;
+  cloud(((t*5) % span) - OV - 60, 26);
+  cloud(((t*5 + span/2) % span) - OV - 60, 44);
+}
+function hills(y){
+  R(-OV,y,W+2*OV,14,'#5aa85f');
+  disc(50,y+6,18,'#5aa85f'); disc(200,y+4,24,'#5aa85f'); disc(300,y+7,16,'#5aa85f');
+  disc(-52,y+5,20,'#5aa85f'); disc(376,y+6,22,'#5aa85f');
+}
+function ground(top, c, cd){
+  R(-OV, top, W+2*OV, H-top, c);
+  for (let i=0;i<260;i++){
+    R(-OV + hash(i,1)*(W+2*OV), top + 2 + hash(i,2)*(H-top-4), 2, 1, cd);
+  }
+}
+function tree(x, y){
+  R(x-3, y-18, 6, 18, '#6b4a2b');
+  disc(x, y-26, 13, '#2e7d32'); disc(x-9, y-19, 9, '#2e7d32'); disc(x+9, y-19, 9, '#2e7d32');
+  disc(x-4, y-29, 6, '#3c9142');
+}
+function deadTree(x, y){
+  R(x-2, y-28, 4, 28, '#57504a');
+  R(x-11, y-24, 9, 2, '#57504a'); R(x-13, y-29, 3, 6, '#57504a');
+  R(x+2, y-19, 10, 2, '#57504a'); R(x+10, y-24, 3, 6, '#57504a');
+  R(x-1, y-35, 2, 8, '#57504a');
+}
+function signpost(x, y){
+  R(x+10, y-28, 4, 28, '#8a6238');
+  R(x, y-34, 26, 9, '#b08a52'); R(x+2, y-31, 20, 1, '#6d4c28');
+  R(x, y-22, 26, 9, '#b08a52'); R(x+2, y-19, 20, 1, '#6d4c28');
+  if (DETAIL){
+    for (let i=0;i<3;i++){
+      R(x+3+i*7, y-33, 4, 1, '#6d4c28'); R(x+4+i*7, y-29, 3, 1, '#6d4c28');
+      R(x+3+i*7, y-21, 4, 1, '#6d4c28'); R(x+4+i*7, y-17, 3, 1, '#6d4c28');
+    }
+    R(x+10, y-6, 4, 1, '#5d3a1c'); R(x+11, y-14, 1, 6, '#a3773f');
+  }
+}
+function shadow(x, y, rx){
+  ctx.fillStyle = 'rgba(0,0,0,.25)';
+  ctx.beginPath(); ctx.ellipse(x, y+1, rx, 2, 0, 0, 7); ctx.fill();
+}
+function drawDude(x, y){
+  const walk = player.moving ? (Math.floor(player.step) % 2) : -1; // -1 = standing
+  const sw = walk === 1 ? 1 : (walk === 0 ? -1 : 0); // stride direction
+  const bob = player.moving ? (Math.floor(player.step) % 2 ? 1 : 0) : 0; // 1px body bob
+  ctx.save(); ctx.translate(x|0, (y - bob)|0); if (player.dir < 0) ctx.scale(-1,1);
+  const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
+  // soft shadow (drawn at ground, unaffected by bob)
+  ctx.fillStyle = 'rgba(0,0,0,.28)';
+  ctx.beginPath(); ctx.ellipse(0, 1 + bob, 7, 2.2, 0, 0, 7); ctx.fill();
+
+  // ---- cloak (behind everything), with a gentle sway while walking ----
+  const sway = player.moving ? sw : 0;
+  q(-6, -20, 12, 15, '#8f2f22');            // cloak body (dark red)
+  q(-6 + sway, -7, 12, 3, '#7a2619');       // cloak hem, swings
+  q(3, -19, 3, 13, '#a5382a');              // cloak highlight fold
+
+  // ---- legs / boots with stride ----
+  const lgL = -4 - (sw > 0 ? 1 : 0), lgR = 1 + (sw < 0 ? 1 : 0);
+  q(lgL, -8, 3, 5, '#3a4a7a');              // left trouser
+  q(lgR, -8, 3, 5, '#3a4a7a');              // right trouser
+  q(lgL, -3, 3, 3, '#4e3a2c'); q(lgL, -3, 3, 1, '#6b5038'); // left boot + cuff
+  q(lgR, -3, 3, 3, '#4e3a2c'); q(lgR, -3, 3, 1, '#6b5038'); // right boot + cuff
+
+  // ---- tunic (torso) with trim + shading ----
+  q(-5, -16, 10, 10, '#2f55c4');            // tunic
+  q(-5, -16, 3, 10, '#274aad');             // shaded left edge
+  q(2, -16, 3, 10, '#4a6fd8');              // lit right edge
+  q(-1, -16, 2, 10, '#d8e0f0');             // centre placket
+  q(-5, -16, 10, 1, '#5a7fe0');             // collar highlight
+  // belt + gold buckle
+  q(-5, -8, 10, 2, '#5a3f28');
+  q(-1, -8, 2, 2, '#ffd54f'); q(-1, -8, 2, 1, '#ffe9a0');
+
+  // ---- arms with hands; the forward arm swings with the walk ----
+  q(-7, -15, 2, 7, '#2b4fb8');              // back arm
+  q(-7, -9, 2, 2, '#f2c290');               // back hand
+  const swA = player.moving ? (sw > 0 ? -1 : 1) : 0;
+  q(5, -15 + swA, 2, 7, '#3a5fca');         // front arm (lit), swings
+  q(5, -9 + swA, 2, 2, '#f2c290');          // front hand
+
+  // ---- head: neck, face, hair, features ----
+  q(-1, -17, 3, 2, '#e0a878');              // neck (shaded)
+  q(-3, -23, 7, 6, '#f2c290');              // face
+  q(3, -23, 1, 6, '#e0a878');               // face shade edge
+  q(-3, -23, 7, 1, '#ffdca8');              // brow highlight
+  // hair
+  q(-4, -24, 8, 2, '#6b4a2b'); q(-4, -22, 1, 3, '#6b4a2b'); q(-4, -24, 8, 1, '#7d5732');
+  // eyes, nose, mouth
+  q(-1, -21, 1, 1, '#3a2a1a'); q(2, -21, 1, 1, '#3a2a1a');
+  q(1, -20, 1, 1, '#e0a878');               // nose
+  q(0, -18, 2, 1, '#b5654a');               // mouth
+
+  if (F.crown){
+    // golden crown replaces the cap
+    q(-4, -25, 9, 2, '#ffd54f'); q(-4, -25, 9, 1, '#ffe9a0');
+    q(-4, -27, 2, 2, '#ffd54f'); q(0, -27, 2, 2, '#ffd54f'); q(3, -27, 2, 2, '#ffd54f');
+    q(-1, -25, 1, 1, '#c62828');            // red jewel
+  } else {
+    // plumed cap
+    q(-4, -25, 9, 3, '#b3402f');            // cap
+    q(-4, -25, 9, 1, '#c9503c');            // cap highlight
+    q(-4, -23, 9, 1, '#7a2619');            // cap band shadow
+    q(4, -30, 2, 6, '#ffd54f');             // feather shaft
+    q(3, -30, 1, 3, '#ffe9a0'); q(5, -28, 1, 3, '#e8b923'); // feather barbs
+  }
+  if (F.cat){
+    // Biscuit riding on the shoulder
+    q(-9, -20, 6, 4, '#f5f5f5'); q(-9, -22, 2, 2, '#f5f5f5'); q(-5, -22, 2, 2, '#f5f5f5');
+    q(-8, -19, 1, 1, '#3fa34d'); q(-5, -19, 1, 1, '#3fa34d');
+    q(-11, -18, 2, 2, '#f5f5f5'); q(-11, -17, 1, 1, '#e8a0a8'); // tail + nose
+  }
+  ctx.restore();
+}
+function drawElda(x, y, t){
+  const b = Math.sin(t*2)*0.5;
+  ctx.save(); ctx.translate(x|0, (y+b)|0);
+  const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
+  ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0,1,6,2,0,0,7); ctx.fill();
+  // purple robe with shaded sides
+  q(-6,-16,12,16,'#7e57c2'); q(-6,-16,3,16,'#674aa5'); q(3,-16,3,16,'#9370d0');
+  q(-6,-2,12,2,'#5e3f96');                       // hem shadow
+  // white apron with seam
+  q(-4,-11,8,10,'#f5f0e6'); q(-1,-11,1,10,'#e2dcce');
+  // shawl across the shoulders
+  q(-6,-15,12,3,'#5e3f96'); q(-6,-15,12,1,'#9c7fd8');
+  // arms + a hand
+  q(-7,-13,2,7,'#674aa5'); q(-7,-7,2,2,'#efc9a6'); q(5,-13,2,7,'#674aa5');
+  // face with features
+  q(-3,-22,7,6,'#efc9a6'); q(3,-22,1,6,'#e0b48c');
+  q(-2,-20,1,1,'#4a3428'); q(1,-20,1,1,'#4a3428');   // eyes
+  q(0,-19,1,1,'#e0b48c');                             // nose
+  q(-1,-18,2,1,'#c97b6a');                            // kindly smile
+  // silver hair + top bun
+  q(-4,-25,9,4,'#d3dae0'); q(-1,-27,4,3,'#d3dae0');
+  q(-4,-25,9,1,'#e8eef2'); q(-4,-23,1,4,'#c2cdd6'); q(4,-23,1,4,'#c2cdd6');
+  // gnarled cane with a rounded handle
+  q(8,-14,2,14,'#8a6238'); q(7,-15,4,2,'#6d4c28'); q(6,-14,1,2,'#a3825a');
+  if (DETAIL){
+    q(-3,-21,3,1,'#3a2a1a'); q(1,-21,3,1,'#3a2a1a');   // spectacle frames
+    q(-3,-19,1,1,'#f2d8bc'); q(2,-19,1,1,'#f2d8bc');   // cheek highlights
+    q(-2,-8,4,4,'#e8e2d2'); q(-2,-8,4,1,'#c9c2b2');    // apron pocket
+    q(-5,-24,1,2,'#eef2f6');                           // hair shine
+  }
+  ctx.restore();
+}
+function drawTroll(x, y, t){
+  const b = Math.sin(t*1.6);
+  ctx.save(); ctx.translate(x|0, y|0);
+  const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(0,1,11,3,0,0,7); ctx.fill();
+  // hulking body with shaded sides + belly highlight
+  q(-10,-22,20,22,'#71a55a'); q(-10,-22,4,22,'#5c8a48'); q(6,-22,4,22,'#84b869');
+  disc(0,-9,7,'#8ec070'); disc(-1,-10,4,'#9ecd80');   // rounded belly
+  q(-2,-8,1,1,'#5c8a48');                              // navel
+  // heavy brow + head
+  q(-8,-30+(b|0),16,11,'#7fb069'); q(-8,-30+(b|0),16,2,'#93c47c');
+  q(-12,-28,3,5,'#71a55a'); q(9,-28,3,5,'#71a55a');   // ears
+  q(-5,-27,2,2,'#fff'); q(3,-27,2,2,'#fff');          // eye whites
+  q(-4,-26,1,1,'#222'); q(4,-26,1,1,'#222');          // pupils
+  q(-6,-28,3,1,'#5c7d42'); q(3,-28,3,1,'#5c7d42');    // heavy brow ridge
+  q(-1,-24,2,2,'#5c8a48');                            // snout
+  q(-3,-22,7,2,'#5d4037');                            // mouth
+  q(-3,-21,2,2,'#f2ecd0'); q(2,-21,2,2,'#f2ecd0');    // tusks (always visible now)
+  // arms with knuckles + loincloth
+  q(-13,-19,3,10,'#71a55a'); q(-13,-10,3,2,'#84b869'); // left arm + fist
+  q(10,-19,3,10,'#71a55a'); q(10,-10,3,2,'#84b869');   // right arm + fist
+  q(-8,-6,16,6,'#795548'); q(-8,-6,16,1,'#8d6748');    // loincloth
+  // warts
+  q(-7,-16,2,2,'#5c8a48'); q(5,-13,2,2,'#5c8a48'); q(-9,-24,1,1,'#5c8a48');
+  if (!F.gaveFish){
+    q(-1,-19,2,5,'#ffd54f'); disc(0,-19,2,'#ffd54f'); disc(0,-19,1,'#8a6b1f'); // gold tooth
+  }
+  if (DETAIL){
+    q(-6,-29,3,1,'#3f6330'); q(4,-29,3,1,'#3f6330');   // brow tufts
+    q(-1,-5,1,1,'#4e7a3a');
+    q(-12,-10,2,1,'#e8e0c0'); q(11,-10,2,1,'#e8e0c0'); // claws
+    q(-8,-4,16,1,'#5d4037');
+  }
+  ctx.restore();
+}
+function drawWiz(x, y, t){
+  const b = Math.sin(t*1.8)*.6;
+  ctx.save(); ctx.translate(x|0, (y+b)|0);
+  const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
+  ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0,1,7,2,0,0,7); ctx.fill();
+  // deep-blue robe with shaded sides + gold trim
+  q(-7,-18,14,18,'#3949ab'); q(-7,-18,3,18,'#2c3a8a'); q(4,-18,3,18,'#4a5ac9');
+  q(-7,-18,14,2,'#5c6bc0'); q(-7,-2,14,2,'#2c3a8a');
+  // little stars scattered on the robe
+  q(-4,-14,1,1,'#ffd54f'); q(2,-11,1,1,'#ffd54f'); q(-2,-7,1,1,'#ffe9a0'); q(3,-15,1,1,'#ffe9a0');
+  // face + long white beard
+  q(-3,-25,7,6,'#f0c8a0');
+  q(-4,-19,8,9,'#eceff1'); q(-4,-19,8,1,'#d8dce2'); q(-1,-10,2,2,'#eceff1'); // beard taper
+  q(-2,-23,1,1,'#33427a'); q(2,-23,1,1,'#33427a');   // eyes
+  q(0,-22,1,1,'#e0b48c');                            // nose
+  // pointed hat with brim + star
+  q(-7,-27,14,3,'#303f9f'); q(-7,-27,14,1,'#4a5ac9');   // brim
+  q(-4,-31,8,4,'#2f3d97'); q(-1,-35,4,4,'#2f3d97');     // cone
+  q(0,-34,1,1,'#ffd54f');                               // hat star
+  // hands gripping the staff
+  q(6,-16,2,2,'#f0c8a0'); q(6,-11,2,2,'#f0c8a0');
+  q(9,-31,2,31,'#8a6238'); q(9,-31,1,31,'#6d4c28');     // staff with shade
+  const g = .5 + Math.sin(t*4)*.3;
+  glow(10,-32,7,'rgba(130,220,255,.5)','rgba(130,220,255,0)');
+  disc(10,-32,3,'rgba(150,230,255,'+g+')'); disc(10,-32,1.5,'#eaffff');
+  if (DETAIL){
+    q(-5,-24,10,1,'#4a5ac9');                          // hat band
+    q(-2,-16,6,1,'#d8dce2'); q(-1,-13,4,1,'#d8dce2');  // beard strands
+    q(-1,-33,1,1,'#fff');                              // star sparkle
+  }
+  ctx.restore();
+}
+function drawRaven(x, y, t){
+  const b = Math.sin(t*2.4)*.6;
+  const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
+  // glossy black body + head with a blue-black sheen
+  q(x-5, y-5+b, 10, 5, '#16161c'); q(x-5, y-5+b, 10, 1, '#33333f');   // back sheen
+  q(x+3, y-9+b, 5, 5, '#16161c'); q(x+3, y-9+b, 5, 1, '#33333f');
+  q(x+8, y-7+b, 3, 2, '#e8912b'); q(x+8, y-6+b, 3, 1, '#c9741f');     // beak + shade
+  q(x+5, y-8+b, 1, 1, '#fff'); q(x+5, y-8+b, 1, 1, '#fff');           // eye
+  // folded wing + a raised tail
+  q(x-8, y-4+b, 4, 3, '#16161c'); q(x-6, y-3+b, 3, 1, '#2c2c3a');     // wing edge
+  q(x-9, y-6+b, 3, 2, '#16161c');                                     // tail
+  q(x-2, y+b, 1, 2, '#c9741f'); q(x+1, y+b, 1, 2, '#c9741f');         // little feet
+  if (!F.gaveGeode) q(x-2, y-1+b, 5, 3, '#7e57c2');                   // clutched book
+  else { q(x-2, y-1+b, 4, 3, '#b388ff'); if (Math.sin(t*5)>0) q(x-1, y-2+b, 1, 1, '#fff'); } // or shiny geode
+  if (DETAIL){
+    q(x+4, y-8+b, 1, 1, '#8ab4ff');                                   // eye glint
+    q(x-4, y-4+b, 6, 1, '#2c2c3a');                                   // wing feather line
+    if (!F.gaveGeode){ q(x-1, y+b, 3, 1, '#5e35b1'); }               // book pages
+  }
+}
+function drawQueen(x, y, t){
+  const yy = y + Math.sin(t*5)*2;
+  const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
+  // blurred beating wings
+  const wsp = Math.sin(t*28) > 0 ? 5 : 3;
+  q(x-4, yy-9, wsp, 5, 'rgba(220,240,255,.7)'); q(x+1, yy-9, wsp, 5, 'rgba(220,240,255,.7)');
+  q(x-3, yy-8, 3, 1, 'rgba(255,255,255,.8)'); q(x+2, yy-8, 3, 1, 'rgba(255,255,255,.8)');
+  // fuzzy striped body
+  disc(x, yy, 5, '#f2b90d'); disc(x-1, yy-1, 3, '#ffce3a');   // lit top
+  q(x-4, yy-2, 2, 5, '#3a2f10'); q(x, yy-3, 2, 6, '#3a2f10'); q(x+3, yy-2, 1, 4, '#3a2f10'); // stripes
+  // face: eyes + tiny smile
+  q(x+3, yy-3, 1, 1, '#222'); q(x+1, yy-3, 1, 1, '#222');
+  q(x+2, yy-1, 2, 1, '#8a6b1f');
+  // legs + stinger
+  q(x-3, yy+3, 1, 2, '#3a2f10'); q(x, yy+4, 1, 1, '#3a2f10'); q(x+2, yy+3, 1, 2, '#3a2f10');
+  q(x+5, yy, 2, 1, '#3a2f10');
+  // little crown
+  q(x-2, yy-8, 5, 2, '#ffd54f'); q(x-2, yy-10, 1, 2, '#ffd54f'); q(x, yy-11, 1, 3, '#ffd54f'); q(x+2, yy-10, 1, 2, '#ffd54f');
+  q(x, yy-8, 1, 1, '#c62828'); // crown jewel
+  if (DETAIL){
+    q(x+4, yy-4, 1, 1, '#fff');
+    q(x-2, yy-11, 1, 1, '#ffe9a0'); q(x+2, yy-11, 1, 1, '#ffe9a0');
+  }
+}
+function drawTilly(x, y, t){
+  const b = Math.sin(t*2.2)*.5;
+  ctx.save(); ctx.translate(x|0, (y+b)|0);
+  const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
+  ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0,1,6,2,0,0,7); ctx.fill();
+  // pink dress with shaded sides
+  q(-6,-16,12,16,'#c05a7a'); q(-6,-16,3,16,'#a5486a'); q(3,-16,3,16,'#d6708e');
+  q(-6,-2,12,2,'#a5486a');
+  // flour-dusted apron
+  q(-4,-12,8,11,'#f5f0e6'); q(-4,-12,8,1,'#d8d2c2'); q(-1,-12,1,11,'#e2dcce');
+  q(-3,-6,1,1,'#ffffff'); q(2,-4,1,1,'#ffffff');       // flour smudges
+  // apron ties over the shoulders
+  q(-6,-15,12,2,'#a5486a'); q(-2,-14,1,4,'#a5486a'); q(1,-14,1,4,'#a5486a');
+  // arms + a hand
+  q(-7,-13,2,7,'#a5486a'); q(-7,-7,2,2,'#efc9a6'); q(5,-13,2,7,'#a5486a');
+  // face
+  q(-3,-22,7,6,'#efc9a6'); q(3,-22,1,6,'#e0b48c');
+  q(-2,-20,1,1,'#4a3428'); q(1,-20,1,1,'#4a3428');    // eyes
+  q(0,-19,1,1,'#e0b48c');                             // nose
+  q(-1,-18,2,1,'#c96a6a');                            // smile
+  // brown hair, parted, with a bun
+  q(-4,-25,9,4,'#8a5a3b'); q(-1,-27,4,3,'#7a4d30');
+  q(-4,-25,9,1,'#9c6a45'); q(-4,-23,1,4,'#7a4d30'); q(4,-23,1,4,'#7a4d30');
+  if (DETAIL){
+    q(-3,-19,1,1,'#f2d8bc'); q(2,-19,1,1,'#f2d8bc');   // cheeks
+    q(-1,-10,2,1,'#ffffff');                           // more flour
+  }
+  ctx.restore();
+}
+function drawFrog(x, y, t){
+  const puff = Math.sin(t*3.5) > .4 ? 2 : 0;
+  const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
+  disc(x, y-4, 6, '#5a8f3c'); disc(x-1, y-5, 4, '#6ba046');    // body + lit back
+  disc(x, y-1+puff*.5, 4+puff, '#8fbf68');                     // pale throat, puffs
+  disc(x-4, y-9, 2.5, '#5a8f3c'); disc(x+4, y-9, 2.5, '#5a8f3c'); // eye bumps
+  q(-1+x-4, y-10, 2, 2, '#fff'); q(-1+x+4, y-10, 2, 2, '#fff');
+  q(x-4, y-10, 1, 1, '#222'); q(x+4, y-10, 1, 1, '#222');       // pupils
+  q(x-3, y-3, 6, 1, '#3f6b28');                                 // wide mouth
+  q(x-6, y+1, 4, 2, '#4a7a30'); q(x+3, y+1, 4, 2, '#4a7a30');   // webbed feet
+  q(x-2, y-6, 1, 1, '#4a7a30'); q(x+1, y-7, 1, 1, '#4a7a30');   // back spots
+  q(x-3, y-6, 1, 1, '#6ba046');
+  if (DETAIL){
+    q(x-2, y-2, 4, 1, '#3f6b28');
+    q(x-5, y-11, 1, 1, '#d0e8c0'); q(x+3, y-11, 1, 1, '#d0e8c0'); // eye shine
+    q(x, y-2+puff*.5, 2, 1, '#a5cd80');                          // throat pulse
+  }
+}
+function drawCatInTree(x, y, t){
+  const q = (px,py,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px,py,w,h); };
+  disc(x, y, 5, '#f5f5f5'); disc(x-1, y-1, 3, '#ffffff');       // body + highlight
+  disc(x+5, y-4, 3.5, '#f5f5f5');                               // head
+  q(x+3, y-9, 2, 3, '#f5f5f5'); q(x+6, y-9, 2, 3, '#f5f5f5');   // ears
+  q(x+3, y-8, 1, 1, '#e8a0a8'); q(x+6, y-8, 1, 1, '#e8a0a8');   // inner ears
+  q(x+4, y-5, 1, 1, '#3fa34d'); q(x+7, y-5, 1, 1, '#3fa34d');   // green eyes
+  q(x+5, y-3, 2, 1, '#e8a0a8');                                 // nose
+  q(x+2, y-2, 2, 1, '#d8d8d8'); q(x+2, y+1, 3, 1, '#e0e0e0');   // ginger patches
+  const tw = Math.sin(t*4)*3;
+  q(x-7, y-2+tw*.5, 3, 2, '#f5f5f5'); q(x-9, y-4+tw, 3, 2, '#f5f5f5'); q(x-10, y-6+tw, 2, 2, '#f5f5f5'); // curling tail
+  if (DETAIL){
+    q(x+4, y-9, 1, 1, '#e8a0a8'); q(x+7, y-9, 1, 1, '#e8a0a8');
+    q(x+3, y-5, 1, 1, '#2e7d3a'); q(x+6, y-5, 1, 1, '#2e7d3a'); // eye shine
+    q(x+8, y-3, 2, 1, '#b7b7b7');                               // whiskers
+  }
+}
+function gorge(xEdge, dir, seed, t){
+  ctx.fillStyle = '#221d1a';
+  ctx.beginPath();
+  ctx.moveTo(xEdge + (hash(0,seed)*14-7), 100);
+  for (let i=1;i<=10;i++) ctx.lineTo(xEdge + (hash(i,seed)*14-7), 100+i*10);
+  ctx.lineTo(xEdge + dir*(OV+40), 200); ctx.lineTo(xEdge + dir*(OV+40), 100);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#151110';
+  ctx.beginPath();
+  ctx.moveTo(xEdge + dir*12 + (hash(0,seed+1)*10-5), 100);
+  for (let i=1;i<=10;i++) ctx.lineTo(xEdge + dir*12 + (hash(i,seed+1)*12-6), 100+i*10);
+  ctx.lineTo(xEdge + dir*(OV+40), 200); ctx.lineTo(xEdge + dir*(OV+40), 100);
+  ctx.closePath(); ctx.fill();
+  for (let i=0;i<=10;i+=2){
+    disc(xEdge + (hash(i,seed)*14-7) - dir*3, 102+i*9.6, 2.5, '#5a5148');
+  }
+  for (let i=0;i<3;i++){
+    const my = 200 - ((t*7 + i*33) % 95);
+    disc(xEdge + dir*(18+hash(i,seed+2)*20), my, 7, 'rgba(205,205,215,' + Math.max(0,.09 - (200-my)/1400) + ')');
+  }
+}
+function drawZ(x, y, a){
+  ctx.fillStyle = 'rgba(255,255,255,' + a + ')';
+  ctx.fillRect(x,y,4,1); ctx.fillRect(x+2,y+1,1,1); ctx.fillRect(x+1,y+2,1,1); ctx.fillRect(x,y+3,4,1);
+}
+function drawDragon(x, y, t, mode){
+  const br = Math.sin(t*1.1)*1.2;
+  shadow(x-6, y, 30);
+  // curling tail with a spiked tip
+  disc(x+28, y-8, 6, '#b2432a'); disc(x+36, y-12, 4, '#b2432a'); disc(x+42, y-17, 3, '#b2432a');
+  ctx.fillStyle = '#e8c245';
+  ctx.beginPath(); ctx.moveTo(x+42,y-20); ctx.lineTo(x+47,y-19); ctx.lineTo(x+43,y-15); ctx.fill();
+  // body with a lit upper ridge
+  ctx.fillStyle = '#c34a2e';
+  ctx.beginPath(); ctx.ellipse(x, y-13+br*.4, 26, 13, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#d75e3e';
+  ctx.beginPath(); ctx.ellipse(x, y-18+br*.4, 22, 7, 0, 0, 7); ctx.fill();       // sunlit back
+  // pale scaled belly
+  ctx.fillStyle = '#e8916d';
+  ctx.beginPath(); ctx.ellipse(x-2, y-7, 18, 6, 0, 0, 7); ctx.fill();
+  for (let i=0;i<5;i++) R(x-14+i*7, y-8, 5, 1, 'rgba(255,200,170,.45)');          // belly plates
+  // scale rows across the back (always visible now)
+  for (let i=0;i<6;i++){ R(x-19+i*7, y-17+(i%2)*3+br*.4, 3, 1, '#a83c22'); }
+  // folded wing: membrane + bones
+  ctx.fillStyle = '#a03a22';
+  ctx.beginPath(); ctx.moveTo(x-6, y-24+br); ctx.lineTo(x+18, y-30+br); ctx.lineTo(x+20, y-14); ctx.fill();
+  ctx.fillStyle = '#b8492c';
+  ctx.beginPath(); ctx.moveTo(x-4, y-23+br); ctx.lineTo(x+14, y-27+br); ctx.lineTo(x+16, y-16); ctx.fill();
+  ctx.strokeStyle = '#7e2d1a'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x-5, y-23+br); ctx.lineTo(x+15, y-19); ctx.moveTo(x+4, y-27+br); ctx.lineTo(x+8, y-16); ctx.stroke();
+  // spined back ridge
+  R(x-12, y-28+br, 4, 4, '#7e2d1a'); R(x-3, y-30+br, 4, 4, '#7e2d1a'); R(x+6, y-28+br, 4, 4, '#7e2d1a');
+  // legs with claws
+  R(x-18, y-6, 7, 6, '#b2432a'); R(x+9, y-6, 7, 6, '#b2432a');
+  R(x-18, y-1, 1, 1, '#e8c245'); R(x-15, y-1, 1, 1, '#e8c245'); R(x-12, y-1, 1, 1, '#e8c245');
+  R(x+9, y-1, 1, 1, '#e8c245'); R(x+12, y-1, 1, 1, '#e8c245'); R(x+15, y-1, 1, 1, '#e8c245');
+  const hd = mode === 'eat' ? 7 + Math.sin(t*7)*2 : br;
+  const hy = y - 21 + hd;
+  // head with lit brow, nostril, and shining horns
+  R(x-42, hy, 18, 11, '#c34a2e'); R(x-42, hy, 18, 2, '#d75e3e');
+  R(x-49, hy+4, 9, 6, '#c34a2e'); R(x-49, hy+8, 8, 1, '#7e2d1a');
+  R(x-47, hy+5, 2, 1, '#7e2d1a');                                                  // nostril
+  R(x-28, hy-4, 3, 5, '#e8c245'); R(x-33, hy-3, 3, 4, '#e8c245');                  // horns
+  R(x-28, hy-4, 1, 3, '#fff2b0'); R(x-33, hy-3, 1, 2, '#fff2b0');                  // horn shine
+  R(x-24, hy+2, 4, 1, '#a83c22');                                                  // cheek scale
+  if (DETAIL){
+    for (let i=0;i<5;i++){ R(x-15+i*7, y-11, 3, 1, '#a03a22'); }
+    R(x-46, hy+2, 2, 1, '#7e2d1a');
+    R(x+30, y-9, 2, 1, '#7e2d1a'); R(x+37, y-13, 2, 1, '#7e2d1a');
+  }
+  if (mode === 'sleep'){
+    R(x-39, hy+3, 5, 1, '#5c1f10');
+    for (let i=0;i<2;i++){
+      const p = ((t*.45 + i*.5) % 1);
+      disc(x-50, hy+3 - p*24, 2 + p*4, 'rgba(190,190,200,' + (.32*(1-p)) + ')');
+    }
+    for (let i=0;i<3;i++){
+      const p = ((t*.7 + i*.33) % 1);
+      drawZ(x+2 + i*7 + p*7, y - 36 - p*14, .8*(1-p));
+    }
+  } else {
+    R(x-39, hy+2, 5, 3, '#ffd54f'); R(x-37, hy+3, 2, 2, '#3b0f06');
+  }
+}
+function water(x, y, w, h, t, seed){
+  R(x, y, w, h, '#2f6fd0');
+  for (let i=0;i<14;i++){
+    const wy = y + ((i*17 + t*18 + hash(i,seed)*h) % h);
+    R(x + 4 + hash(i, seed+1) * (w-16), wy, 8, 2, 'rgba(210,235,255,.35)');
+  }
+}
+function crystal(x, y, h, c, t, i){
+  R(x-2, y-h, 4, h, c); R(x-5, y-h+5, 3, h-8, c); R(x+3, y-h+7, 3, h-10, c);
+  R(x-1, y-h, 1, Math.floor(h*.5), '#eaf6ff');
+  if (Math.sin(t*2.5 + i) > .3){ // hard blinking twinkle
+    R(x-1, y-h-3, 1, 1, '#ffffff'); R(x+2, y-h+3, 1, 1, '#dff0ff'); R(x-4, y-h+8, 1, 1, '#dff0ff');
+  }
+}
+
+// ---------- Whispering Forest: enriched, scene-specific rendering ----------
+// A gradient sky with a hazy sun, layered treeline depth, shaded oaks and
+// dappled light. Kept forest-local so other scenes stay untouched for now.
+function fSky(t){
+  // classic flat sky: one blue, a dithered step, a pale horizon band
+  R(-OV, 0, W+2*OV, 82, '#4a72e0');
+  dRect(-OV, 74, W+2*OV, 10, '#4a72e0', '#8ab2ee');
+  R(-OV, 84, W+2*OV, 34, '#8ab2ee');
+  disc(288, 24, 10, '#fff7cc'); disc(288, 24, 7, '#ffe9a0'); // flat sun
+  ctx.fillStyle = '#1c2a4a'; // black-pixel birds
+  const span = W + 2*OV + 80;
+  for (let i=0;i<3;i++){
+    const bx = (((t*7 + i*120) % span) - OV - 40)|0, by = 22 + i*8;
+    const up = Math.sin(t*6 + i) > 0 ? 1 : 0;
+    ctx.fillRect(bx-3, by+1-up, 3, 1); ctx.fillRect(bx+1, by+1-up, 3, 1);
+    ctx.fillRect(bx-5, by+up, 2, 1); ctx.fillRect(bx+4, by+up, 2, 1);
+  }
+}
+function fClouds(t){
+  const span = W + 2*OV + 140;
+  const puff = (x, y, s) => { // flat-bottomed, dome-topped storybook cloud
+    x = x|0; y = y|0;
+    R(x - 16*s, y, 32*s, 5*s, '#f6fbff');
+    R(x - 11*s, y - 4*s, 22*s, 4*s, '#f6fbff');
+    R(x - 5*s, y - 7*s, 11*s, 3*s, '#f6fbff');
+    dRect(x - 16*s, y + 3*s, 32*s, 2*s, '#f6fbff', '#c9d8ea'); // shaded underside
+  };
+  puff(((t*4) % span) - OV - 70, 30, 1);
+  puff(((t*3 + span*.5) % span) - OV - 70, 50, .75);
+}
+function fFar(){
+  ctx.fillStyle = '#a7d0b0'; // rolling far hills, hard-edged
+  for (let i=0;i<56;i++){
+    const hx = -OV + i*((W+2*OV)/56);
+    const hh = 10 + Math.sin(i*.7)*5 + hash(i,29)*4;
+    ctx.fillRect(hx|0, (94-hh)|0, 21, (hh+2)|0);
+  }
+  ctx.fillStyle = '#5f9a68'; // dark treeline teeth
+  for (let i=0;i<52;i++){
+    const tx = -OV + i*((W+2*OV)/52);
+    const th = 5 + hash(i,31)*8;
+    ctx.fillRect(tx|0, (96-th)|0, 11, (th+2)|0);
+  }
+  R(-OV, 94, W+2*OV, 3, '#5f9a68');
+  R(-OV, 96, W+2*OV, 10, '#e6dc8e'); // sunlit clearing band under the woods
+  dRect(-OV, 100, W+2*OV, 6, '#e6dc8e', '#79ea5c');
+}
+function fGround(){
+  const top = 100;
+  const g = ctx.createLinearGradient(0, top, 0, H);
+  g.addColorStop(0, '#4fa855'); g.addColorStop(1, '#2c743a');
+  ctx.fillStyle = g; ctx.fillRect(-OV, top, W+2*OV, H-top);
+  for (let i=0;i<46;i++){ // sunlit dapples
+    disc(-OV + hash(i,3)*(W+2*OV), top + 4 + hash(i,4)*(H-top-6), 2 + hash(i,5)*4, 'rgba(255,255,205,.05)');
+  }
+  for (let i=0;i<200;i++){ // grass blades, dark & light
+    R(-OV + hash(i,1)*(W+2*OV), top + 3 + hash(i,2)*(H-top-4), 1, 2,
+      hash(i,6) > .5 ? 'rgba(24,84,36,.5)' : 'rgba(120,200,120,.35)');
+  }
+  // crossroads path — dirt with a lit crown down the middle
+  const pv = ctx.createLinearGradient(148, 0, 172, 0);
+  pv.addColorStop(0, '#a5824a'); pv.addColorStop(.5, '#d0ad6b'); pv.addColorStop(1, '#a5824a');
+  ctx.fillStyle = pv; ctx.fillRect(148, top, 24, H-top);
+  const ph = ctx.createLinearGradient(0, 144, 0, 166);
+  ph.addColorStop(0, '#a5824a'); ph.addColorStop(.5, '#d0ad6b'); ph.addColorStop(1, '#a5824a');
+  ctx.fillStyle = ph; ctx.fillRect(-OV, 146, W+2*OV, 18);
+  for (let i=0;i<70;i++){ // scattered pebbles
+    if (i%2) R(150 + hash(i,12)*20, top + hash(i,11)*(H-top), 2, 1, 'rgba(120,92,48,.6)');
+    else R(-OV + hash(i,13)*(W+2*OV), 147 + hash(i,14)*16, 2, 1, 'rgba(120,92,48,.5)');
+  }
+  ctx.fillStyle = 'rgba(30,90,42,.4)'; // grassy edges, outlining the crossroads
+  ctx.fillRect(147, top, 1, 146-top); ctx.fillRect(172, top, 1, 146-top);
+  ctx.fillRect(147, 164, 1, H-164); ctx.fillRect(172, 164, 1, H-164);
+  ctx.fillRect(-OV, 145, OV+148, 1); ctx.fillRect(172, 145, W+OV-172, 1);
+  ctx.fillRect(-OV, 163, OV+148, 1); ctx.fillRect(172, 163, W+OV-172, 1);
+}
+function fTree(x, y, sc, t, i){ kTree(x, y, sc, t, i); } // classic chunky oak everywhere
+function fMotes(t){
+  for (let i=0;i<18;i++){
+    const mx = -20 + hash(i,20)*(W+60) + Math.sin(t*.5 + i*1.3)*10;
+    const my = 108 + hash(i,21)*80 + Math.sin(t*.7 + i)*6;
+    const a = .1 + Math.sin(t*1.5 + i*2)*.12;
+    if (a > 0) disc(mx, my, hash(i,22) > .7 ? 1.4 : .8, 'rgba(255,255,210,' + a.toFixed(3) + ')');
+  }
+}
+
+// ---------- classic Sierra-style helpers (flat fills + checker dithering) ----------
+// The KQ-era look: no gradients — two colours interleaved in a 1px checkerboard
+// read as a third shade from a distance. Rooms opt in with `kq: true`, which
+// also switches off the HD bloom/vignette grade so edges stay hard.
+const DPAT = new Map();
+function dpat(c1, c2){
+  const key = c1 + '|' + c2 + '|' + PX;
+  let p = DPAT.get(key);
+  if (!p){
+    const pc = document.createElement('canvas');
+    pc.width = pc.height = 2*PX;
+    const g = pc.getContext('2d');
+    g.fillStyle = c1; g.fillRect(0, 0, 2*PX, 2*PX);
+    g.fillStyle = c2; g.fillRect(0, 0, PX, PX); g.fillRect(PX, PX, PX, PX);
+    p = ctx.createPattern(pc, 'repeat');
+    DPAT.set(key, p);
+  }
+  return p;
+}
+function dRect(x, y, w, h, c1, c2){ ctx.fillStyle = dpat(c1, c2); ctx.fillRect(x|0, y|0, w, h); }
+const DPATA = new Map();
+function dpatA(c){ // checkerboard of colour and TRANSPARENT — for dithered shadow rims
+  const key = c + '|' + PX;
+  let p = DPATA.get(key);
+  if (!p){
+    const pc = document.createElement('canvas');
+    pc.width = pc.height = 2*PX;
+    const g = pc.getContext('2d');
+    g.fillStyle = c; g.fillRect(0, 0, PX, PX); g.fillRect(PX, PX, PX, PX);
+    p = ctx.createPattern(pc, 'repeat');
+    DPATA.set(key, p);
+  }
+  return p;
+}
+// a ragged, hard-edged mass built from chunky squares (c may be a dither pattern)
+function clump(x, y, r, c, seed){
+  ctx.fillStyle = c;
+  ctx.fillRect((x - r*.72)|0, (y - r*.55)|0, (r*1.44)|0, (r*1.1)|0);
+  const n = (10 + r)|0;
+  for (let k=0;k<n;k++){
+    const a = k/n*6.283, rr = r*(.6 + hash(k,seed)*.45);
+    const bs = (2 + hash(k,seed+9)*3)|0;
+    ctx.fillRect((x + Math.cos(a)*rr - bs/2)|0, (y + Math.sin(a)*rr*.75 - bs/2)|0, bs, bs);
+  }
+}
+function kSky(t){
+  R(-OV, 0, W+2*OV, 88, '#4a72e0');                 // one flat storybook blue
+  dRect(-OV, 78, W+2*OV, 10, '#4a72e0', '#8ab2ee'); // dithered step, not a gradient
+  R(-OV, 88, W+2*OV, 30, '#8ab2ee');                // pale band at the horizon
+  ctx.fillStyle = '#1c2a4a';                        // black-pixel birds
+  const span = W + 2*OV + 80;
+  for (let i=0;i<3;i++){
+    const bx = (((t*7 + i*120) % span) - OV - 40)|0, by = 22 + i*9;
+    const up = Math.sin(t*6 + i) > 0 ? 1 : 0;
+    ctx.fillRect(bx-3, by+1-up, 3, 1); ctx.fillRect(bx+1, by+1-up, 3, 1);
+    ctx.fillRect(bx-5, by+up, 2, 1); ctx.fillRect(bx+4, by+up, 2, 1);
+  }
+}
+function kFar(){
+  ctx.fillStyle = '#2c3f8c'; // the silent castle, flat on the horizon
+  ctx.fillRect(196, 74, 30, 24);
+  ctx.fillRect(192, 68, 8, 30); ctx.fillRect(222, 68, 8, 30);
+  ctx.fillRect(192, 64, 2, 4); ctx.fillRect(196, 64, 2, 4);
+  ctx.fillRect(224, 64, 2, 4); ctx.fillRect(228, 64, 2, 4);
+  ctx.fillRect(207, 58, 8, 40); ctx.fillRect(206, 54, 10, 4); ctx.fillRect(210, 50, 2, 4);
+  dRect(190, 88, 42, 10, '#2c3f8c', '#8ab2ee');
+  ctx.fillStyle = '#1d5c1e'; // jagged dark treeline, hard-edged
+  for (let i=0;i<52;i++){
+    const tx = -OV + i*((W+2*OV)/52);
+    const th = 6 + hash(i,31)*9;
+    ctx.fillRect(tx|0, (98-th)|0, 11, (th+2)|0);
+  }
+  R(-OV, 96, W+2*OV, 4, '#1d5c1e');
+  R(-OV, 100, W+2*OV, 5, '#e6dc8e'); // sunlit clearing strip below the woods
+  dRect(-OV, 103, W+2*OV, 3, '#e6dc8e', '#46e93c');
+  for (let i=0;i<14;i++){ // tiny coloured accents along the strip
+    R(-OV + hash(i,55)*(W+2*OV), 101 + hash(i,56)*3, 2, 1, i%2 ? '#e05858' : '#e070d8');
+  }
+}
+// the crossroads meander: centreline + half-width of each way at a world coord
+function kPathV(py){
+  return { c: 160 + Math.sin(py*.06)*7 + Math.sin(py*.15)*3,
+           h: 11 + Math.sin(py*.09+2)*2 + (hash(py,41)-.5)*3 + 5*Math.exp(-(py-155)*(py-155)/400) };
+}
+function kPathH(px){
+  return { c: 155 + Math.sin(px*.045)*5 + Math.sin(px*.013)*3,
+           h: 8 + Math.sin(px*.07+1)*1.5 + (hash(px,43)-.5)*3 + 4*Math.exp(-(px-160)*(px-160)/500) };
+}
+function kGround(){
+  const top = 105;
+  R(-OV, top, W+2*OV, H-top, '#46e93c'); // one flat classic green
+  ctx.fillStyle = '#8cff70'; // hard-edged sunlit streaks
+  for (let i=0;i<26;i++){
+    const gx = -OV + hash(i,71)*(W+2*OV), gy = top+6 + hash(i,72)*(H-top-14);
+    ctx.fillRect(gx|0, gy|0, (8+hash(i,73)*26)|0, 2);
+  }
+  for (let i=0;i<10;i++){ // dithered shade patches
+    const gx = -OV + hash(i,74)*(W+2*OV), gy = top+4 + hash(i,75)*(H-top-16);
+    dRect(gx, gy, (12+hash(i,76)*30)|0, (4+hash(i,77)*6)|0, '#46e93c', '#2fae2e');
+  }
+  // winding crossroads: the two ways meander, swell at the junction and
+  // keep ragged hand-drawn edges — no straight lines in a forest
+  const x0 = -OX - 6, x1 = DW - OX + 6;
+  for (let py=100; py<H; py+=2){ // north-south way
+    const p = kPathV(py);
+    R(p.c - p.h, py, 2*p.h, 2, '#b07f3e');
+    R(p.c - p.h*.35, py, p.h*.7, 2, '#bb8a48'); // worn lighter middle
+  }
+  for (let px=x0; px<x1; px+=2){ // east-west way
+    const p = kPathH(px);
+    R(px, p.c - p.h, 2, 2*p.h, '#b07f3e');
+    R(px, p.c - p.h*.3, 2, p.h*.6, '#bb8a48');
+  }
+  for (let py=100; py<H; py+=2){ // ragged dark edges, skipped at the junction
+    const p = kPathV(py);
+    for (const ex of [p.c - p.h - 1, p.c + p.h - 1]){
+      const q = kPathH(ex);
+      if (Math.abs(py - q.c) > q.h) R(ex, py, 1.6, 2, '#6b451c');
+    }
+  }
+  for (let px=x0; px<x1; px+=2){
+    const p = kPathH(px);
+    for (const ey of [p.c - p.h - 1, p.c + p.h - 1]){
+      const q = kPathV(ey);
+      if (Math.abs(px - q.c) > q.h) R(px, ey, 2, 1.6, '#6b451c');
+    }
+  }
+  for (let i=0;i<30;i++){ // worn dithered patches along both ways
+    const on = i < 13;
+    let wx, wy;
+    if (on){ wy = 102 + hash(i,92)*(H-110); wx = kPathV(wy).c - 7 + hash(i,90)*12; }
+    else { wx = -OV + hash(i,91)*(W+2*OV); wy = kPathH(wx).c - 6 + hash(i,93)*10; }
+    dRect(wx, wy, (4+hash(i,94)*8)|0, (2+hash(i,95)*3)|0, '#b07f3e', '#7c5424');
+  }
+  kDirt(-OV, 188, W+2*OV, 12, 5); // ragged dirt strip frames the foreground
+  ctx.fillStyle = '#2fae2e'; // spiky grass tufts
+  for (let i=0;i<18;i++){
+    const tx = (-OV + hash(i,78)*(W+2*OV))|0, ty = (112 + hash(i,79)*(H-126))|0;
+    const pv = kPathV(ty), ph = kPathH(tx);
+    if (Math.abs(tx - pv.c) < pv.h + 5 || Math.abs(ty - ph.c) < ph.h + 5) continue;
+    ctx.fillRect(tx, ty, 1, 3); ctx.fillRect(tx+2, ty-1, 1, 4); ctx.fillRect(tx+4, ty, 1, 3);
+  }
+  for (let i=0;i<16;i++){ // tiny pixel-flower clusters
+    const fx = (-OV + hash(i,80)*(W+2*OV))|0, fy = (top+8 + hash(i,81)*(H-top-32))|0;
+    const qv = kPathV(fy), qh = kPathH(fx);
+    if (Math.abs(fx - qv.c) < qv.h + 4 || Math.abs(fy - qh.c) < qh.h + 4) continue;
+    const c = i%3 ? '#e070d8' : '#8f7ae8';
+    R(fx, fy, 2, 2, c); R(fx+3, fy-1, 1, 1, c); R(fx-2, fy+1, 1, 1, '#f2b3ea');
+  }
+}
+function kRock(x, y, s, shc){
+  // flat-shaded boulder: black silhouette, lit crown, dithered flank, cracks
+  // scanline rows with a rounded, jittered profile — reads as a real boulder
+  const rows = Math.round(24*s);
+  for (let k=0; k<rows; k++){
+    const f = k/rows, ry = y - rows + k;
+    let hw = 14*s*Math.sin(3.1416*(0.09 + 0.66*f)) + (hash(k,7) - .5)*1.6*s;
+    if (hw < 2) hw = 2;
+    R(x - hw - 1, ry, 2*hw + 2, 1, '#14161a');   // hard outline
+    if (k > 0 && k < rows-1){
+      const split = x - hw*.2 + (f - .45)*6*s;    // diagonal light/shade split
+      R(x - hw, ry, Math.max(1, split - (x - hw)), 1, f < .18 ? '#c2c8ce' : '#aab2b8');
+      R(split, ry, x + hw - split, 1, f < .3 ? '#9aa2aa' : '#7c848c');
+      if (f > .38) dRect(x + hw*.25, ry, hw*.7, 1, '#7c848c', '#3e454c'); // dithered flank
+      if (f > .8) dRect(x - hw*.6, ry, hw*1.1, 1, '#6a727a', '#565e66');  // bottom shade
+    }
+  }
+  R(x - 2, y - rows + 5, 1, 8, '#14161a');  // cracks
+  R(x + 4, y - rows*.5, 1, 8, '#14161a');
+  R(x - 12*s, y - 1, 24*s, 2, shc || '#2fae2e'); // ground contact shadow
+}
+function kStump(x, y, s){
+  R(x - 7*s, y - 2, 14*s, 3, '#241505');    // base outline
+  R(x - 6*s, y - 8*s, 12*s, 8*s, '#6b4526');
+  R(x - 6*s, y - 8*s, 3*s, 8*s, '#4a2c12'); // shaded side
+  R(x - 6*s, y - 11*s, 12*s, 4*s, '#241505'); // rim
+  R(x - 5*s, y - 10.4*s, 10*s, 2.6*s, '#c9a05e'); // cut face
+  R(x - 3*s, y - 9.6*s, 6*s, 1.2*s, '#8a6a38');   // rings
+  R(x - 8*s, y - 6*s, 2*s, 5*s, '#3a2410'); // root flares
+  R(x + 6*s, y - 5*s, 2*s, 4*s, '#3a2410');
+}
+function kHoard(cxb, base){
+  // the dragon's hoard: a ragged golden mound built row by row, with coin
+  // glints, a dithered flank, spilled coins and treasures poking out
+  const rows = 44;
+  for (let k=0;k<rows;k++){
+    const f = k/rows, ry = base - rows + k;
+    const cx = cxb + f*6;
+    let hw = 44*Math.sin(3.1416*(0.12 + 0.62*f)) + (hash(k,120)-.5)*4;
+    if (hw < 6) hw = 6;
+    R(cx - hw - 1, ry, 2*hw + 2, 1, '#7a5c14');                 // dark rim
+    R(cx - hw, ry, hw*.6, 1, f < .2 ? '#f4d565' : '#e8c245');   // lit crest/side
+    R(cx - hw*.4, ry, hw*1.4, 1, '#c9a227');                    // body gold
+    if (f > .3) dRect(cx + hw*.28, ry, hw*.7, 1, '#c9a227', '#8a6a1a'); // shade
+  }
+  for (let i=0;i<34;i++){ // coin edges glinting all over the mound
+    const f2 = .15 + hash(i,121)*.8;
+    const ry = base - rows + f2*rows;
+    const hw = 40*Math.sin(3.1416*(0.12 + 0.62*f2));
+    const px2 = cxb + f2*6 - hw + hash(i,122)*hw*1.9;
+    R(px2, ry, 2, 1, '#f4d565'); R(px2, ry+1, 2, 1, '#8a6a1a');
+  }
+  for (let i=0;i<12;i++){ // spilled coins around the base
+    const px2 = cxb - 54 + hash(i,123)*108, py2 = base - 3 + hash(i,124)*6;
+    R(px2, py2, 3, 2, '#c9a227'); R(px2, py2, 1, 1, '#f4d565');
+  }
+  R(cxb-32, base-15, 8, 1, '#7a5c14'); // goblet on the flank
+  R(cxb-31, base-14, 6, 2, '#f4d565');
+  R(cxb-30, base-12, 4, 4, '#9a7a1e');
+  R(cxb-30, base-12, 1, 3, '#f4d565');
+  R(cxb-29, base-8, 2, 3, '#7a5c14');
+  R(cxb-31, base-5, 6, 2, '#9a7a1e');
+  [[-12,-18,'#d84040'],[22,-26,'#4a6bdf'],[34,-8,'#3fae46'],[8,-34,'#c04ad0']].forEach(g=>{
+    R(cxb+g[0], base+g[1], 2, 2, g[2]); R(cxb+g[0], base+g[1], 1, 1, '#ffffff'); // gems
+  });
+  for (let i=0;i<5;i++) R(cxb-22 + i*3, base-2 + (i%2), 1, 1, '#f2ecdc'); // pearls
+  R(cxb+34, base-32, 2, 12, '#d4d8e0'); R(cxb+34, base-32, 1, 12, '#f0f3f8'); // sword
+  R(cxb+31, base-21, 8, 2, '#e8c245'); R(cxb+34, base-19, 2, 5, '#6b4a2b');
+}
+function kCanopyTop(){
+  // foliage hanging over the top of the frame, as if from huge trees just
+  // out of view — the classic Sierra framing device
+  const dk = '#123f10', dd = dpat('#123f10','#2c8a24');
+  for (let i=0;i<28;i++){
+    const cx = -OV + i*((W+2*OV)/28) + hash(i,61)*16;
+    if (cx > 112 && cx < 256) continue; // keep the castle view open
+    const r = 13 + hash(i,62)*11;
+    clump(cx, -9 + hash(i,63)*10, r, dk, i+70);
+    clump(cx - 5, -10 + hash(i,63)*7, r*.72, dd, i+80);
+  }
+}
+function kDirt(x, y, w, h, seed){
+  ctx.fillStyle = '#9a6a30';
+  const n = Math.ceil(w/14);
+  for (let i=0;i<=n;i++){ // stepped ragged top edge
+    ctx.fillRect((x + i*14)|0, (y - 2 - hash(i,seed)*5)|0, 15, 8);
+  }
+  dRect(x, y, w, h, '#9a6a30', '#5c3a14');
+}
+function kTree(x, y, sc, t, i){
+  R(x - 12*sc, y - 1, 24*sc, 3, '#2fae2e'); // flat hard-edged shadow
+  R(x - 8*sc, y + 2, 16*sc, 2, '#2fae2e');
+  const th = 20*sc;
+  R(x - 3*sc - 1, y - th, 1.2, th, '#241505'); // outlines
+  R(x + 3*sc, y - th, 1.2, th, '#241505');
+  R(x - 3*sc, y - th, 6*sc, th, '#7a4e26');  // flat trunk
+  R(x - 3*sc, y - th, 2*sc, th, '#54351a');  // flat shaded side
+  dRect(x + 0.5*sc, y - th + 3, 1.5*sc, th - 5, '#7a4e26', '#54351a'); // bark
+  for (let k=0;k<3;k++){ // black bark slashes
+    R(x - 2.4*sc + hash(k,i+60)*3*sc, y - th + (4 + k*5.5)*sc, 2.5*sc, 1, '#241505');
+  }
+  R(x - 5*sc, y - 3, 2*sc, 3, '#54351a'); // root flares
+  R(x + 3*sc, y - 3, 2*sc, 3, '#54351a');
+  R(x - 5.6*sc, y - 1, 2*sc, 2, '#241505');
+  R(x + 3.8*sc, y - 1, 2*sc, 2, '#241505');
+  const cy = y - th - 6*sc;
+  const sway = Math.sin(t*.6 + i*1.9) * 1.2;
+  const dk = '#144a12', md = '#2c8a24', dd = dpat('#144a12','#2c8a24');
+  const B = (dx, dy, r, c, sd) => clump(x + dx*sc, cy + dy*sc, r*sc, c, i*7 + sd);
+  B(0, 2, 12, dk, 1); B(-11, -1, 9, dk, 2); B(11, -1, 9, dk, 3); // broad oak lobes
+  B(0, -8, 10, dk, 4);
+  B(-5, -3, 9, dd, 5); B(7, -4, 8, dd, 6); B(1, 1, 9, dd, 7);    // dithered body
+  B(7, 2, 8, dpat('#144a12','#082408'), 10);                     // deep shade, near-black
+  B(-8 + sway/sc, -7, 6, md, 8); B(5 + sway/sc, -9, 6, md, 9);   // lit lobes
+  ctx.fillStyle = '#4fc23a'; // chunky top highlights
+  for (let k=0;k<10;k++){
+    ctx.fillRect((x - 9*sc + hash(k,i+40)*16*sc + sway)|0, (cy - 8*sc + hash(k,i+50)*8*sc)|0, 2, 2);
+  }
+}
+
+// ---------- shared scene-enrichment helpers ----------
+// classic flat "gradient": two bands with a dithered seam — no real gradients.
+// y0/y1 are the old gradient stops (world y); the seam sits at their midpoint.
+function gradFill(x, y, w, h, y0, y1, stops){
+  const c0 = stops[0][1], c1 = stops[stops.length-1][1];
+  if (c0 === c1 || y1 <= y0){ R(x, y, w, h, c1); return; }
+  const ym = Math.max(y, Math.min(y + h, (y0 + y1) / 2));
+  R(x, y, w, ym - y, c0);
+  R(x, ym, w, y + h - ym, c1);
+  const bh = Math.min(6, h * .34);
+  dRect(x, ym - bh/2, w, bh, c0, c1);
+}
+// classic art has no soft glows — kept as a no-op so call sites stay simple
+function glow(x, y, r, inner, outer){}
+// a worn dirt way with ragged edges, wandering gently (vertical strip)
+function pathV(x, y, w, h){
+  const cx = x + w/2;
+  for (let py=y; py<y+h; py+=2){
+    const hw = w/2 + (hash(py,47)-.5)*3 + Math.sin(py*.08)*1.5;
+    R(cx - hw, py, 2*hw, 2, '#b07f3e');
+    R(cx - hw*.35, py, hw*.7, 2, '#bb8a48');
+    R(cx - hw - 1.5, py, 1.5, 2, '#6b451c'); R(cx + hw, py, 1.5, 2, '#6b451c');
+  }
+}
+// gnarled, moonlit dead tree for the Dark Woods
+function dTree(x, y, sc, i){
+  ctx.fillStyle = 'rgba(0,0,0,.22)';
+  ctx.beginPath(); ctx.ellipse(x, y+1, 10*sc, 3*sc, 0, 0, 7); ctx.fill();
+  const h = 28*sc;
+  R(x - 2*sc, y - h, 4*sc, h, '#4a443c');
+  R(x - 2*sc, y - h, 1.5*sc, h, '#37322c');              // shaded side
+  R(x + 0.6*sc, y - h, 1*sc, h, 'rgba(158,163,186,.4)'); // moonlit rim
+  R(x - 11*sc, y - h + 4, 9*sc, 2, '#4a443c'); R(x - 13*sc, y - h - 1, 3*sc, 6*sc, '#4a443c');
+  R(x + 2*sc, y - h + 9, 10*sc, 2, '#4a443c'); R(x + 10*sc, y - h + 4, 3*sc, 6*sc, '#4a443c');
+  R(x - 1*sc, y - h - 7, 2*sc, 8*sc, '#4a443c');
+  R(x - 9*sc, y - h + 3, 6*sc, 1, 'rgba(158,163,186,.3)');
+}
+
+// classic flat grass: one green, hard sunlit streaks, dithered shade, tufts
+function fGrass(top, c0, c1){
+  c0 = c0 || '#4fae55'; c1 = c1 || '#2c743a';
+  R(-OV, top, W+2*OV, H-top, c0);
+  ctx.fillStyle = '#8cff70';
+  for (let i=0;i<24;i++){
+    ctx.fillRect((-OV + hash(i,171)*(W+2*OV))|0, (top+5 + hash(i,172)*(H-top-12))|0, (8+hash(i,173)*24)|0, 2);
+  }
+  for (let i=0;i<10;i++){
+    dRect(-OV + hash(i,174)*(W+2*OV), top+4 + hash(i,175)*(H-top-14), (12+hash(i,176)*28)|0, (4+hash(i,177)*5)|0, c0, c1);
+  }
+  ctx.fillStyle = c1; // spiky tufts
+  for (let i=0;i<14;i++){
+    const tx = (-OV + hash(i,178)*(W+2*OV))|0, ty = (top+8 + hash(i,179)*(H-top-16))|0;
+    ctx.fillRect(tx, ty, 1, 3); ctx.fillRect(tx+2, ty-1, 1, 4); ctx.fillRect(tx+4, ty, 1, 3);
+  }
+}
+// classic flat water: depth bands with dithered seams + solid ripple dashes
+function fWater(x, y, w, h, t, seed){
+  R(x, y, w, h, '#3d84d6');
+  R(x, y, w, h*.32, '#5aa0e6');
+  dRect(x, y + h*.28, w, h*.14, '#5aa0e6', '#3d84d6');
+  dRect(x, y + h*.62, w, h*.38, '#3d84d6', '#20539a');
+  for (let i=0;i<16;i++){
+    const wy = y + ((i*13 + t*15 + hash(i,seed)*h) % h);
+    R(x + 3 + hash(i,seed+1)*(w-14), wy, 5 + hash(i,seed+3)*4, 1, i%2 ? '#cfe8ff' : '#8ec4f0');
+  }
+}
+
+// depth-sorted trees: a room may list `trees` as [x, baseY, scale, seed, kind].
+// They block the walker at the trunk base and occlude him when he steps behind.
+function drawOneTree(tr, t){
+  const x = tr[0], y = tr[1], sc = tr[2], seed = tr[3]|0;
+  if (tr[4] === 'dead'){ dTree(x, y, sc, seed); return; }
+  (rooms[cur] && rooms[cur].kq ? kTree : fTree)(x, y, sc, t, seed);
+  if (tr[4] === 'hive'){
+    R(x+9, y-44, 2, 8, '#5d4037'); // rope
+    disc(x+10, y-30, 8, '#d9a441'); disc(x+10, y-24, 9, '#d9a441'); disc(x+10, y-18, 8, '#d9a441');
+    R(x+2, y-28, 16, 2, '#a8752c'); R(x+2, y-22, 16, 2, '#a8752c');
+    R(x+7, y-14, 6, 4, '#5c4319'); // entrance
+    if (DETAIL){
+      for (let hy2=-32; hy2<-16; hy2+=4){
+        for (let hx2=4; hx2<16; hx2+=4){ R(x+hx2, y+hy2, 2, 2, '#c2913a'); }
+      }
+      R(x+6, y-13, 2, 2, '#f2b90d'); R(x+9, y-11, 1, 2, '#f2b90d');
+    }
+  }
+  if (tr[4] === 'apple'){
+    const cy = y - 25*sc, sway = Math.sin(t*.6 + seed*1.9) * 1.2;
+    [[-9,-2],[4,-7],[9,-1],[-4,3],[6,-10],[0,-5]].forEach(a=>{
+      R(x + a[0]*sc + sway*.5, cy + a[1]*sc, 2, 2, '#d22c2c');
+      R(x + a[0]*sc + sway*.5, cy + a[1]*sc, 1, 1, '#ef6b5c');
+    });
+  }
+}
+function treesBG(list, t){ for (const tr of list) drawOneTree(tr, t); }
+// solid test: room's own block() plus any tree trunks (a small pad at the base)
+function solidAt(r, px, py){
+  if (r.block && r.block(px, py)) return true;
+  if (r.trees){
+    for (const tr of r.trees){
+      const sc = tr[2];
+      if (Math.abs(px - tr[0]) < 2.5*sc + 1.5 && py > tr[1] - 3 && py < tr[1] + 5) return true;
+    }
+  }
+  return false;
+}
+
+// ---------- rooms ----------
+const honeyDone = () => F.honey || F.honeyOut || F.crown || F.throne;
+const rooms = {
+
+forest: {
+  title: '— The Whispering Forest —', gx:1, gy:1, walkTop:100, kq:true,
+  trees: [[118,98,.9,0],[212,98,.92,1],[58,104,1,2],[262,102,1.05,3],[292,118,1.85,4],
+          [-36,124,1.25,5],[-84,106,1,6],[356,120,1.15,7],[404,104,1,8],[24,122,2.1,9]],
+  draw(t){
+    kSky(t); kFar(); kGround();
+    kStump(96, 178, 1);
+    kRock(236, 134, 1.2);
+    for (let i=0;i<22;i++){ // flower bed at the boulder's foot
+      const fx = 208 + hash(i,85)*52, fy = 135 + hash(i,86)*8;
+      R(fx, fy, 2, 2, ['#e070d8','#7a8cf0','#d84fc0','#a070e8'][i%4]);
+      if (i%3 === 0) R(fx+1, fy-1, 1, 1, '#ffffff');
+    }
+    treesBG(this.trees, t);   // trunks block; drawFrame re-draws front trees to occlude
+    signpost(56, 150);
+    kCanopyTop();
+  },
+  block(x, y){
+    return (x > 221 && x < 251 && y > 124 && y < 139) || // boulder
+           (x > 88 && x < 104 && y > 172 && y < 181);    // stump
+  },
+  post(t){
+    if (player.y < 134) kRock(236, 134, 1.2); // slip behind the boulder
+  },
+  spots: [
+    { x:52,y:114,w:32,h:38, wx:78,wy:154, hx:70,hy:112,
+      act(){ sfxTalk(); say('The sign reads: “Castle NORTH. Meadow WEST. Elda’s cottage SOUTH. Bridge EAST.”'); } },
+    { x:12,y:96,w:26,h:30, wx:38,wy:130, hint:false,
+      act(){ sfxTalk(); say('A sturdy old oak. Its leaves whisper of adventure.'); } },
+    { x:220,y:108,w:34,h:30, wx:238,wy:144, hint:false,
+      act(){ sfxTalk(); say('A huge mossy boulder. Perhaps a giant dropped it long ago.'); } },
+    { x:88,y:166,w:18,h:14, wx:108,wy:180, hint:false,
+      act(){ sfxTalk(); say('An old stump. You can count its rings — this tree was VERY old.'); } },
+  ],
+},
+
+meadow: {
+  title: '— Moonpetal Meadow —', gx:0, gy:1, walkTop:100, kq:true,
+  draw(t){
+    fSky(t); fClouds(t); fFar();
+    fGrass(100, '#46e93c', '#2fae2e');
+    // layered wildflowers: tall stems behind, bright heads in front
+    for (let i=0;i<120;i++){
+      const fx = -OV + hash(i,7)*(W+2*OV), fy = 106 + hash(i,8)*(H-112);
+      const c = ['#ffffff','#ffd54f','#f48fb1','#c98be0'][i%4];
+      const sway = Math.sin(t*1.2 + i) * 0.8;
+      R(fx, fy, 1, 3, '#2e7d32');
+      R(fx - 1 + sway, fy - 2, 3, 2, c);
+      R(fx + sway|0, fy - 2, 1, 1, '#fff8d0');
+    }
+    if (!F.flower && !F.gaveFlower){
+      const g = .22 + Math.sin(t*3)*.1;
+      ctx.fillStyle = 'rgba(255,255,255,' + g + ')';
+      ctx.beginPath(); ctx.arc(61,132,11,0,7); ctx.fill();
+      R(60,132,2,12,'#2e7d32');
+      disc(57,130,3,'#f48fb1'); disc(65,130,3,'#f48fb1');
+      disc(61,126,3,'#f48fb1'); disc(61,134,3,'#f48fb1');
+      disc(61,130,2,'#ffd54f');
+      if (DETAIL){
+        R(57,129,1,1,'#c2185b'); R(64,129,1,1,'#c2185b');
+        R(60,126,1,1,'#c2185b'); R(60,133,1,1,'#c2185b');
+        disc(61,130,1,'#fff8d0');
+        R(59,138,1,2,'#3c9142'); R(62,140,2,1,'#3c9142');
+      }
+    }
+    if (!F.posy && !honeyDone()){
+      for (let i=0;i<14;i++){
+        const px2 = 238 + hash(i,9)*26, py2 = 146 + hash(i,10)*14;
+        R(px2, py2, 2, 4, '#2e7d32');
+        R(px2-1, py2-2, 4, 3, ['#e14f7a','#ffd54f','#ff8a65','#ba68c8'][i%4]);
+      }
+    }
+    const bx = 170 + Math.sin(t*.7)*70, by = 112 + Math.sin(t*1.3)*8;
+    const fl = Math.sin(t*12) > 0 ? 3 : 1;
+    R(bx-fl, by, fl, 2, '#ff8a65'); R(bx+1, by, fl, 2, '#ff8a65'); R(bx, by, 1, 2, '#4e342e');
+    fMotes(t);
+  },
+  spots: [
+    { x:48,y:118,w:26,h:28, wx:70,wy:142, hx:61,hy:118,
+      vis(){ return !F.flower && !F.gaveFlower; },
+      act(){
+        F.flower = true; addScore(1); sfxPickup(); hud(); save();
+        say('You pick the glowing moonpetal. It hums in your hand. (+1)');
+      } },
+    { x:234,y:140,w:32,h:22, wx:248,wy:164, hx:250,hy:140,
+      vis(){ return !F.posy && !honeyDone(); },
+      act(){
+        F.posy = true; addScore(1); sfxPickup(); hud(); save();
+        say('You gather an armful of wildflowers. Something buzzes happily. (+1)');
+      } },
+  ],
+},
+
+cottage: {
+  title: '— Elda’s Cottage —', gx:1, gy:2, walkTop:104, kq:true,
+  draw(t){
+    fSky(t); fClouds(t); fFar();
+    fGrass(104, '#46e93c', '#2fae2e');
+    fTree(376, 118, 1.2, t, 3); fTree(430, 126, 1.0, t, 5); // orchard behind on the right
+    // plastered wall with soft vertical shading + timber frame
+    gradFill(115, 58, 92, 54, 58, 112, [[0,'#efe1c2'],[1,'#d8c49c']]);
+    R(115,58,92,3,'#c9b083'); R(129,58,3,54,'#8a6b45'); R(190,58,3,54,'#8a6b45');
+    R(115,110,92,2,'#b89b6c');
+    // thatched roof with gradient + straw texture + ridge
+    ctx.fillStyle = '#a9762f';
+    ctx.beginPath(); ctx.moveTo(106,60); ctx.lineTo(216,60); ctx.lineTo(161,22); ctx.fill();
+    ctx.save(); ctx.beginPath(); ctx.moveTo(106,60); ctx.lineTo(216,60); ctx.lineTo(161,22); ctx.clip();
+    gradFill(106,22,110,38, 22, 60, [[0,'#c28f45'],[1,'#8a5f26']]);
+    for (let i=0;i<40;i++){ const rx=110+hash(i,60)*100, ry=26+hash(i,61)*32; R(rx,ry,3,1,'rgba(90,60,20,.4)'); }
+    ctx.restore();
+    R(159,22,4,4,'#6d4c28'); // ridge cap
+    R(184,30,11,18,'#8d6e63'); R(184,30,11,2,'#a3846f'); // chimney
+    for (let i=0;i<3;i++){
+      const sy = ((t*9 + i*15) % 44);
+      disc(189 + Math.sin(t*2+i)*3, 30 - sy, 3, 'rgba(230,230,230,' + Math.max(0, .5 - sy/90) + ')');
+    }
+    // door with plank shading + warm sill glow
+    gradFill(150,82,18,30, 0, 0, [[0,'#7a5230'],[1,'#7a5230']]);
+    R(150,82,18,30,'#7a5230'); R(152,84,6,28,'#8a5f38'); R(160,84,6,28,'#6b4526');
+    disc(165,97,1.5,'#ffd54f');
+    // windows with frames + glow
+    glow(133,84,9,'rgba(255,224,130,.5)','rgba(255,224,130,0)');
+    glow(185,84,9,'rgba(255,224,130,.5)','rgba(255,224,130,0)');
+    R(126,78,15,13,'#ffe08a'); R(126,78,15,2,'#8a6b45'); R(132,78,2,13,'#8a6b45'); R(126,84,15,1,'#c9a860');
+    R(178,78,15,13,'#ffe08a'); R(178,78,15,2,'#8a6b45'); R(184,78,2,13,'#8a6b45'); R(178,84,15,1,'#c9a860');
+    if (!F.lantern){
+      R(172,88,1,5,'#5d4037');
+      R(170,93,5,7,'#c9a227'); R(171,95,3,3,'#ffe082');
+      if (DETAIL){
+        R(171,95,1,1,'#fff8d0'); R(170,100,5,1,'#8a6b1f');
+        R(169,92,7,1,'#8a6b1f');
+        const lg = .2 + Math.sin(t*3)*.1;
+        disc(172.5,96.5,5,'rgba(255,224,130,' + lg + ')');
+      }
+    }
+    // picket fence with shaded posts and two rails
+    for (let x=-395; x<100; x+=13){ R(x,126,3,15,'#c2a066'); R(x,126,1,15,'#a5854e'); R(x,124,3,2,'#d0b478'); }
+    R(-397,130,500,2,'#b08a56'); R(-397,136,500,2,'#9c7a48');
+    // garden flower bed along the wall
+    for (let i=0;i<14;i++){
+      const gx2 = 112 + i*7, gy2 = 118 + (i%2);
+      R(gx2, gy2, 1, 2, '#2e7d32');
+      R(gx2-1, gy2-2, 3, 2, ['#f48fb1','#ffd54f','#ff8a65'][i%3]);
+    }
+    fMotes(t);
+    drawElda(226, 152, t);
+  },
+  spots: [
+    { x:214,y:124,w:26,h:32, wx:210,wy:156, hx:226,hy:124,
+      act(){
+        sfxTalk();
+        if (!F.gaveFlower){
+          if (F.flower){
+            F.flower = false; F.gaveFlower = true; F.rod = true;
+            addScore(1); sfxPickup(); hud(); save();
+            say('Elda beams: “A moonpetal! Take Bertram’s fishing rod, dear — the lake EAST is full of trout.” (+1)');
+          } else {
+            say('Elda sighs: “Fetch me a glowing moonpetal, dear — they grow in the meadow, WEST of the forest.”');
+          }
+        } else if (!F.gaveFish){
+          say('Elda winks: “Trolls are friendlier on a full stomach. Try the lake, dear.”');
+        } else if (F.sawCave && !F.lantern){
+          say('Elda nods: “Take Bertram’s lantern from the hook, dear — and mind the bats.”');
+        } else if (F.quest && !F.crown){
+          say('Elda pats your arm: “Dragons? Don’t fight it, dear — sweeten it.”');
+        } else if (F.crown){
+          say('Elda curtsies, eyes twinkling: “Your majesty. Bertram would be proud.”');
+        } else {
+          say('Elda waves her cane cheerily: “Off with you, adventurer!”');
+        }
+      } },
+    { x:166,y:86,w:14,h:18, wx:172,wy:118, hx:172,hy:86,
+      vis(){ return !F.lantern; },
+      act(){
+        if (!F.sawCave){
+          sfxTalk();
+          say('Elda’s lantern. No need for it… yet.');
+        } else {
+          F.lantern = true; addScore(1); sfxPickup(); hud(); save();
+          say('You take the lantern. “Mind the bats, dear!” (+1)');
+        }
+      } },
+    { x:148,y:80,w:18,h:32, wx:159,wy:120, hint:false,
+      act(){ sfxTalk(); say('The door stands ajar. It smells of herbs and warm bread inside.'); } },
+  ],
+},
+
+bridge: {
+  title: '— Grukk’s Bridge —', gx:2, gy:1, walkTop:100, kq:true,
+  draw(t){
+    fSky(t); fClouds(t);
+    // snow-capped mountains with shaded flanks
+    const mtn = (ax,ay,bx,cx) => {
+      ctx.fillStyle = '#8b93a5';
+      ctx.beginPath(); ctx.moveTo(bx,100); ctx.lineTo(ax,ay); ctx.lineTo(cx,100); ctx.fill();
+      ctx.fillStyle = '#767e90';
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(cx,100); ctx.lineTo((ax+cx)/2,100); ctx.fill();
+      ctx.fillStyle = '#eef2f8';
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(ax-7,ay+9); ctx.lineTo(ax+2,ay+7); ctx.lineTo(ax+8,ay+9); ctx.fill();
+    };
+    mtn(268,64,240,296); mtn(306,72,280,330); mtn(372,58,336,408);
+    fFar();
+    fGrass(100, '#46e93c', '#2fae2e');
+    // river gorge
+    fWater(240, 100, 80, 100, t, 3);
+    R(236,100,4,100,'#7a5c48'); R(316,100,4,100,'#7a5c48'); // banks
+    R(238,100,2,100,'rgba(0,0,0,.15)');
+    // planked bridge with gradient boards + posts
+    gradFill(224,118,116,22, 118, 140, [[0,'#a9762f'],[1,'#6d4522']]);
+    for (let x=226; x<338; x+=8){ R(x,118,1,22,'#5a3a1c'); R(x+3,118,2,22,'rgba(210,170,110,.25)'); }
+    R(224,118,116,2,'#c99a52');
+    R(224,118,3,22,'#5a3a1c'); R(258,118,3,22,'#5a3a1c'); R(294,118,3,22,'#5a3a1c'); R(330,118,3,22,'#5a3a1c');
+    fTree(392,124,1.1,t,2); fTree(-44,118,1.2,t,4); fTree(-92,128,1.0,t,6);
+    fMotes(t);
+    drawTroll(F.gaveFish ? 198 : 218, F.gaveFish ? 164 : 152, t);
+  },
+  block(x, y){
+    if (!F.gaveFish) return x > 206;
+    return x > 236 && !(y > 120 && y < 144);
+  },
+  exitOk(d){ return d !== 'E' || F.gaveFish; },
+  spots: [
+    { x:184,y:116,w:52,h:54, wx:192,wy:158, hx:212,hy:122,
+      act(){
+        if (F.gaveFish){ sfxTalk(); say('Grukk pats his belly. “Grukk like you, little king. Passss any time.”'); return; }
+        if (F.fish){
+          F.fish = false; F.gaveFish = true; F.key = true;
+          addScore(1); sfxPickup(); hud(); save();
+          say('Grukk gulps the trout. “Deal isss deal.” He hands you a brass key and steps aside. (+1)');
+          return;
+        }
+        sfxTalk();
+        say('“None crossss!” rumbles Grukk. “Grukk sssso hungry! Bring a tasssty fish, and thisss shiny key is yourssss.”');
+      } },
+    { x:240,y:112,w:100,h:30, wx:200,wy:132, hint:false,
+      act(){
+        sfxTalk();
+        say(F.gaveFish
+          ? 'The old bridge creaks eastward, toward the cold high pass and the mountains.'
+          : 'A stout bridge over rushing water — with one very large troll squarely upon it.');
+      } },
+  ],
+},
+
+lake: {
+  title: '— The Silver Lake —', gx:2, gy:2, walkTop:100, kq:true,
+  draw(t){
+    fSky(t); fClouds(t); fFar();
+    fGrass(100, '#46e93c', '#2fae2e');
+    // sandy shore ring
+    ctx.fillStyle = '#d9bd82';
+    ctx.beginPath(); ctx.ellipse(216,176,164,58,0,0,7); ctx.fill();
+    ctx.fillStyle = '#c7a86a';
+    ctx.beginPath(); ctx.ellipse(216,176,164,58,0,0,7); ctx.ellipse(216,176,156,52,0,0,7); ctx.fill('evenodd');
+    // water: depth gradient + sun glint, clipped to the lake ellipse
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(216,176,156,52,0,0,7); ctx.clip();
+    gradFill(60,124,312,104, 124, 200, [[0,'#63a8e6'],[.5,'#3277c8'],[1,'#234f96']]);
+    glow(286, 150, 46, 'rgba(255,247,205,.28)', 'rgba(255,247,205,0)');
+    ctx.restore();
+    for (let i=0;i<14;i++){
+      const wx2 = 100 + hash(i,11)*220, wy2 = 138 + hash(i,12)*54;
+      const ph = (t*1.4 + i) % 2;
+      if (ph < 1) R(wx2, wy2, 7, 1, 'rgba(224,242,255,' + (.4 - ph*.3).toFixed(2) + ')');
+    }
+    const p = (t % 3.4) / 3.4;
+    if (!F.fish && !F.gaveFish && p < .42){
+      const fp = p/.42, fx = 236 + fp*30, fy = 150 - Math.sin(fp*Math.PI)*17;
+      ctx.save(); ctx.translate(fx,fy);
+      disc(0,0,3,'#cfd8dc'); disc(-1,-1,1,'#eef4f8'); ctx.fillStyle='#cfd8dc';
+      ctx.beginPath(); ctx.moveTo(-3,0); ctx.lineTo(-7,-3); ctx.lineTo(-7,3); ctx.fill();
+      glow(fx, fy, 8, 'rgba(255,255,255,.3)', 'rgba(255,255,255,0)');
+      ctx.restore();
+    }
+    // fishing pier with plank shading
+    gradFill(42,146,46,8, 146, 154, [[0,'#9c6a36'],[1,'#6d4522']]);
+    for (let x=44; x<86; x+=7){ R(x,146,1,8,'#5a3a1c'); }
+    R(44,154,3,12,'#5a3a1c'); R(80,154,3,14,'#5a3a1c'); R(42,146,46,1,'#b98a4e');
+    R(72,140,7,5,'#8a5f38'); R(72,140,7,1,'#a3745a'); R(72,144,7,1,'#5a3a1c'); // bait bucket
+    R(74,138,3,1,'#4a3a28'); R(74,138,1,2,'#4a3a28'); R(76,138,1,2,'#4a3a28'); // handle
+    disc(48,143,2.5,'#d9c9a0'); disc(48,143,1,'#9c6a36'); // coiled rope
+    for (let i=0;i<4;i++) R(46+i*11, 157+(i%2), 6, 1, '#8ec4f0'); // reflections
+    // reeds along the near shore
+    for (let i=0;i<6;i++){
+      const rx = 108 + i*13 + hash(i,20)*6, sw = Math.sin(t*1.4 + i)*1.5;
+      R(rx+sw*.4,128,1,16,'#2e7d32'); R(rx-1+sw,124,3,6,'#7a8a3a');
+    }
+    for (let i=0;i<3;i++){
+      const rx = 384 + i*15 + hash(i,21)*6;
+      R(rx,126,1,16,'#2e7d32'); R(rx-1,122,3,6,'#7a8a3a');
+    }
+    fTree(-48,122,1.2,t,3); fTree(-104,112,1.0,t,7);
+    fMotes(t);
+  },
+  block(x, y){
+    const dx = (x-216)/150, dy = (y-176)/48;
+    return dx*dx + dy*dy < 1 && !(x>40 && x<90 && y>140 && y<158);
+  },
+  spots: [
+    { x:96,y:126,w:224,h:74, wx:66,wy:150, hx:230,hy:132,
+      act(){
+        if (F.fish || F.gaveFish){ say('The trout wisely keep their distance now.'); return; }
+        if (!F.rod){ sfxTalk(); say('Fat trout flicker below. You need a fishing rod…'); return; }
+        if (fishing) return;
+        fishing = true; sfxTalk();
+        say('You cast the line…');
+        setTimeout(()=>{
+          fishing = false;
+          F.fish = true; addScore(1); sfxPickup(); hud(); save();
+          say('A tug! You reel in a fat silver trout. (+1)');
+        }, 1500);
+      } },
+  ],
+},
+
+gate: {
+  title: '— The Silent Castle —', gx:1, gy:0, walkTop:124, kq:true,
+  draw(t){
+    gradFill(-OV, 0, W+2*OV, 124, 0, 124, [[0,'#3f96de'],[.55,'#79c5ef'],[1,'#c1e6f2']]);
+    glow(292, 22, 34, 'rgba(255,246,204,.85)', 'rgba(255,246,204,0)'); disc(292,22,9,'#fff7cc');
+    fClouds(t);
+    // ---- curtain wall with stone shading ----
+    gradFill(60, 64, 200, 56, 64, 120, [[0,'#bcc1cc'],[1,'#8f95a3']]);
+    for (let i=0;i<30;i++){ R(66 + hash(i,30)*188, 70 + hash(i,31)*44, 7, 3, 'rgba(118,124,140,.5)'); }
+    R(60,64,200,3,'#ccd1db'); R(60,116,200,4,'#6f7686'); // lit top, shadowed base
+    for (let x=60; x<260; x+=13){ R(x,56,8,9,'#b3b8c4'); R(x,56,8,2,'#cbd0da'); } // battlements
+    // ---- towers ----
+    [58,228].forEach(tx=>{
+      gradFill(tx, 40, 34, 80, 40, 120, [[0,'#c3c8d3'],[1,'#9096a4']]);
+      R(tx,40,4,80,'#ced3dd'); R(tx+30,40,4,80,'#82889a'); // lit / shaded sides
+      for (let x=tx; x<tx+34; x+=9){ R(x,34,6,7,'#b3b8c4'); R(x,34,6,2,'#cbd0da'); }
+      R(tx+12,50,7,13,'#332b3e');
+      const fl = Math.sin(t*7 + tx) > 0 ? 1 : 0; // flat torch flame
+      R(tx+14,53+fl,3,5,'#ffb648'); R(tx+15,52+fl,1,3,'#ffe082');
+      R(tx+16,12,2,24,'#6d4522'); // flagpole
+    });
+    // ---- flags, waving ----
+    const flag = (fx, ph) => { const wv = Math.sin(t*4 + ph)*3;
+      ctx.fillStyle = '#c62828'; ctx.beginPath(); ctx.moveTo(fx,13); ctx.lineTo(fx+20,17+wv); ctx.lineTo(fx,22); ctx.fill();
+      ctx.fillStyle = '#9e1f1f'; ctx.beginPath(); ctx.moveTo(fx,17); ctx.lineTo(fx+20,17+wv); ctx.lineTo(fx,22); ctx.fill(); };
+    flag(76,0); flag(246,1.5);
+    // ---- gateway ----
+    ctx.fillStyle = '#3e2b1f'; ctx.beginPath(); ctx.arc(160,86,22,Math.PI,0); ctx.fill();
+    R(138,86,44,34,'#3e2b1f');
+    if (!F.gateOpen){
+      gradFill(140,88,19,32,88,120,[[0,'#98632f'],[1,'#7a4c24']]);
+      gradFill(161,88,19,32,88,120,[[0,'#98632f'],[1,'#7a4c24']]);
+      R(140,86,40,2,'#6d4522'); R(159,88,2,32,'#2c1c10');
+      for (let i=0;i<4;i++){ R(142,92+i*8,16,1,'rgba(60,40,20,.55)'); R(162,92+i*8,16,1,'rgba(60,40,20,.55)'); }
+      [143,174].forEach(sx=>[91,113].forEach(sy=>{ disc(sx+1,sy+1,1.6,'#3c3126'); disc(sx+.6,sy+.6,.7,'#5c4e3c'); }));
+      disc(166,104,2,'#c9a227'); R(165,104,2,3,'#5d3a1c');
+      ctx.fillStyle = '#6d4522'; ctx.beginPath(); ctx.arc(160,86,20,Math.PI,0); ctx.fill();
+      R(140,86,40,2,'#6d4522');
+    } else {
+      R(140,88,40,32,'#14100c');
+      ctx.fillStyle = '#141016'; ctx.beginPath(); ctx.arc(160,86,20,Math.PI,0); ctx.fill();
+      R(150,112,20,3,'#4a4038'); R(152,106,16,3,'#3c332c');
+      glow(160,101,17,'rgba(255,213,79,' + (.24 + Math.sin(t*2.5)*.06) + ')', 'rgba(255,213,79,0)');
+    }
+    // ---- grounds ----
+    gradFill(-OV, 120, W+2*OV, H-120, 120, H, [[0,'#46e93c'],[1,'#2fae2e']]);
+    for (let i=0;i<140;i++){ R(-OV + hash(i,1)*(W+2*OV), 122 + hash(i,2)*(H-126), 1, 2, 'rgba(26,86,38,.5)'); }
+    pathV(148,120,24,H-120);
+    fTree(-46,152,1.2,t,10); fTree(-98,138,1,t,11); fTree(366,148,1.15,t,12); fTree(420,134,1,t,13);
+  },
+  spots: [
+    { x:132,y:62,w:56,h:60, wx:160,wy:132, hx:160,hy:62,
+      act(){
+        if (F.gateOpen){ gotoRoom('throne', 160, 186); return; }
+        if (F.key){
+          F.key = false; F.gateOpen = true;
+          addScore(1); sfxUnlock(); hud(); save();
+          say('CLUNK! The key turns and the great doors groan open… (+1)');
+          return;
+        }
+        sfxTalk();
+        say('Locked tight. A brass keyhole glints in the wood.');
+      } },
+  ],
+},
+
+throne: {
+  title: '— The Throne Hall —', gx:null, gy:null, walkTop:96, kq:true,
+  exitBottom: ['gate',160,148],
+  draw(t){
+    R(-OV,0,W+2*OV,H,'#6d5a4a');
+    R(-OV,0,W+2*OV,90,'#7d7f8a');
+    for (let i=0;i<75;i++){ R(-OV + hash(i,40)*(W+2*OV), hash(i,41)*88, 7, 3, '#73757f'); }
+    dRect(-OV, 86, W+2*OV, 4, '#7d7f8a', '#6d5a4a'); // dithered wall-floor seam
+    for (let i=0;i<8;i++){ // dithered floor wear
+      dRect(-OV + hash(i,44)*(W+2*OV), 96 + hash(i,45)*96, (10+hash(i,46)*22)|0, (3+hash(i,47)*4)|0, '#6d5a4a', '#5c4c3e');
+    }
+    R(46,16,16,74,'#8f929e'); R(258,16,16,74,'#8f929e');
+    R(44,12,20,5,'#9a9daa'); R(256,12,20,5,'#9a9daa');
+    R(-78,16,16,74,'#8f929e'); R(-80,12,20,5,'#9a9daa');
+    R(382,16,16,74,'#8f929e'); R(380,12,20,5,'#9a9daa');
+    [92,228].forEach((wx2,i)=>{
+      ctx.fillStyle = '#4a6bbf';
+      ctx.beginPath(); ctx.arc(wx2+9,26,9,Math.PI,0); ctx.fill();
+      R(wx2,26,18,26,'#4a6bbf');
+      dRect(wx2,42,18,10,'#4a6bbf','#7b96de'); // dithered light through the pane
+      R(wx2,34,18,3,'#2c3050'); R(wx2+8,20,3,32,'#2c3050');
+      R(wx2+2,38,5,5,['#c62828','#ffd54f'][i]); R(wx2+11,42,5,5,['#ffd54f','#c62828'][i]);
+    });
+    [126,194].forEach((tx,i)=>{
+      R(tx,56,4,12,'#5d4037');
+      const fl = Math.sin(t*9 + i*2) > 0 ? 1 : 0; // flat two-frame flame
+      R(tx, 48+fl, 4, 7, '#ff8f3c'); R(tx+1, 46+fl, 2, 4, '#ffd54f');
+    });
+    ctx.fillStyle = '#a83030';
+    ctx.beginPath(); ctx.moveTo(146,90); ctx.lineTo(174,90); ctx.lineTo(196,200); ctx.lineTo(124,200); ctx.fill();
+    ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(146,90); ctx.lineTo(124,200); ctx.moveTo(174,90); ctx.lineTo(196,200); ctx.stroke();
+    dRect(148,116,24,66,'#a83030','#8c2626'); // worn carpet middle
+    R(128,82,64,10,'#9aa0aa'); R(134,76,52,8,'#a8adb8');
+    R(146,40,28,38,'#caa53d');
+    R(150,34,20,6,'#caa53d'); R(156,29,8,5,'#caa53d'); // stepped crest
+    R(158,26,4,3,'#ffd54f'); // crest jewel mount
+    dRect(162,40,12,38,'#caa53d','#9a7a1e'); // shaded gold
+    R(144,40,4,42,'#caa53d'); R(172,40,4,42,'#caa53d');
+    disc(146,40,3,'#ffd54f'); disc(174,40,3,'#ffd54f');
+    R(150,54,20,22,'#a03030');
+    R(150,54,20,2,'#c04040'); // cushion top light
+    R(154,60,2,2,'#ffd54f'); R(164,60,2,2,'#ffd54f'); // gold buttons
+    R(154,68,2,2,'#ffd54f'); R(164,68,2,2,'#ffd54f');
+    R(142,62,6,4,'#d4b02f'); R(172,62,6,4,'#d4b02f'); // armrests
+    R(142,62,6,1,'#f4d565'); R(172,62,6,1,'#f4d565');
+    R(206,62,14,22,'#cfd3da'); R(204,60,18,4,'#dde0e6'); R(204,84,18,3,'#b9bdc7');
+    R(204,56,18,3,'#3a3630');
+    R(200,84,26,2,'#3a3630'); R(196,60,3,26,'#4a4038'); R(226,64,3,22,'#4a4038');
+    R(207,50,2,8,'#2c2824'); R(211,48,2,10,'#2c2824'); R(216,50,2,8,'#2c2824');
+    const ga = .25 + Math.sin(t*2)*.1;
+    R(138,192,44,8,'rgba(20,16,12,.9)');
+    R(140,193,40,6,'rgba(255,213,79,' + ga*.4 + ')');
+  },
+  post(t){
+    if (!CINE.on) return; // coronation: confetti rains while the fanfare plays
+    const el = (Date.now() - CINE.t0) / 1000;
+    for (let i=0;i<44;i++){
+      const cx2 = 40 + hash(i,140)*240;
+      const cy2 = ((hash(i,141)*210) + el*46*(.6 + hash(i,142))) % 214 - 6;
+      R(cx2, cy2, 2, 2, ['#ffd54f','#ff8a65','#7b96de','#e070d8'][i%4]);
+    }
+    if (Math.sin(t*6) > 0){ R(150,26,2,2,'#fff8d0'); R(172,32,2,2,'#fff8d0'); R(161,20,2,2,'#ffffff'); }
+  },
+  spots: [
+    { x:194,y:42,w:34,h:46, wx:212,wy:104, hx:213,hy:42,
+      act(){
+        sfxTalk();
+        if (!F.quest){
+          F.quest = true; addScore(1); hud(); save();
+          say('The pedestal is EMPTY! Scratched in the stone: “CINDER THE DRAGON TOOK THE CROWN — EAST, PAST THE HIGH PASS.” (+1)');
+        } else if (!F.crown){
+          say('The empty pedestal waits. The crown is EAST, at Ember Peak.');
+        } else {
+          say('The pedestal can stay empty. The crown looks better on you.');
+        }
+      } },
+    { x:140,y:36,w:40,h:48, wx:160,wy:104, hx:160,hy:34,
+      act(){
+        if (F.crown && !F.throne){
+          F.throne = true; addScore(1); sfxCoronation(); hud(); save();
+          say('You crown yourself and sit the throne. Above, dragon wings thunder a salute…');
+          CINE.on = true; CINE.t0 = Date.now();
+          player.x = player.tx = 160; player.y = player.ty = 88; // up on the dais
+          player.moving = false; pending = null;
+          setTimeout(showWin, 5200);
+        } else if (F.throne){
+          say('Your throne. Your kingdom. Your nap, if you fancy one.');
+        } else {
+          sfxTalk();
+          say('No crown, no coronation. The trail leads EAST, to Ember Peak.');
+        }
+      } },
+    { x:120,y:178,w:80,h:22, wx:160,wy:190, hint:false,
+      act(){ gotoRoom('gate', 160, 148); } },
+  ],
+},
+
+darkwoods: {
+  title: '— The Dark Woods —', gx:0, gy:0, walkTop:102, kq:true,
+  trees: [[40,128,1.1,0,'dead'],[96,108,1,1,'dead'],[150,124,1.15,2,'dead'],[280,110,1.05,3,'dead'],
+          [-40,120,1.1,4,'dead'],[-96,132,1,5,'dead'],[352,126,1.1,6,'dead'],[408,112,1,7,'dead']],
+  perch(t){
+    R(216,64,8,90,'#3a352f'); R(217,64,3,90,'#2c2822');
+    R(200,78,18,3,'#3a352f'); R(196,72,5,8,'#3a352f');
+    R(224,70,20,3,'#3a352f'); R(242,64,5,8,'#3a352f');
+    R(218,54,3,12,'#3a352f');
+    drawRaven(222,70,t);
+  },
+  block(x, y){ return x > 213 && x < 227 && y > 147 && y < 157; }, // perch pole
+  post(t){ if (player.y < 154) this.perch(t); },
+  draw(t){
+    // murky sky with a hidden moon glowing through the mist
+    gradFill(-OV, 0, W+2*OV, 108, 0, 108, [[0,'#2a2740'],[.5,'#3d3a55'],[1,'#535069']]);
+    disc(250, 34, 9, '#d4d8e8'); disc(247, 32, 2, '#b0b6cc'); disc(253, 37, 1.5, '#b0b6cc'); // flat moon
+    // far silhouette treeline for depth
+    ctx.fillStyle = '#33314a';
+    for (let i=0;i<11;i++){ const x = -70 + i*44;
+      ctx.beginPath(); ctx.moveTo(x,105); ctx.lineTo(x+9, 82 - hash(i,3)*12); ctx.lineTo(x+20,105); ctx.fill(); }
+    // moody ground
+    gradFill(-OV, 102, W+2*OV, H-102, 102, H, [[0,'#33543a'],[1,'#233c28']]);
+    for (let i=0;i<160;i++){ R(-OV + hash(i,1)*(W+2*OV), 104 + hash(i,2)*(H-106), 1, 2, 'rgba(20,44,26,.5)'); }
+    // drifting fog banks
+    for (const b of [[118,4,.10,.6],[150,5,.09,.4],[134,3,.07,.8]]){
+      ctx.fillStyle = 'rgba(200,206,225,' + b[2] + ')';
+      ctx.fillRect(-OV, b[0] + Math.sin(t*b[3])*b[1], W+2*OV, 14);
+    }
+    treesBG(this.trees, t); // gnarled dead trees: solid trunks, walk-behind
+    this.perch(t);
+    // crimson mushroom ring, faintly aglow
+    for (let i=0;i<5;i++){
+      const mx = 74 + hash(i,50)*22, my = 156 + hash(i,51)*10;
+      glow(mx+1, my, 6, 'rgba(200,60,50,.14)', 'rgba(200,60,50,0)');
+      R(mx,my,2,4,'#d8d2c2'); disc(mx+1, my-1, 3.4, '#b0332a');
+      R(mx, my-2, 1, 1, 'rgba(255,255,255,.8)'); R(mx+2, my-1, 1, 1, 'rgba(255,255,255,.55)');
+    }
+    // eerie drifting spores
+    for (let i=0;i<14;i++){
+      const gx = -30 + hash(i,60)*(W+60) + Math.sin(t*.5+i)*10, gy = 110 + hash(i,61)*80 + Math.sin(t*.8+i*1.3)*8;
+      const a = .14 + Math.sin(t*1.6 + i*2)*.14;
+      if (a > 0) disc(gx, gy, 1, 'rgba(150,220,180,' + a.toFixed(3) + ')');
+    }
+  },
+  spots: [
+    { x:204,y:56,w:36,h:26, wx:222,wy:150, hx:222,hy:56,
+      act(){
+        sfxTalk();
+        if (F.gaveGeode){ say('The raven preens beside its geode. “Ssshiny,” it croaks.'); return; }
+        if (F.geode){
+          F.geode = false; F.gaveGeode = true; F.book = true;
+          addScore(1); sfxPickup(); hud(); save();
+          say('The raven grabs the geode and drops a dusty spellbook! (+1)');
+          return;
+        }
+        say('The raven clutches a little book. “Ssshiny!” it croaks. “Trade for ssshiny!”');
+      } },
+    { x:64,y:146,w:36,h:24, wx:84,wy:172, hint:false,
+      act(){ sfxTalk(); say('Squat crimson mushrooms in a ring. Best left to the fairies.'); } },
+  ],
+},
+
+foothills: {
+  title: '— The Stony Foothills —', gx:2, gy:0, walkTop:100, kq:true,
+  draw(t){
+    gradFill(-OV, 0, W+2*OV, 100, 0, 100, [[0,'#5aa6e0'],[.6,'#8fcaef'],[1,'#cfe8f0']]);
+    glow(40, 24, 30, 'rgba(255,246,204,.75)', 'rgba(255,246,204,0)'); disc(40,24,8,'#fff7cc');
+    fClouds(t);
+    // far hazy ridge
+    ctx.fillStyle = '#b7c2d2';
+    ctx.beginPath(); ctx.moveTo(-OV,100); ctx.lineTo(80,64); ctx.lineTo(190,100); ctx.lineTo(300,70); ctx.lineTo(W+OV,100); ctx.fill();
+    // near peaks with shaded flanks and snow caps
+    const peak = (px, py) => {
+      ctx.fillStyle = '#8b93a5'; ctx.beginPath(); ctx.moveTo(px-70,100); ctx.lineTo(px,py); ctx.lineTo(px+70,100); ctx.fill();
+      ctx.fillStyle = '#767e90'; ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px+70,100); ctx.lineTo(px+18,100); ctx.fill(); // shadow flank
+      ctx.fillStyle = '#eef2f7'; ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px-13,py+16); ctx.lineTo(px-4,py+13);
+        ctx.lineTo(px+3,py+17); ctx.lineTo(px+12,py+14); ctx.fill(); // snow cap
+    };
+    peak(0,50); peak(110,44);
+    // rocky ground
+    gradFill(-OV, 100, W+2*OV, H-100, 100, H, [[0,'#828e6d'],[1,'#5f6e52']]);
+    for (let i=0;i<170;i++){ R(-OV + hash(i,1)*(W+2*OV), 102 + hash(i,2)*(H-104), 1, 2, 'rgba(70,82,60,.5)'); }
+    // shaded scattered boulders
+    const rock = (x, y, r) => kRock(x, y + r, r/11, '#57604a');
+    rock(60,144,8); rock(122,170,10); rock(180,152,7); rock(-60,152,12); rock(-120,168,14);
+    // faceted rocky outcrop the cave is carved into
+    ctx.fillStyle = '#7c828e'; ctx.beginPath();
+    ctx.moveTo(206,100); ctx.lineTo(228,70); ctx.lineTo(256,60); ctx.lineTo(286,74); ctx.lineTo(300,100); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#9197a3'; ctx.beginPath(); ctx.moveTo(228,70); ctx.lineTo(256,60); ctx.lineTo(254,100); ctx.lineTo(230,100); ctx.fill();
+    ctx.fillStyle = '#6a7280'; ctx.beginPath(); ctx.moveTo(256,60); ctx.lineTo(286,74); ctx.lineTo(300,100); ctx.lineTo(254,100); ctx.fill();
+    ctx.strokeStyle = 'rgba(48,54,64,.4)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(256,60); ctx.lineTo(255,100); ctx.stroke();
+    // cave mouth with a cool crystal glow inside
+    ctx.fillStyle = '#1c1512'; ctx.beginPath(); ctx.arc(252,118,17,Math.PI,0); ctx.fill();
+    R(235,118,34,6,'#1c1512');
+    glow(252, 114, 15, 'rgba(140,210,255,' + (.16 + Math.sin(t*2.2)*.06) + ')', 'rgba(140,210,255,0)');
+    disc(246,116,1.5,'rgba(180,225,255,.5)'); disc(256,113,1.2,'rgba(180,225,255,.4)');
+    gorge(302, 1, 60, t);
+  },
+  block(x, y){ return x > 294; },
+  exitOk(d){ return d !== 'E'; },
+  spots: [
+    { x:230,y:96,w:44,h:30, wx:250,wy:136, hx:252,hy:96,
+      act(){
+        if (F.lantern){ gotoRoom('cave', 160, 184); return; }
+        sfxTalk();
+        if (!F.sawCave){ F.sawCave = true; save(); }
+        say('Too dark to enter! You need a light — old Elda keeps a lantern.');
+      } },
+    { x:296,y:100,w:24,h:100, wx:284,wy:150, hint:false,
+      act(){ sfxTalk(); say('A bottomless gorge! The only way to Ember Peak is the high pass, past the bridge.'); } },
+  ],
+},
+
+cave: {
+  title: '— The Crystal Cave —', gx:null, gy:null, walkTop:96, kq:true,
+  exitBottom: ['foothills',250,140],
+  draw(t){
+    R(-OV,0,W+2*OV,H,'#181233');
+    R(-OV,92,W+2*OV,108,'#2c2450');
+    for (let i=0;i<40;i++){ R(-OV+hash(i,70)*(W+2*OV), 94+hash(i,71)*100, 4, 2, '#241d45'); }
+    ctx.fillStyle = '#141028';
+    for (let i=0;i<12;i++){
+      const sx = -OV + i*((W+2*OV)/12) + hash(i,72)*30;
+      ctx.beginPath(); ctx.moveTo(sx,0); ctx.lineTo(sx+9,0); ctx.lineTo(sx+4,18+hash(i,73)*16); ctx.fill();
+    }
+    crystal(70,120,26,'#4dd0e1',t,0); crystal(96,112,18,'#b388ff',t,1);
+    crystal(150,100,22,'#4dd0e1',t,2); crystal(250,116,28,'#b388ff',t,3);
+    crystal(286,104,16,'#4dd0e1',t,4); crystal(-60,116,24,'#b388ff',t,5); crystal(380,112,22,'#4dd0e1',t,6);
+    if (!F.geode){
+      if (Math.sin(t*3.4) > 0){ R(204,146,1,1,'#e6c8ff'); R(216,150,1,1,'#ffffff'); R(208,159,1,1,'#e6c8ff'); }
+      disc(210,153,6,'#5e4a7a'); disc(210,153,4,'#8e6bbf');
+      R(207,151,2,2,'#e1bee7'); R(211,153,2,2,'#f3e5f5'); R(209,155,1,1,'#fff');
+      if (DETAIL){
+        R(206,153,1,1,'#b388ff'); R(212,151,1,1,'#b388ff'); R(210,150,1,1,'#e1bee7');
+        R(208,157,3,1,'#4a3a5e'); R(213,155,1,2,'#4a3a5e');
+      }
+    }
+    for (let i=0;i<2;i++){
+      const bx = 160 + Math.sin(t*.9 + i*2.6)*(80+i*30), by = 42 + Math.sin(t*2.1 + i)*12;
+      const fl = Math.sin(t*15 + i) > 0;
+      R(bx-4, by + (fl?-2:1), 4, 2, '#100c20'); R(bx+1, by + (fl?-2:1), 4, 2, '#100c20');
+      R(bx-1, by-1, 3, 3, '#100c20');
+    }
+  },
+  post(t){
+    // classic lantern light: darkness with a hard round hole + dithered rim
+    ctx.save();
+    ctx.fillStyle = 'rgba(6,3,20,.72)';
+    ctx.beginPath();
+    ctx.rect(-OV, 0, W+2*OV, H);
+    ctx.arc(player.x, player.y-10, 48, 0, 7);
+    ctx.fill('evenodd');
+    ctx.beginPath();
+    ctx.arc(player.x, player.y-10, 48, 0, 7);
+    ctx.arc(player.x, player.y-10, 36, 0, 7);
+    ctx.clip('evenodd');
+    ctx.fillStyle = dpatA('rgba(6,3,20,.72)');
+    ctx.fillRect(player.x-50, player.y-60, 100, 100);
+    ctx.restore();
+    if (!F.geode && Math.sin(t*3.4) > 0){ // the geode winks through the dark
+      R(208,150,2,2,'#cfa0ff'); R(212,154,1,1,'#ffffff');
+    }
+  },
+  spots: [
+    { x:198,y:140,w:26,h:22, wx:206,wy:160, hx:210,hy:138,
+      vis(){ return !F.geode; },
+      act(){
+        F.geode = true; addScore(1); sfxPickup(); hud(); save();
+        say('You prise loose a glittering purple geode. Sssomeone loves shiny things… (+1)');
+      } },
+    { x:56,y:90,w:60,h:36, wx:84,wy:134, hint:false,
+      act(){ sfxTalk(); say('Veins of dreaming crystal. They hum faintly when you breathe.'); } },
+    { x:120,y:178,w:80,h:22, wx:160,wy:190, hint:false,
+      act(){ gotoRoom('foothills', 250, 140); } },
+  ],
+},
+
+pass: {
+  title: '— The High Pass —', gx:3, gy:1, walkTop:104, kq:true,
+  exitOk(d){ return d !== 'N' || F.warm; },
+  draw(t){
+    // cold winter sky + pale sun
+    gradFill(-OV,0,W+2*OV,110, 0, 110, [[0,'#8ba3c2'],[.55,'#aec2d8'],[1,'#d4dfea']]);
+    glow(252,28,34,'rgba(255,242,222,.7)','rgba(255,242,222,0)'); disc(252,28,7,'#fdeecb');
+    // snow-capped peaks with shaded flanks
+    const mtn = (ax,ay,bx,cx) => {
+      ctx.fillStyle = '#6b7484';
+      ctx.beginPath(); ctx.moveTo(bx,104); ctx.lineTo(ax,ay); ctx.lineTo(cx,104); ctx.fill();
+      ctx.fillStyle = '#59616e';
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(cx,104); ctx.lineTo((ax+cx)/2,104); ctx.fill();
+      ctx.fillStyle = '#eef2f8';
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(ax-9,ay+13); ctx.lineTo(ax+3,ay+10); ctx.lineTo(ax+11,ay+13); ctx.fill();
+    };
+    mtn(252,26,200,310); mtn(330,34,280,390);
+    // snowfield ground with sparkle
+    gradFill(-OV,104,W+2*OV,H-104, 104, H, [[0,'#eef3fa'],[1,'#c2d1e2']]);
+    for (let i=0;i<80;i++) R(-OV+hash(i,31)*(W+2*OV), 108+hash(i,32)*(H-110), 1, 1, 'rgba(255,255,255,.7)');
+    R(-OV,100,W+2*OV,6,'#dbe6f2'); R(-OV,100,W+2*OV,2,'#ffffff'); // snow bank ridge
+    R(148,86,28,20,'#39435a'); R(146,86,3,20,'#5d6673'); R(175,86,3,20,'#5d6673'); R(146,84,32,3,'#f4f8fc'); // arch + snow cap
+    if (!F.warm){
+      for (let i=0;i<9;i++){
+        R(146 + hash(i,80)*30, 84 + ((t*44 + i*13) % 30), 3, 7, 'rgba(255,255,255,.75)');
+      }
+      disc(161, 96 + Math.sin(t*6)*4, 9, 'rgba(255,255,255,.35)');
+    }
+    const n = F.warm ? 5 : 16, sp = F.warm ? 26 : 120;
+    for (let i=0;i<n;i++){
+      const px2 = ((i*73 + t*sp*(0.7+hash(i,5)*.6)) % (W+2*OV)) - OV;
+      const py2 = 90 + hash(i,6)*96;
+      R(px2, py2, F.warm ? 2 : 6, F.warm ? 2 : 1, 'rgba(255,255,255,' + (F.warm ? .8 : .55) + ')');
+    }
+    disc(61,136,9,'#f4f7fb'); disc(61,125,7,'#f4f7fb'); disc(61,115,5,'#f4f7fb');
+    dRect(63,131,6,9,'#f4f7fb','#c2d1e2'); dRect(64,122,4,6,'#f4f7fb','#c2d1e2'); // shade
+    R(60,128,2,2,'#2c3040'); R(60,133,2,2,'#2c3040'); // coal buttons
+    R(58,113,2,2,'#2c3040'); R(63,113,2,2,'#2c3040'); // eyes
+    R(61,116,4,1,'#e8912b'); R(64,116,2,1,'#c9701c'); // carrot nose
+    R(56,119,10,2,'#c62828'); R(63,121,3,4,'#a81f1f'); // scarf + tail
+    R(55,109,13,2,'#1c1c24'); R(58,103,7,6,'#1c1c24'); R(58,107,7,1,'#c62828'); // top hat
+    R(50,124,5,1,'#5d4037'); R(47,121,4,1,'#5d4037'); R(50,123,1,2,'#5d4037'); // twig arms
+    R(68,124,5,1,'#5d4037'); R(72,121,3,1,'#5d4037');
+  },
+  spots: [
+    { x:140,y:78,w:44,h:34, wx:161,wy:118, hx:161,hy:80,
+      vis(){ return !F.warm; },
+      act(){
+        sfxTalk();
+        say('A magic blizzard blocks the way NORTH! You need magic warmth. (A wizard lives to the SOUTH.)');
+      } },
+    { x:140,y:78,w:44,h:34, wx:161,wy:118, hx:161,hy:80, hint:false,
+      vis(){ return F.warm; },
+      act(){ sfxTalk(); say('The pass is open! Ember Peak waits NORTH.'); } },
+    { x:48,y:114,w:26,h:30, wx:74,wy:142, hint:false,
+      act(){ sfxTalk(); say('A snowman. It looks happier about the weather than you.'); } },
+  ],
+},
+
+emberpeak: {
+  title: '— Ember Peak —', gx:3, gy:0, walkTop:100, kq:true,
+  exitOk(d){ return d === 'S'; },
+  draw(t){
+    // smouldering sky: dark maroon above, ember glow at the horizon
+    gradFill(-OV, 0, W+2*OV, 100, 0, 100, [[0,'#241019'],[.55,'#3a1b2b'],[1,'#7a2f2a']]);
+    glow(180, 104, 120, 'rgba(255,110,40,.28)', 'rgba(255,110,40,0)');
+    for (let i=0;i<20;i++){ // rising ash
+      const ax = -OV + hash(i,90)*(W+2*OV) + Math.sin(t*.8+i)*6;
+      const ay = (hash(i,91)*H - t*11) % H; const yy = ay < 0 ? ay + H : ay;
+      R(ax, yy, 2, 2, 'rgba(160,150,155,.5)');
+    }
+    // layered volcanic mountains with glowing lava veins
+    ctx.fillStyle = '#3a2329'; ctx.beginPath(); ctx.moveTo(-OV,100); ctx.lineTo(120,54); ctx.lineTo(250,100); ctx.fill();
+    ctx.fillStyle = '#2b191e'; ctx.beginPath(); ctx.moveTo(150,100); ctx.lineTo(250,58); ctx.lineTo(W+OV,100); ctx.fill();
+    for (const v of [[118,60,.5],[240,66,.35]]){
+      const a = (.5 + Math.sin(t*2 + v[0])*.3) * v[2] + .3;
+      ctx.strokeStyle = 'rgba(255,130,50,' + a + ')'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(v[0], v[1]); ctx.lineTo(v[0]-6, v[1]+18); ctx.lineTo(v[0]+2, v[1]+34); ctx.lineTo(v[0]-4, v[1]+48); ctx.stroke();
+    }
+    gradFill(-OV, 100, W+2*OV, H-100, 100, H, [[0,'#3b3136'],[1,'#241d20']]);
+    for (let i=0;i<150;i++){ R(-OV + hash(i,1)*(W+2*OV), 102 + hash(i,2)*(H-104), 1, 2, 'rgba(20,14,16,.6)'); }
+    // the dark volcanic lair mound the cave is carved into
+    ctx.fillStyle = '#3a2329'; ctx.beginPath();
+    ctx.moveTo(110,100); ctx.lineTo(140,60); ctx.lineTo(180,48); ctx.lineTo(224,62); ctx.lineTo(252,100); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#472b31'; ctx.beginPath(); ctx.moveTo(140,60); ctx.lineTo(180,48); ctx.lineTo(180,100); ctx.lineTo(148,100); ctx.fill();
+    ctx.fillStyle = '#281519'; ctx.beginPath(); ctx.moveTo(180,48); ctx.lineTo(224,62); ctx.lineTo(252,100); ctx.lineTo(180,100); ctx.fill();
+    ctx.fillStyle = '#1c0f12'; ctx.beginPath(); ctx.arc(180,118,26,Math.PI,0); ctx.fill();
+    R(154,118,52,8,'#1c0f12');
+    glow(180, 116, 26, 'rgba(255,120,40,' + (.22 + Math.sin(t*2.6)*.1) + ')', 'rgba(255,120,40,0)');
+    for (let i=0;i<3;i++){ // smoke curling from the lair
+      const sy = ((t*10 + i*16) % 46);
+      disc(180 + Math.sin(t*1.5+i)*5, 92 - sy, 4, 'rgba(120,110,115,' + Math.max(0,.4-sy/120) + ')');
+    }
+    // glowing lava cracks in the ground
+    [[60,150,26],[240,168,30],[110,180,22],[356,160,26],[-70,166,30]].forEach((v,i)=>{
+      const a = .4 + Math.sin(t*3 + i*1.7)*.25;
+      glow(v[0]+v[2]/2, v[1]+1, v[2]*.7, 'rgba(255,120,40,' + a*.4 + ')', 'rgba(255,120,40,0)');
+      R(v[0], v[1], v[2], 2, 'rgba(255,120,40,' + a + ')');
+      R(v[0]+6, v[1]+2, v[2]-12, 1, 'rgba(255,190,90,' + a*.8 + ')');
+    });
+    for (let i=0;i<12;i++){ // floating embers
+      const ex = -30 + hash(i,70)*(W+60) + Math.sin(t*.7+i)*8;
+      const ey = 150 - ((t*18 + hash(i,71)*90) % 90);
+      const a = Math.max(0, .6 - (150-ey)/150);
+      if (a > 0) disc(ex, ey, hash(i,72) > .6 ? 1.3 : .8, 'rgba(255,150,60,' + a.toFixed(3) + ')');
+    }
+    gorge(18, -1, 92, t);
+  },
+  block(x, y){ return x < 22; },
+  spots: [
+    { x:150,y:88,w:60,h:36, wx:180,wy:136, hx:180,hy:90,
+      act(){ gotoRoom('lair', 160, 186); } },
+    { x:230,y:158,w:44,h:18, wx:252,wy:184, hint:false,
+      act(){ sfxTalk(); say('The rock is warm underfoot and smells of struck matches. Sssizzle.'); } },
+  ],
+},
+
+tower: {
+  title: '— Fenwick’s Tower —', gx:3, gy:2, walkTop:102, kq:true,
+  draw(t){
+    fSky(t); fClouds(t); fFar();
+    fGrass(102, '#46e93c', '#2fae2e');
+    fTree(-40,120,1.2,t,1); fTree(-96,134,1.0,t,3); fTree(380,124,1.15,t,5); fTree(430,110,1.0,t,7);
+    // stone tower with shaded curve + course lines
+    gradFill(192,28,44,92, 0, 0, [[0,'#b4aec6'],[1,'#b4aec6']]);
+    R(192,28,44,92,'#b4aec6'); R(192,28,10,92,'#9990ab'); R(226,28,10,92,'#c7c1d6'); // shading
+    for (let y2=40; y2<120; y2+=13){ R(192,y2,44,2,'#8f8aa3'); }
+    for (let y2=46; y2<120; y2+=13){ R(206,y2,3,2,'#8f8aa3'); R(220,y2-6,3,2,'#8f8aa3'); } // brick offset
+    // conical purple roof with highlight
+    ctx.fillStyle = '#5e35b1';
+    ctx.beginPath(); ctx.moveTo(186,30); ctx.lineTo(242,30); ctx.lineTo(214,2); ctx.fill();
+    ctx.fillStyle = '#7e57c2';
+    ctx.beginPath(); ctx.moveTo(214,2); ctx.lineTo(224,30); ctx.lineTo(242,30); ctx.fill();
+    R(186,28,56,3,'#8f6bd0');
+    // glowing star window
+    glow(214,60,10,'rgba(255,224,130,.6)','rgba(255,224,130,0)');
+    const g = .5 + Math.sin(t*3)*.3;
+    disc(214,60,6,'rgba(255,224,130,' + g + ')');
+    R(212,56,4,8,'#ffe082'); R(210,58,8,4,'#ffe082');
+    // arched door
+    ctx.fillStyle = '#3a2d4e';
+    ctx.beginPath(); ctx.arc(214,106,9,Math.PI,0); ctx.fill();
+    R(205,106,18,14,'#3a2d4e'); R(213,100,2,20,'#2a2038');
+    // brass telescope on a tripod, aimed at Ember Peak
+    R(112,146,3,2,'#4a3a24'); R(124,146,3,2,'#4a3a24'); R(119,144,2,2,'#4a3a24'); // feet
+    R(114,138,2,8,'#6d5a3a'); R(123,136,2,10,'#6d5a3a'); R(119,134,2,10,'#6d5a3a'); // legs
+    R(117,132,6,4,'#3e3428'); // pivot mount
+    R(108,133,5,4,'#8a6a1a');                    // eyepiece
+    R(112,130,8,5,'#c9a227'); R(112,130,8,1,'#f4d565'); R(112,134,8,1,'#8a6a1a');
+    R(119,127,8,5,'#d4b02f'); R(119,127,8,1,'#f4d565'); R(119,131,8,1,'#8a6a1a');
+    R(126,124,7,5,'#c9a227'); R(126,124,7,1,'#f4d565'); R(126,128,7,1,'#8a6a1a');
+    R(132,123,2,5,'#3e3428');                    // objective ring
+    if (Math.sin(t*2.2) > .5) R(133,124,1,1,'#ffffff'); // lens glint
+    fMotes(t);
+    drawWiz(170,152,t);
+  },
+  spots: [
+    { x:158,y:116,w:26,h:40, wx:158,wy:156, hx:170,hy:118,
+      act(){
+        sfxTalk();
+        if (F.book){
+          F.book = false; F.warm = true;
+          addScore(1); sfxUnlock(); hud(); save();
+          say('“My book!” Fenwick cheers… “EVERWARM!” Golden fire wraps you snug and warm. “Now the cold pass is yours to climb!” (+1)');
+          return;
+        }
+        if (F.warm){
+          say('Fenwick strokes his beard: “Dragons love sweetness more than gold. Ask the bees of the western glade…”');
+          return;
+        }
+        say('“Blast! That RAVEN of the Dark Woods stole my spellbook! Fetch it and I’ll do you a good turn.”');
+      } },
+    { x:104,y:114,w:28,h:28, wx:130,wy:146, hint:false,
+      act(){ sfxTalk(); say('A telescope aimed at Ember Peak. In the lens: a sleeping dragon… and a golden glint!'); } },
+    { x:200,y:96,w:28,h:26, wx:214,wy:130, hint:false,
+      act(){ sfxTalk(); say('The tower door is locked. Wizards.'); } },
+  ],
+},
+
+beeglade: {
+  title: '— The Bee Glade —', gx:0, gy:2, walkTop:100, kq:true,
+  trees: [[79,126,1.55,12,'hive'],[290,116,1.1,2],[346,104,1,4],[-52,120,1.2,6],[-110,108,1,8]],
+  draw(t){
+    fSky(t); fClouds(t); fFar();
+    fGrass(100, '#46e93c', '#2fae2e');
+    // dense layered wildflowers, gently swaying
+    for (let i=0;i<140;i++){
+      const fx = -OV + hash(i,17)*(W+2*OV), fy = 106 + hash(i,18)*(H-112);
+      const c = ['#ffffff','#ffd54f','#f48fb1','#ba68c8'][i%4], sway = Math.sin(t*1.1 + i)*0.7;
+      R(fx, fy, 1, 3, '#2e7d32'); R(fx-1+sway, fy-2, 3, 2, c);
+    }
+    treesBG(this.trees, t); // hive oak + glade oaks: solid trunks, walk-behind
+    for (let i=0;i<8;i++){
+      const bx = 89 + Math.cos(t*2 + i*.8)*(12 + hash(i,19)*10);
+      const by = 102 + Math.sin(t*2.7 + i*1.1)*(8 + hash(i,22)*6);
+      R(bx, by, 2, 1, '#f2b90d');
+    }
+    fMotes(t);
+    drawQueen(204,138,t);
+  },
+  spots: [
+    { x:190,y:122,w:28,h:28, wx:192,wy:152, hx:204,hy:122,
+      act(){
+        sfxTalk();
+        if (honeyDone()){ say('The hive hums a golden tune. The queen bobs you a tiny bow.'); return; }
+        if (F.posy){
+          F.posy = false; F.honey = true;
+          addScore(1); sfxPickup(); hud(); save();
+          say('The queen loves your flowers! The bees give you a dripping honeycomb. (+1)');
+          return;
+        }
+        say('The queen bee buzzes: “Bring usss wildflowersss from the meadow, sweetling, and we shall share our honey.”');
+      } },
+    { x:72,y:86,w:34,h:34, wx:110,wy:136, hint:false,
+      act(){ sfxTalk(); say('Ten thousand wings hum inside the great hive. It smells of summer.'); } },
+  ],
+},
+
+lair: {
+  title: '— Cinder’s Lair —', gx:null, gy:null, walkTop:100, kq:true,
+  exitBottom: ['emberpeak',180,148],
+  draw(t){
+    R(-OV,0,W+2*OV,H,'#241016'); R(-OV,0,W+2*OV,70,'#1c0c11');
+    R(-OV,96,W+2*OV,104,'#38201c');
+    for (let i=0;i<36;i++){ R(-OV+hash(i,95)*(W+2*OV), 100+hash(i,96)*96, 5, 2, '#2e1a17'); }
+    ctx.fillStyle = '#160a0d';
+    for (let i=0;i<10;i++){
+      const sx = -OV + i*((W+2*OV)/10) + hash(i,97)*40;
+      ctx.beginPath(); ctx.moveTo(sx,0); ctx.lineTo(sx+12,0); ctx.lineTo(sx+6,20+hash(i,98)*18); ctx.fill();
+    }
+    [[40,70],[290,64],[-60,74],[380,68]].forEach((v,i)=>{
+      R(v[0],v[1],4,10,'#3b2018');
+      const fl = Math.sin(t*7 + i*2) > 0 ? 1 : 0; // flat two-frame flame
+      R(v[0]+1, v[1]-6+fl, 3, 5, '#ff8f3c'); R(v[0]+2, v[1]-7+fl, 1, 3, '#ffd54f');
+    });
+    kHoard(262, 186);
+    for (let i=0;i<7;i++){
+      if (Math.sin(t*4 + i*1.9) > .55) R(232+hash(i,99)*66, 152+hash(i,88)*28, 2, 2, '#fff8d0');
+    }
+    R(78,158,20,6,'#5a4a44'); R(82,156,12,2,'#6b5a52');
+    if (F.honeyOut && !F.crown){
+      R(82,148,10,9,'#c98a2b'); R(84,146,6,3,'#f2b90d'); R(85,152,3,4,'#f2b90d');
+    }
+    if (!F.crown){
+      if (Math.sin(t*3) > 0){ R(250,131,1,1,'#fff8d0'); R(263,134,1,1,'#fff8d0'); R(255,127,1,1,'#ffffff'); }
+      R(248,136,16,6,'#ffd54f');
+      ctx.fillStyle = '#ffd54f';
+      ctx.beginPath(); ctx.moveTo(248,136); ctx.lineTo(251,129); ctx.lineTo(254,136); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(254,136); ctx.lineTo(257,129); ctx.lineTo(260,136); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(260,136); ctx.lineTo(263,129); ctx.lineTo(264,136); ctx.fill();
+      R(251,138,2,2,'#c62828'); R(257,138,2,2,'#2f55c4');
+      if (DETAIL){
+        R(249,141,14,1,'#c9a227');
+        R(250,137,1,1,'#fff8d0'); R(255,140,1,1,'#fff8d0'); R(261,138,1,1,'#fff8d0');
+      }
+    }
+    if (DETAIL){
+      for (let i=0;i<10;i++){
+        const gx2 = 236 + hash(i,86)*60, gy2 = 154 + hash(i,87)*30;
+        disc(gx2, gy2, 1.5, '#f2d060'); R(gx2, gy2-1, 1, 1, '#fff8d0');
+      }
+    }
+    const mode = (F.honeyOut && !F.crown) ? 'eat' : 'sleep';
+    drawDragon(mode === 'eat' ? 128 : 176, 160, t, F.crown ? 'content' : mode);
+  },
+  spots: [
+    { x:240,y:120,w:34,h:26, wx:238,wy:162, hx:256,hy:120,
+      vis(){ return !F.crown; },
+      act(){
+        if (!F.honeyOut){
+          sfxGrowl();
+          say('Cinder’s eye snaps open! You run for it as flames roar behind you!');
+          gotoRoom('emberpeak', 180, 148);
+          return;
+        }
+        F.crown = true; F.honeyOut = false;
+        addScore(2); sfxFanfare(); hud(); save();
+        say('While Cinder slurps, you lift the golden crown from the hoard! (+2)');
+      } },
+    { x:70,y:142,w:34,h:26, wx:104,wy:166, hx:88,hy:142,
+      act(){
+        sfxTalk();
+        if (F.honey){
+          F.honey = false; F.honeyOut = true; hud(); save();
+          say('You set down the honey. Cinder sniffs… and shuffles over, purring. The hoard is unguarded!');
+          return;
+        }
+        if (F.honeyOut){ say('Cinder is entirely occupied with the honey. Now’s your chance.'); return; }
+        say('A flat feeding stone, sticky with old sap. Something here has a sweet tooth…');
+      } },
+    { x:130,y:118,w:80,h:50, wx:130,wy:172, hint:false,
+      act(){
+        sfxTalk();
+        if (F.crown) say('“Come back for tea, Small King,” rumbles Cinder, settling back onto her gold.');
+        else if (F.honeyOut) say('Chomp. Slurp. Purr. The dragon is busy.');
+        else say('Cinder the dragon, snoring in rings of smoke. The crown glitters atop her hoard.');
+      } },
+    { x:120,y:178,w:80,h:22, wx:160,wy:190, hint:false,
+      act(){ gotoRoom('emberpeak', 180, 148); } },
+  ],
+},
+
+marsh: {
+  title: '— The Misty Marsh —', gx:0, gy:3, walkTop:100, kq:true,
+  draw(t){
+    // misty green-grey sky with a wan sun
+    gradFill(-OV,0,W+2*OV,110, 0,110, [[0,'#657d68'],[.55,'#8a9d84'],[1,'#b0bba0']]);
+    glow(280,26,26,'rgba(232,238,216,.55)','rgba(232,238,216,0)'); disc(280,26,8,'#d8dcc8');
+    // murky ground gradient + muted texture
+    gradFill(-OV,100,W+2*OV,H-100, 100,H, [[0,'#4e6b47'],[1,'#2e402c']]);
+    for (let i=0;i<140;i++)
+      R(-OV+hash(i,1)*(W+2*OV), 102+hash(i,2)*(H-104), 1, 2, hash(i,6)>.5?'rgba(30,54,30,.5)':'rgba(110,150,100,.22)');
+    [[120,166,58,20],[262,138,34,12],[46,132,26,10],[-80,150,40,14],[380,168,44,16]].forEach(p=>{
+      ctx.fillStyle = '#3d5f4a';
+      ctx.beginPath(); ctx.ellipse(p[0],p[1],p[2]+3,p[3]+2,0,0,7); ctx.fill();
+      ctx.fillStyle = '#26402f';
+      ctx.beginPath(); ctx.ellipse(p[0],p[1],p[2],p[3],0,0,7); ctx.fill();
+      ctx.fillStyle = 'rgba(150,200,170,.14)'; // pale sheen
+      ctx.beginPath(); ctx.ellipse(p[0]-p[2]*.3,p[1]-p[3]*.4,p[2]*.5,p[3]*.35,0,0,7); ctx.fill();
+    });
+    disc(104,162,5,'#4a7a3a'); R(106,160,4,2,'#31503f');
+    disc(136,172,6,'#4a7a3a'); R(138,170,5,2,'#31503f'); disc(133,169,2,'#f48fb1');
+    disc(268,136,4,'#4a7a3a');
+    for (let i=0;i<6;i++){
+      const rx = 26 + i*11 + hash(i,25)*5;
+      R(rx,116,1,16,'#2e5b30'); R(rx-1,112,3,6,'#6b5a3a');
+    }
+    R(184,150,3,9,'#8a765a'); R(185,152,1,4,'#4a3c2c'); // sawn end with rings
+    R(186,152,34,7,'#5a4a36'); R(188,150,30,2,'#6b5a44');
+    R(218,151,3,8,'#3e3428'); // dark far end
+    for (let i=0;i<6;i++) R(190+i*5, 154+(i%2)*2, 3, 1, '#3e3428'); // bark cracks
+    dRect(196,150,9,3,'#5a4a36','#4a6b3a'); dRect(208,153,6,3,'#5a4a36','#4a6b3a'); // moss
+    drawFrog(202,148,t);
+    for (let i=0;i<3;i++){
+      const wx2 = 160 + Math.sin(t*.5 + i*2.1)*(90+i*24) ;
+      const wy2 = 118 + Math.sin(t*.9 + i*1.4)*14;
+      const a = .25 + Math.sin(t*3 + i)*.15;
+      disc(wx2, wy2, 5, 'rgba(180,255,220,' + a*.5 + ')');
+      disc(wx2, wy2, 2, 'rgba(220,255,240,' + a + ')');
+    }
+    dTree(-52,124,1.1,3); dTree(352,120,1.0,5);
+    // drifting fog bands
+    ctx.fillStyle = 'rgba(220,228,216,.12)';
+    ctx.fillRect(-OV, 128 + Math.sin(t*.5)*5, W+2*OV, 13);
+    ctx.fillStyle = 'rgba(220,228,216,.08)';
+    ctx.fillRect(-OV, 158 + Math.sin(t*.4+2)*6, W+2*OV, 16);
+  },
+  block(x, y){ const dx=(x-120)/61, dy=(y-166)/22; return dx*dx+dy*dy < 1; },
+  spots: [
+    { x:188,y:132,w:30,h:26, wx:196,wy:162, hx:202,hy:132,
+      act(){
+        sfxTalk();
+        if (!F.coin && !F.wished) say('“Rrrribbit,” says the frog. “Check the scarecrow’s coat, in the orchard far to the EAST.”');
+        else say('“The pond is deep, traveler,” says the frog, and bows.');
+      } },
+    { x:120,y:104,w:80,h:26, wx:160,wy:136, hint:false,
+      act(){ sfxTalk(); say('Will-o-wisps drift by like slow green sparks.'); } },
+  ],
+},
+
+hamlet: {
+  title: '— Thistledown Hamlet —', gx:1, gy:3, walkTop:102, kq:true,
+  draw(t){
+    fSky(t); fClouds(t); fFar();
+    fGrass(102, '#46e93c', '#2fae2e');
+    fTree(-44,124,1.2,t,1); fTree(-96,110,1.0,t,3); fTree(368,120,1.15,t,5); fTree(424,132,1.0,t,7);
+    [[52,'#ecdcbc'],[242,'#e2d3b2']].forEach((hh,i)=>{
+      const hx2 = hh[0];
+      gradFill(hx2,70,58,42, 70,112, [[0, hh[1]],[1,'#c9b78e']]); // shaded plaster
+      R(hx2,110,58,2,'#b89b6c');
+      // thatched roof with gradient + straw + ridge
+      ctx.fillStyle = '#a9762f';
+      ctx.beginPath(); ctx.moveTo(hx2-6,72); ctx.lineTo(hx2+64,72); ctx.lineTo(hx2+29,44); ctx.fill();
+      ctx.save(); ctx.beginPath(); ctx.moveTo(hx2-6,72); ctx.lineTo(hx2+64,72); ctx.lineTo(hx2+29,44); ctx.clip();
+      gradFill(hx2-6,44,70,28, 44,72, [[0,'#c28f45'],[1,'#8a5f26']]);
+      for (let k=0;k<26;k++){ R(hx2-4+hash(k+i*9,60)*62, 48+hash(k+i*9,61)*22, 3, 1, 'rgba(90,60,20,.4)'); }
+      ctx.restore();
+      // door with planks + windows with frames and glow
+      R(hx2+22,88,13,24,'#7a5230'); R(hx2+24,90,4,22,'#8a5f38'); R(hx2+30,90,4,22,'#6b4526');
+      glow(hx2+11,89,8,'rgba(255,224,130,.45)','rgba(255,224,130,0)');
+      glow(hx2+45,89,8,'rgba(255,224,130,.45)','rgba(255,224,130,0)');
+      R(hx2+6,84,11,10,'#ffe08a'); R(hx2+6,84,11,2,'#8a6b45'); R(hx2+11,84,1,10,'#c9a860');
+      R(hx2+40,84,11,10,'#ffe08a'); R(hx2+40,84,11,2,'#8a6b45'); R(hx2+45,84,1,10,'#c9a860');
+      if (i===0){
+        R(hx2+44,50,8,14,'#8d6e63'); R(hx2+44,50,8,2,'#a3846f');
+        for (let k=0;k<2;k++){
+          const sy = ((t*8 + k*18) % 36);
+          disc(hx2+48, 48-sy, 3, 'rgba(230,230,230,' + Math.max(0,.4-sy/100) + ')');
+        }
+      }
+    });
+    R(186,120,3,20,'#7a5230'); R(211,120,3,20,'#7a5230'); // well posts
+    ctx.fillStyle = '#a9762f'; // little roof
+    ctx.beginPath(); ctx.moveTo(180,122); ctx.lineTo(220,122); ctx.lineTo(200,108); ctx.fill();
+    ctx.fillStyle = '#8a5f26';
+    ctx.beginPath(); ctx.moveTo(200,108); ctx.lineTo(220,122); ctx.lineTo(200,122); ctx.fill();
+    ctx.fillStyle = '#9198a4'; // stone rim with shading
+    ctx.beginPath(); ctx.ellipse(200,142,15,7,0,0,7); ctx.fill();
+    ctx.fillStyle = '#71767f';
+    ctx.beginPath(); ctx.ellipse(200,143,15,6,0,0,7); ctx.ellipse(200,142,11,4.5,0,0,7); ctx.fill('evenodd');
+    ctx.fillStyle = '#232733'; // dark water
+    ctx.beginPath(); ctx.ellipse(200,142,10,4,0,0,7); ctx.fill();
+    disc(203,141,1.5,'rgba(150,190,220,.5)'); // faint water glint
+    R(198,116,4,3,'#6d4522'); R(199,119,2,11,'#d9c9a0'); // winch + rope
+    R(195,129,9,1,'#4a3a28'); R(195,129,1,3,'#4a3a28'); R(203,129,1,3,'#4a3a28'); // bucket handle
+    R(194,131,10,5,'#8a5f38'); R(194,131,10,1,'#a3745a'); R(194,135,10,1,'#5a3a1c'); // bucket
+    for (let i=0;i<7;i++){ // stone blocks around the rim
+      R(188+i*4, 138+Math.round(Math.sin(i*1.1)*2), 3, 2, '#7a7f8c');
+      R(188+i*4, 140+Math.round(Math.sin(i*1.1)*2), 3, 1, '#565b66');
+    }
+    if (Math.sin(t*2.6) > .4) R(197,142,1,1,'#cfe8ff'); // wish-water sparkle
+    if (DETAIL){
+      R(196,120,8,1,'#b9bdc9'); R(202,124,2,6,'#6d747f');
+      R(190,136,2,1,'#5a7a3a'); R(207,139,2,1,'#5a7a3a'); // moss
+    }
+    [[212,164],[92,172]].forEach((c,i)=>{
+      const peck = Math.sin(t*5 + i*2) > .5 ? 2 : 0;
+      const cwx = c[0] + Math.sin(t*.6 + i*3)*8;
+      disc(cwx, c[1], 4, '#f5f5f5');
+      disc(cwx+4, c[1]-3+peck, 2.5, '#f5f5f5');
+      R(cwx+6, c[1]-3+peck, 2, 1, '#e8912b');
+      R(cwx+4, c[1]-4+peck, 1, 1, '#222');
+    });
+    for (let i=0;i<8;i++){ R(30+i*9, 120, 1, 3, '#2e7d32'); R(29+i*9, 118, 3, 2, ['#f48fb1','#ffd54f'][i%2]); }
+    fMotes(t);
+    drawTilly(98,154,t);
+  },
+  spots: [
+    { x:86,y:122,w:26,h:34, wx:104,wy:156, hx:98,hy:124,
+      act(){
+        sfxTalk();
+        if (F.cat){
+          F.cat = false; F.catHome = true;
+          addScore(1); sfxPickup(); hud(); save();
+          say('“BISCUIT!” Tilly hugs her tight. “Bless you! Psst — our well grants one TRUE wish, for an old copper coin…” (+1)');
+          return;
+        }
+        if (F.catHome){
+          say(F.wished ? 'Tilly waves, flour to the elbows: “Biscuit’s home, the ovens are warm, and the well is humming. All’s right in Thistledown.”'
+                       : 'Tilly leans in: “Don’t forget — one copper coin, one true wish. That old well never lies.”');
+          return;
+        }
+        say('Tilly cries: “My cat Biscuit ran into the orchard, EAST of here! Please bring her home!”');
+      } },
+    { x:182,y:112,w:36,h:36, wx:200,wy:158, hx:200,hy:114,
+      act(){
+        sfxTalk();
+        if (F.coin && !F.wished){
+          F.coin = false; F.wished = true;
+          for (const k in MINFO) seen[k] = 1;
+          addScore(1); sfxUnlock(); hud(); save();
+          say('You wish to know the land. The water flashes gold — your 🗺 map fills in! (+1)');
+          return;
+        }
+        if (F.wished){ say('The well hums contentedly, keeping its change.'); return; }
+        say('A wishing well. It wants an old story-book coin.');
+      } },
+    { x:196,y:150,w:36,h:22, wx:212,wy:178, hint:false,
+      act(){ sfxTalk(); say('Bok. Bok-bok. The chicken has nothing further to add.'); } },
+  ],
+},
+
+orchard: {
+  title: '— The Old Orchard —', gx:2, gy:3, walkTop:100, kq:true,
+  trees: [[40,118,1,0,'apple'],[110,112,.95,1,'apple'],[180,118,1,2,'apple'],[60,158,1.25,3,'apple'],
+          [150,166,1.3,4,'apple'],[288,112,1,5,'apple'],[-40,130,1.2,6,'apple'],[-100,116,1,7,'apple'],
+          [360,126,1.15,8,'apple'],[416,112,1,9,'apple']],
+  draw(t){
+    fSky(t); fClouds(t); fFar();
+    fGrass(100, '#46e93c', '#2fae2e');
+    treesBG(this.trees, t);   // apple trees: block at the trunk, occlude when behind
+    for (let i=0;i<16;i++){ // windfall apples in the grass
+      const ax = -OV/2 + hash(i,27)*(W+OV), ay = 120 + hash(i,28)*70;
+      R(ax, ay, 2, 2, '#a83030'); R(ax, ay, 1, 1, '#c94a3a');
+    }
+    const sw = Math.sin(t*1.4)*1.5;
+    R(228,116,3,40,'#6d4c28');
+    R(214,124+sw*.4,31,3,'#6d4c28');
+    R(222,120,15,16,'#8a6b45'); R(222,120,15,3,'#a3835a');
+    R(214,122+sw*.4,5,5,'#e0cc7a'); R(240,122+sw*.4,5,5,'#e0cc7a');
+    disc(229.5,112,6,'#d9c08a');
+    R(226,110,2,2,'#3a2f1a'); R(231,110,2,2,'#3a2f1a'); R(227,114,5,1,'#3a2f1a');
+    R(221,104,17,3,'#c9a227'); R(225,99,9,6,'#c9a227');
+    const cb = Math.sin(t*2.8)*.7;
+    R(242,118+cb,7,4,'#16161c'); R(248,115+cb,4,4,'#16161c'); R(251,116+cb,3,1,'#e8912b');
+    if (!F.cat && !F.catHome) drawCatInTree(110,96,t);
+  },
+  spots: [
+    { x:96,y:84,w:30,h:24, wx:112,wy:146, hx:110,hy:84,
+      vis(){ return !F.cat && !F.catHome; },
+      act(){
+        F.cat = true; addScore(1); sfxPickup(); hud(); save();
+        say('Mrrp! Biscuit climbs onto your shoulders, purring like a tiny engine. (+1)');
+      } },
+    { x:212,y:96,w:38,h:52, wx:230,wy:162, hx:229,hy:94,
+      act(){
+        sfxTalk();
+        if (!F.coin && !F.wished){
+          F.coin = true; hud(); save();
+          say('You check the scarecrow’s pocket… an old copper coin! The crow is outraged.');
+          return;
+        }
+        say('The scarecrow stares at the horizon. The crow stares at you. Nobody blinks.');
+      } },
+    { x:130,y:150,w:44,h:30, wx:150,wy:184, hint:false,
+      act(){ sfxTalk(); say('Fallen apples, sweet and bruised. The wasps are delighted.'); } },
+  ],
+},
+
+cliffs: {
+  title: '— The Sea Cliffs —', gx:3, gy:3, walkTop:104, kq:true,
+  draw(t){
+    fSky(t); fClouds(t); fFar();
+    fGrass(104, '#46e93c', '#2fae2e');
+    // rocky cliff edge
+    gradFill(-OV,146,W+2*OV,12, 146,158, [[0,'#8a6848'],[1,'#5c442e']]);
+    for (let i=0;i<24;i++){ R(-OV+hash(i,33)*(W+2*OV), 148+hash(i,34)*8, 5, 2, '#4e3a28'); }
+    for (let i=0;i<14;i++){ R(-OV+hash(i,38)*(W+2*OV), 146, 3, 1, '#6f8a4a'); } // grass fringe
+    // sea with depth gradient + bright horizon
+    gradFill(-OV,158,W+2*OV,42, 158,200, [[0,'#4a9adf'],[.5,'#2f6fc4'],[1,'#204d90']]);
+    R(-OV,158,W+2*OV,1,'rgba(255,255,255,.35)');
+    glow(300,168,50,'rgba(255,247,205,.18)','rgba(255,247,205,0)'); // sun sparkle on sea
+    for (let i=0;i<26;i++){
+      const wy2 = 162 + (i%3)*12 + hash(i,35)*6;
+      const wx2 = ((-OV + hash(i,36)*(W+2*OV)) - t*14*(1+(i%3)*.3)) % (W+2*OV);
+      R(wx2 < -OV ? wx2 + W+2*OV : wx2, wy2, 9, 2, 'rgba(225,240,255,.4)');
+    }
+    for (let i=0;i<12;i++){
+      if (Math.sin(t*6 + i*2.2) > .3) R(-OV + hash(i,37)*(W+2*OV), 158, 6, 2, 'rgba(240,248,255,.75)');
+    }
+    const bob = Math.sin(t*1.3)*1.5;
+    const bx = 120 + Math.sin(t*.11)*130;
+    R(bx-10, 176+bob, 20, 5, '#5d4037');
+    R(bx-1, 162+bob, 2, 14, '#3e2f23');
+    ctx.fillStyle = '#f4f1e0';
+    ctx.beginPath(); ctx.moveTo(bx+1,163+bob); ctx.lineTo(bx+11,173+bob); ctx.lineTo(bx+1,173+bob); ctx.fill();
+    R(292,100,14,46,'#eef2f8');
+    R(292,108,14,6,'#c62828'); R(292,124,14,6,'#c62828');
+    dRect(301,100,5,46,'#eef2f8','#b9c4d2'); // shaded side (bands stay bold)
+    R(302,108,4,6,'#a81f1f'); R(302,124,4,6,'#a81f1f'); // band shading
+    R(295,136,7,10,'#3a3630'); R(296,136,5,1,'#565b66'); // door
+    R(288,144,8,4,'#7a7f8c'); R(303,145,9,3,'#7a7f8c'); // rocks at the base
+    R(290,146,4,2,'#565b66'); R(306,146,4,2,'#565b66');
+    R(290,96,18,6,'#8f939e'); R(290,96,18,1,'#b9bdc9');
+    for (let i=0;i<4;i++) R(291+i*5, 93, 1, 3, '#565b66'); // gallery railing
+    R(294,90,10,7,'#2c3040');
+    const bl = (Math.sin(t*2.4) + 1) / 2;
+    disc(299,93,3+bl*2,'rgba(255,224,130,' + (.3+bl*.5) + ')');
+    for (let i=0;i<3;i++){
+      const gx2 = 160 + Math.sin(t*.5 + i*2)*110;
+      const gy2 = 34 + Math.sin(t*1.1 + i*1.6)*10 + i*12;
+      const fl = Math.sin(t*9 + i)*2;
+      ctx.strokeStyle = '#f5f5f5'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(gx2-5, gy2-fl); ctx.lineTo(gx2, gy2); ctx.lineTo(gx2+5, gy2-fl); ctx.stroke();
+    }
+    fTree(-52,128,1.2,t,3); fTree(-110,116,1.0,t,7);
+  },
+  block(x, y){ return y > 144; },
+  spots: [
+    { x:284,y:86,w:30,h:62, wx:280,wy:140, hx:299,hy:84,
+      act(){ sfxTalk(); say('The keeper is out, but the lamp keeps turning.'); } },
+    { x:-0,y:150,w:320,h:50, wx:160,wy:138, hint:false,
+      act(){ sfxTalk(); say('The sea rolls on forever. Beyond it wait other tales…'); } },
+  ],
+},
+
+};
+
+const grid = {};
+for (const id in rooms){ const r = rooms[id]; if (r.gx != null) grid[r.gx + ',' + r.gy] = id; }
+
+// ---------- movement & interaction ----------
+function exits(){
+  const r = rooms[cur], out = {};
+  if (r.gx == null) return out;
+  const cand = {
+    W: grid[(r.gx-1) + ',' + r.gy], E: grid[(r.gx+1) + ',' + r.gy],
+    N: grid[r.gx + ',' + (r.gy-1)], S: grid[r.gx + ',' + (r.gy+1)],
+  };
+  for (const k in cand){
+    if (cand[k] && (!r.exitOk || r.exitOk(k))) out[k] = cand[k];
+  }
+  return out;
+}
+// on wide screens the scene bleeds past the 320 world; let the walker use that
+// whole visible width (world x runs -OX..W+OX on screen) instead of turning
+// back at the old 320 edge, so no visible ground goes to waste
+function wLeft(){ return -OX + 4; }
+function wRight(){ return W + OX - 4; }
+function doExit(dir){
+  const id = exits()[dir]; if (!id) return;
+  if (dir === 'W') gotoRoom(id, wRight() - 6, player.y);
+  else if (dir === 'E') gotoRoom(id, wLeft() + 6, player.y);
+  else if (dir === 'N') gotoRoom(id, player.x, 193);
+  else gotoRoom(id, player.x, rooms[id].walkTop + 6);
+}
+// nearest walkable point to (x,y) — so room entries never strand the player
+// inside water, a gorge, a tree trunk or a grumpy troll's no-go zone
+function freeSpot(r, x, y){
+  if (!solidAt(r, x, y)) return [x, y];
+  for (let rad=3; rad<340; rad+=3){
+    for (let a=0; a<16; a++){
+      const nx = Math.max(wLeft(), Math.min(wRight(), x + Math.cos(a/16*6.283)*rad));
+      const ny = Math.max(r.walkTop, Math.min(196, y + Math.sin(a/16*6.283)*rad));
+      if (!solidAt(r, nx, ny)) return [nx, ny];
+    }
+  }
+  return [160, r.walkTop + 20];
+}
+function gotoRoom(id, px, py){
+  cur = id;
+  const r = rooms[id];
+  const sp = freeSpot(r,
+    Math.max(wLeft(), Math.min(wRight(), px)),
+    Math.max(r.walkTop, Math.min(196, py)));
+  player.x = player.tx = sp[0];
+  player.y = player.ty = sp[1];
+  player.moving = false; pending = null;
+  const firstVisit = !been[id];
+  seen[id] = 1; been[id] = 1;
+  hideCloseup();
+  sceneAudio(id); // swap the soundscape to this land
+  // first visit: the narrator introduces the scene; afterwards entry is silent
+  if (firstVisit && typeof DESCS !== 'undefined' && DESCS[id]) say(DESCS[id]());
+  else say(r.title, true);
+  save();
+  schedulePregen(); // warm this room's lines so taps speak instantly
+}
+function walkTo(x, y, p){
+  const r = rooms[cur];
+  x = Math.max(wLeft(), Math.min(wRight(), x));
+  y = Math.max(r.walkTop, Math.min(196, y));
+  if (solidAt(r, x, y)){
+    for (let k=0; k<50 && solidAt(r,x,y); k++){
+      x += (player.x - x) * .1; y += (player.y - y) * .1;
+    }
+  }
+  player.tx = x; player.ty = y; player.moving = true;
+  pending = p || null;
+}
+function arrowPos(dir){
+  const r = rooms[cur];
+  const my = (r.walkTop + 196) / 2;
+  return dir === 'W' ? [wLeft() + 3, my] : dir === 'E' ? [wRight() - 3, my]
+       : dir === 'N' ? [160, r.walkTop + 6] : [160, 191];
+}
+// close-up: a live, animated view of the room at full 1:1 detail, cropped
+// around the tapped thing. World state is frozen at the moment of the tap so
+// picked things stay in view, but time keeps flowing — everything animates.
+const ccv = document.getElementById('ccv');
+const tmpC = document.createElement('canvas');
+tmpC.width = W; tmpC.height = H;
+let closeSpot = null, closeRect = null, closeT0 = 0, closeF = null;
+function showCloseup(s){
+  closeSpot = s;
+  closeT0 = last;
+  closeF = Object.assign({}, F); // freeze the world as it looks right now
+  const cw = Math.min(170, Math.max(56, s.w + 22));
+  const ch = Math.round(cw * .72);
+  closeRect = {
+    cw, ch,
+    rx: Math.max(0, Math.min(W - cw, s.x + s.w/2 - cw/2)),
+    ry: Math.max(0, Math.min(H - ch, s.y + s.h/2 - ch/2)),
+  };
+  ccv.width = cw; ccv.height = ch;
+  closeTxtEl.textContent = '';
+  closeShownAt = Date.now();
+  closeEl.classList.remove('hidden');
+  const card = closeEl.querySelector('.card');
+  card.style.animation = 'none'; void card.offsetWidth; card.style.animation = '';
+  renderCloseup(last);
+}
+function renderCloseup(t){
+  if (!closeSpot || !closeRect) return;
+  const prev = ctx, Freal = F;
+  try {
+    F = closeF || F;
+    DETAIL = true;
+    ctx = tmpC.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    rooms[cur].draw(t);
+  } catch(e){} finally { ctx = prev; F = Freal; DETAIL = false; }
+  const R0 = closeRect;
+  // cinematic zoom: start wide, ease in to the subject
+  const p = Math.min(1, (t - closeT0) / .5);
+  const e = 1 - Math.pow(1 - p, 3);
+  const z = 1.9 - .9 * e;
+  const cw = Math.min(W, R0.cw * z), ch = Math.min(H, R0.ch * z);
+  const rx = Math.max(0, Math.min(W - cw, R0.rx + R0.cw/2 - cw/2));
+  const ry = Math.max(0, Math.min(H - ch, R0.ry + R0.ch/2 - ch/2));
+  const g = ccv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.drawImage(tmpC, rx, ry, cw, ch, 0, 0, R0.cw, R0.ch);
+  // storybook vignette
+  const vg = g.createRadialGradient(R0.cw/2, R0.ch/2, R0.ch*.4, R0.cw/2, R0.ch/2, R0.cw*.78);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(8,6,20,.42)');
+  g.fillStyle = vg; g.fillRect(0, 0, R0.cw, R0.ch);
+  // little glints of wonder
+  for (let i=0;i<5;i++){
+    const a = Math.sin(t*3 + i*2.1);
+    if (a > .55){
+      g.fillStyle = 'rgba(255,255,230,' + (a - .5) + ')';
+      const sx = R0.cw*(.28 + hash(i,7)*.44), sy = R0.ch*(.22 + hash(i,8)*.5);
+      g.fillRect(sx-2, sy, 5, 1); g.fillRect(sx, sy-2, 1, 5);
+    }
+  }
+}
+let closeShownAt = 0;
+function hideCloseup(){
+  closeSpot = null; closeF = null;
+  closeEl.classList.add('hidden');
+}
+// dismiss on the NEXT press — the tap that opened the card ends with a
+// synthetic click at the same spot, which must not close it instantly
+closeEl.addEventListener('pointerdown', ()=>{
+  if (Date.now() - closeShownAt > 250) hideCloseup();
+});
+function interact(s){
+  const room0 = cur;
+  showCloseup(s); // freeze BEFORE acting, so picked things are still in view
+  s.act();
+  if (cur !== room0 || CINE.on) hideCloseup(); // travel or cinematic: no card
+  else {
+    closeTxtEl.textContent = msgTxtEl.textContent;
+    schedulePregen(); // flags may have changed — re-warm the room's lines
+  }
+}
+function tapAt(lx, ly){
+  if (CINE.on) return; // hold still for the coronation
+  const r = rooms[cur];
+  // arrows first: tapping one guarantees the transition
+  const dx2 = exits();
+  for (const dir in dx2){
+    const p = arrowPos(dir);
+    if (Math.hypot(lx - p[0], ly - p[1]) <= 13){
+      if (dir === 'W') walkTo(wLeft(), player.y, { exit: 'W' });
+      else if (dir === 'E') walkTo(wRight(), player.y, { exit: 'E' });
+      else if (dir === 'N') walkTo(player.x, r.walkTop, { exit: 'N' });
+      else walkTo(player.x, 196, { exit: 'S' });
+      return;
+    }
+  }
+  for (const s of r.spots){
+    if ((!s.vis || s.vis()) && lx >= s.x && lx <= s.x + s.w && ly >= s.y && ly <= s.y + s.h){
+      if (Math.hypot(player.x - s.wx, player.y - s.wy) < 14){
+        player.moving = false; pending = null; interact(s);
+      } else {
+        walkTo(s.wx, s.wy, { spot: s });
+      }
+      return;
+    }
+  }
+  const d = exits();
+  if (lx <= wLeft() + 12 && d.W){ walkTo(wLeft(), ly, { exit: 'W' }); return; }
+  if (lx >= wRight() - 12 && d.E){ walkTo(wRight(), ly, { exit: 'E' }); return; }
+  if (ly <= r.walkTop + 10 && d.N){ walkTo(lx, r.walkTop, { exit: 'N' }); return; }
+  if (ly >= H - 12 && d.S){ walkTo(lx, 196, { exit: 'S' }); return; }
+  walkTo(lx, ly);
+}
+// keep the walker inside the room and out of blocked terrain, sliding along walls
+function stepPlayer(dx, dy){
+  if (CINE.on) return; // hold still for the coronation
+  const r = rooms[cur];
+  let nx = Math.max(wLeft(), Math.min(wRight(), player.x + dx));
+  let ny = Math.max(r.walkTop, Math.min(196, player.y + dy));
+  if (solidAt(r, nx, ny)){
+    if (!solidAt(r, nx, player.y)) ny = player.y;       // slide horizontally
+    else if (!solidAt(r, player.x, ny)) nx = player.x;  // slide vertically
+    else { nx = player.x; ny = player.y; }
+  }
+  if (dx) player.dir = dx > 0 ? 1 : -1;
+  player.x = nx; player.y = ny;
+}
+let footFloor = -1, footLast = 0;
+function update(dt){
+  const kv = keyVec();
+  if ((kv.x || kv.y) && !overlayOpen()){
+    // arrow keys / WASD steer the walker directly, cancelling any tap target
+    if (player.moving){ player.moving = false; pending = null; }
+    stepPlayer(kv.x * 56 * dt, kv.y * 56 * dt);
+    player.step += dt * 9;
+  } else if (player.moving){
+    const dx = player.tx - player.x, dy = player.ty - player.y;
+    const d = Math.hypot(dx, dy), sp = 56 * dt;
+    if (d <= sp){
+      player.x = player.tx; player.y = player.ty; player.moving = false;
+      if (pending){
+        const p = pending; pending = null;
+        if (p.exit) doExit(p.exit); else interact(p.spot);
+      }
+    } else {
+      player.x += dx/d * sp; player.y += dy/d * sp;
+      if (Math.abs(dx) > 1) player.dir = dx > 0 ? 1 : -1;
+      player.step += dt * 9;
+    }
+  }
+  // footsteps: a soft footfall as the walk cycle advances, throttled to a
+  // natural cadence and tinted by the ground surface (grass, wood, snow, stone)
+  const sf = Math.floor(player.step);
+  if (sf !== footFloor){
+    footFloor = sf;
+    const now = AC ? AC.currentTime : 0;
+    if (now - footLast > 0.28){ footLast = now; sfxStep(); }
+  }
+  const r = rooms[cur];
+  const d = exits();
+  if (player.x <= wLeft() + 1 && d.W) doExit('W');
+  else if (player.x >= wRight() - 1 && d.E) doExit('E');
+  else if (player.y <= r.walkTop + 1 && d.N) doExit('N');
+  else if (player.y >= 195 && d.S) doExit('S');
+  else if (r.exitBottom && player.y >= 195) gotoRoom(r.exitBottom[0], r.exitBottom[1], r.exitBottom[2]);
+}
+function chevron(x, y, dx, dy){
+  ctx.beginPath();
+  if (dx){ ctx.moveTo(x - dx*3, y - 5); ctx.lineTo(x + dx*3, y); ctx.lineTo(x - dx*3, y + 5); }
+  else { ctx.moveTo(x - 5, y - dy*3); ctx.lineTo(x, y + dy*3); ctx.lineTo(x + 5, y - dy*3); }
+  ctx.closePath(); ctx.fill();
+}
+function arrows(t){
+  const r = rooms[cur]; if (r.gx == null) return;
+  const d = exits();
+  const a = Math.max(0, .55 + Math.sin(t*3.2) * .35);
+  for (const dir in d){
+    const p = arrowPos(dir);
+    disc(p[0], p[1], 8, 'rgba(10,12,26,.4)');
+    ctx.fillStyle = 'rgba(255,213,79,' + a + ')';
+    chevron(p[0], p[1], dir === 'W' ? -1 : dir === 'E' ? 1 : 0, dir === 'N' ? -1 : dir === 'S' ? 1 : 0);
+  }
+}
+function drawFrame(t){
+  const r = rooms[cur];
+  r.draw(t);
+  let i = 0;
+  for (const s of r.spots){
+    i++;
+    if (s.hint === false || (s.vis && !s.vis())) continue;
+    const a = .45 + Math.sin(t*4 + i*2) * .45;
+    const hx = s.hx != null ? s.hx : s.x + s.w/2;
+    const hy = s.hy != null ? s.hy : s.y - 3;
+    ctx.fillStyle = 'rgba(255,255,220,' + Math.max(0,a) + ')';
+    R(hx-3, hy-1, 6, 1, ctx.fillStyle); R(hx-1, hy-3, 2, 5, ctx.fillStyle);
+  }
+  arrows(t);
+  drawDude(player.x, player.y);
+  // occlusion: re-draw any tree whose trunk is in front of the walker (its base
+  // lower on screen than his feet), so he vanishes behind it
+  if (r.trees){
+    for (const tr of r.trees){ if (tr[1] > player.y) drawOneTree(tr, t); }
+  }
+  if (r.post) r.post(t);
+}
+
+// ---------- input ----------
+const stage = document.getElementById('stage');
+let fsTried = false;
+stage.addEventListener('pointerdown', e => {
+  ac();
+  // one gentle retry at fullscreen on the first play tap, in case Begin's didn't take
+  if (!fsTried && !document.fullscreenElement){ fsTried = true; goFull(); }
+  const b = cv.getBoundingClientRect();
+  const lx = (e.clientX - b.left) / b.width * DW - OX;
+  const ly = (e.clientY - b.top) / b.height * H;
+  // clamp to the VISIBLE range, not the 320 world — on wide screens the exit
+  // arrows and edge-tap zones live out at W+OX, so a side tap must reach them
+  if (lx >= -OX - 1 && lx <= W + OX + 1 && ly >= 0 && ly <= H)
+    tapAt(Math.max(-OX, Math.min(W + OX, lx)), ly);
+});
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+// ---------- keyboard (laptop / desktop) ----------
+// Arrow keys or WASD walk the hero; walking into an edge takes the exit there.
+// Enter/Space uses the nearest thing, Esc closes a pop-up.
+const held = new Set();
+const KDIR = {
+  ArrowLeft:'W', KeyA:'W', ArrowRight:'E', KeyD:'E',
+  ArrowUp:'N', KeyW:'N', ArrowDown:'S', KeyS:'S',
+};
+function overlayOpen(){
+  return [introEl, mapEl, closeEl, narEl, winEl, document.getElementById('item')]
+    .some(el => el && !el.classList.contains('hidden'));
+}
+function keyVec(){
+  let x = (held.has('E') ? 1 : 0) - (held.has('W') ? 1 : 0);
+  let y = (held.has('S') ? 1 : 0) - (held.has('N') ? 1 : 0);
+  if (x && y){ x *= .7071; y *= .7071; }
+  return { x, y };
+}
+function keyInteract(){
+  const r = rooms[cur];
+  let best = null, bd = 1e9;
+  for (const s of r.spots){
+    if (s.vis && !s.vis()) continue;
+    const d = Math.hypot(player.x - s.wx, player.y - s.wy);
+    if (d < bd){ bd = d; best = s; }
+  }
+  if (!best || bd > 60) return;
+  if (bd < 14){ player.moving = false; pending = null; interact(best); }
+  else walkTo(best.wx, best.wy, { spot: best });
+}
+document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const dir = KDIR[e.code];
+  if (dir){
+    e.preventDefault();
+    if (!overlayOpen()){ ac(); held.add(dir); }
+    return;
+  }
+  if (e.code === 'Enter' || e.code === 'Space'){
+    if (overlayOpen()) return;
+    e.preventDefault(); ac(); keyInteract();
+    return;
+  }
+  if (e.code === 'Escape'){
+    if (!closeEl.classList.contains('hidden')){ hideCloseup(); e.preventDefault(); return; }
+    for (const el of [mapEl, narEl, document.getElementById('item')]){
+      if (el && !el.classList.contains('hidden')){ el.classList.add('hidden'); e.preventDefault(); return; }
+    }
+  }
+});
+document.addEventListener('keyup', e => {
+  const dir = KDIR[e.code];
+  if (dir) held.delete(dir);
+});
+// a lost keyup (tab-away, focus change) would stick a key down — clear on blur
+window.addEventListener('blur', ()=> held.clear());
+
+// ---------- overlays / lifecycle ----------
+const introEl = document.getElementById('intro');
+const winEl = document.getElementById('win');
+const mapEl = document.getElementById('map');
+const MAPGRID = [
+  ['darkwoods','gate','foothills','emberpeak'],
+  ['meadow','forest','bridge','pass'],
+  ['beeglade','cottage','lake','tower'],
+  ['marsh','hamlet','orchard','cliffs'],
+];
+const MINFO = {
+  darkwoods:['🌲','Dark Woods'], gate:['🏰','Castle'], foothills:['⛰️','Foothills'], emberpeak:['🌋','Ember Peak'],
+  meadow:['🌼','Meadow'], forest:['🌳','Forest'], bridge:['🌉','Bridge'], pass:['🌬️','High Pass'],
+  beeglade:['🐝','Bee Glade'], cottage:['🏡','Cottage'], lake:['🌊','Lake'], tower:['🧙','Tower'],
+  marsh:['🐸','Marsh'], hamlet:['🥖','Hamlet'], orchard:['🍎','Orchard'], cliffs:['🌅','Sea Cliffs'],
+};
+const MPARENT = { throne:'gate', cave:'foothills', lair:'emberpeak' };
+
+// ---------- scene descriptions (the 👁️ button) ----------
+const DESCS = {
+  forest: () => 'A sunny forest where two paths cross. A signpost points the way.',
+  meadow: () => 'A green meadow full of flowers and butterflies.'
+    + (!F.flower && !F.gaveFlower ? ' One flower glows pink — the moonpetal!' : '')
+    + (!F.posy && !honeyDone() ? ' Bright wildflowers grow to the east.' : ''),
+  cottage: () => 'Elda’s cosy cottage, smoke curling from the chimney. She waits in her garden.'
+    + (!F.lantern ? ' A lantern hangs by the door.' : ''),
+  bridge: () => 'A wooden bridge over a rushing river.'
+    + (F.gaveFish ? ' Grukk the troll sits nearby, belly full and happy.'
+                  : ' Grukk the troll blocks the way — a shiny key at his chest.'),
+  lake: () => 'The silver lake sparkles, with a little fishing pier.'
+    + (!F.fish && !F.gaveFish ? ' Fat trout leap and splash.' : ''),
+  gate: () => 'A stone castle with two towers and red flags.'
+    + (F.gateOpen ? ' The doors stand open.' : ' The doors are locked tight.'),
+  throne: () => 'A grand hall with torches, a red carpet and a golden throne.'
+    + (F.crown ? ' The crown is on your head, where it belongs.'
+               : ' Beside the throne: an empty pedestal with claw marks.'),
+  darkwoods: () => 'A gloomy wood of dead trees and drifting fog. A raven perches up high'
+    + (!F.gaveGeode ? ', clutching a little book.' : ', admiring its shiny geode.'),
+  beeglade: () => 'A flowery glade with a great humming beehive. The queen bee hovers close by.'
+    + (honeyDone() ? '' : ' She loves wildflowers.'),
+  tower: () => 'A tall wizard’s tower with a glowing star window. Fenwick the wizard stands outside, and a telescope points at the mountains.',
+  foothills: () => 'Rocky hills with a dark cave mouth — and a deep gorge to the east.',
+  cave: () => 'A crystal cave glowing blue and purple. Bats flit above your lantern light.'
+    + (!F.geode ? ' Something purple sparkles on the floor.' : ''),
+  pass: () => F.warm
+    ? 'The snowy pass is calm. The way NORTH is open — Ember Peak glows red ahead.'
+    : 'A frozen pass. A howling blizzard blocks the path NORTH!',
+  emberpeak: () => 'A burnt black mountain. Fire glows in the rocks, and smoke drifts from the dragon’s lair.',
+  lair: () => F.crown
+    ? 'Cinder dozes happily on her gold. She doesn’t mind about the crown.'
+    : (F.honeyOut
+      ? 'Cinder is busy slurping honey — her gold and the crown are unguarded!'
+      : 'Cinder the dragon sleeps by her mountain of gold. The crown glitters on top.'),
+  marsh: () => 'A misty marsh with glowing lights and a wise frog on a log.',
+  hamlet: () => 'A tiny village: cottages, chickens, Tilly the baker — and a wishing well.',
+  orchard: () => 'Apple trees and a scarecrow with a grumpy crow.'
+    + (!F.cat && !F.catHome ? ' A little white cat meows up a tree!' : ''),
+  cliffs: () => 'High green cliffs above a silver sea — gulls, a sailboat, and a lighthouse.',
+};
+document.getElementById('eye').addEventListener('click', ()=>{
+  const d = DESCS[cur] ? DESCS[cur]() : rooms[cur].title;
+  msgTxtEl.textContent = d;
+  startSpeech(d, speakBtn);
+});
+
+// ---------- speech pre-generation ----------
+// Discover what each visible hotspot WOULD say by dry-running its act()
+// against throwaway copies of the game state, with every side effect stubbed.
+function spotLines(){
+  const lines = [];
+  const savedF = F, savedSeen = seen, wasFishing = fishing;
+  const o = { say, addScore, hud, save, gotoRoom, showWin, hideCloseup,
+              sfxTalk, sfxPickup, sfxUnlock, sfxFanfare, sfxGrowl };
+  const st = window.setTimeout;
+  try {
+    say = t => { if (t) lines.push(t); };
+    addScore = hud = save = gotoRoom = showWin = hideCloseup = function(){};
+    sfxTalk = sfxPickup = sfxUnlock = sfxFanfare = sfxGrowl = function(){};
+    window.setTimeout = function(){ return 0; };
+    seen = Object.assign({}, savedSeen);
+    for (const s of rooms[cur].spots){
+      if (s.vis && !s.vis()) continue;
+      F = Object.assign({}, savedF); // fresh copy per spot — mutations vanish
+      try { s.act(); } catch(e){}
+    }
+  } finally {
+    F = savedF; seen = savedSeen; fishing = wasFishing;
+    say = o.say; addScore = o.addScore; hud = o.hud; save = o.save;
+    gotoRoom = o.gotoRoom; showWin = o.showWin; hideCloseup = o.hideCloseup;
+    sfxTalk = o.sfxTalk; sfxPickup = o.sfxPickup; sfxUnlock = o.sfxUnlock;
+    sfxFanfare = o.sfxFanfare; sfxGrowl = o.sfxGrowl;
+    window.setTimeout = st;
+  }
+  return lines;
+}
+// queue this room's likely lines for background voice generation
+function schedulePregen(){
+  if (!AI.session || !AI.voiceId) return;
+  const texts = [];
+  try {
+    if (DESCS[cur]) texts.push(DESCS[cur]());
+    texts.push.apply(texts, spotLines());
+  } catch(e){}
+  aiLo.length = 0;
+  const queued = {};
+  texts.forEach(raw => {
+    aiParts(cleanSpeech(raw)).forEach(part => {
+      if (!part) return;
+      if (aiCache.has(AI.voiceId + '|' + part) || queued[part]) return;
+      queued[part] = 1;
+      aiLo.push(part);
+    });
+  });
+  if (aiLo.length > 24) aiLo.length = 24;
+  if (aiLo.length) aiPump();
+}
+function openMap(){
+  const here = MPARENT[cur] || cur;
+  document.getElementById('mapGrid').innerHTML = MAPGRID.map(row =>
+    row.map(id => {
+      const v = seen[id] || (MPARENT.throne === id && seen.throne);
+      const cls = 'mc' + (v ? ' on' : '') + (id === here ? ' cur' : '');
+      const body = v ? '<span class="ic">' + MINFO[id][0] + '</span>' + MINFO[id][1]
+                     : '<span class="ic">•</span>?';
+      return '<div class="' + cls + '" data-id="' + id + '">' + body + '</div>';
+    }).join('')
+  ).join('');
+  mapEl.classList.remove('hidden');
+}
+document.getElementById('mapBtn').addEventListener('click', openMap);
+function sfxTravel(){ beep(700,.07); beep(520,.07,.06); beep(390,.1,.12); }
+document.getElementById('mapGrid').addEventListener('click', e => {
+  const cell = e.target.closest ? e.target.closest('.mc') : null;
+  if (!cell) return;
+  const id = cell.getAttribute('data-id');
+  // fast travel — but only to lands already explored
+  if (id && seen[id] && rooms[id] && id !== (MPARENT[cur] || cur)){
+    sfxTravel();
+    gotoRoom(id, 160, rooms[id].walkTop + 30);
+  }
+});
+mapEl.addEventListener('click', ()=> mapEl.classList.add('hidden'));
+
+function showWin(){
+  CINE.on = false;
+  player.y = player.ty = Math.max(player.y, rooms[cur].walkTop);
+  document.getElementById('winText').textContent =
+    'You found the crown in a dragon’s hoard and won the throne of Aldermere — with Cinder purring at the gates. Final score: ' + score + '/' + MAX + '.';
+  winEl.classList.remove('hidden');
+}
+function applyState(s){
+  F = Object.assign(freshFlags(), s.F);
+  seen = Object.assign({}, s.seen); // own copy, so revealAll() can't touch the save
+  been = s.been || Object.assign({}, s.seen) || {};
+  revealAll(); // returning players get the full map too
+  score = s.score || 0;
+  gotoRoom(s.cur, s.x, s.y);
+  hud();
+}
+// every land sits on the map from the start, so you can fast-travel anywhere.
+// (first-visit narration is untouched — that's driven by `been`, not `seen`.)
+function revealAll(){ for (const k in MINFO) seen[k] = 1; }
+function newGame(){
+  F = freshFlags(); seen = {}; been = {}; score = 0; fishing = false;
+  revealAll();
+  clearSave();
+  winEl.classList.add('hidden');
+  hud();
+  gotoRoom('forest', 160, 152);
+  say('The king’s crown waits in the castle to the NORTH. Claim it, and the throne is yours! (Golden arrows lead the way.)');
+}
+function goFull(){
+  try {
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen)
+      document.documentElement.requestFullscreen().catch(()=>{});
+  } catch(e){}
+  setTimeout(fit, 300);
+}
+function begin(){
+  introEl.classList.add('hidden');
+  goFull();
+  ac(); // warm audio for sound effects and the storyteller
+  const s = loadSave();
+  if (s){ applyState(s); say(rooms[cur].title + '  (welcome back, adventurer)', true); }
+  else newGame();
+}
+document.getElementById('begin').addEventListener('click', begin);
+document.getElementById('again').addEventListener('click', newGame);
+document.getElementById('keep').addEventListener('click', ()=> winEl.classList.add('hidden'));
+document.getElementById('reset').addEventListener('click', ()=>{
+  if (confirm('Start a new game? Your progress will be lost.')) newGame();
+});
+document.getElementById('fs').addEventListener('click', ()=>{
+  try {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen();
+  } catch(e){}
+  setTimeout(fit, 300);
+});
+if (loadSave()) document.getElementById('begin').textContent = '▶ Continue';
+narBtnIcon();
+// detect the AI storyteller already stored on this device and re-activate it.
+// Three probes: the voice engine's own registry, the private file system, and
+// the browser's download cache — so a lost preference or a quirky storage
+// backend can't make the game forget a 60 MB model that's already here.
+async function opfsVoices(){
+  const out = [];
+  try {
+    const root = await navigator.storage.getDirectory();
+    const scan = async (dir, depth) => {
+      for await (const entry of dir.values()){
+        const m = entry.name.match(/([a-z]{2}_[A-Z]{2}-[\w+-]+?)\.onnx/);
+        if (entry.kind === 'file' && m && out.indexOf(m[1]) < 0) out.push(m[1]);
+        else if (entry.kind === 'directory' && depth < 2) await scan(entry, depth + 1);
+      }
+    };
+    await scan(root, 0);
+  } catch(e){}
+  return out;
+}
+async function cacheVoices(){
+  const out = [];
+  try {
+    for (const key of await caches.keys()){
+      const c = await caches.open(key);
+      for (const req of await c.keys()){
+        const m = req.url.match(/([a-z]{2}_[A-Z]{2}-[\w+-]+?)\.onnx/);
+        if (m && out.indexOf(m[1]) < 0) out.push(m[1]);
+      }
+    }
+  } catch(e){}
+  return out;
+}
+async function detectAI(){
+  try {
+    const slow = new Promise((_, rej)=>setTimeout(()=>rej(new Error('slow')), 15000));
+    if (!AI.mod) AI.mod = await Promise.race([importPiper(), slow]);
+  } catch(e){ AI.mod = null; }
+  try { AI.pref = localStorage.getItem('kq-aivoice'); } catch(e){}
+  const ids = {};
+  if (AI.mod){
+    try {
+      if (typeof AI.mod.stored === 'function')
+        ((await AI.mod.stored()) || []).forEach(v => { ids[v] = 1; });
+    } catch(e){}
+  }
+  (await opfsVoices()).forEach(v => { ids[v] = 1; });
+  (await cacheVoices()).forEach(v => { ids[v] = 1; });
+  AI.storedIds = Object.keys(ids);
+  if (AI.mod){
+    const preferred = (AI.pref && AI.storedIds.indexOf(AI.pref) >= 0)
+      ? AI.pref
+      : AI.storedIds.filter(id => AIVOICES.some(v => v[0] === id))[0];
+    if (preferred && AI.pref !== ''){ loadAI(preferred); return; } // '' = user chose a phone voice
+  }
+  if (!narEl.classList.contains('hidden')) buildNarMenu();
+}
+if (location.protocol.indexOf('http') === 0){
+  detectAI();
+  window.addEventListener('online', ()=>{ if (AI.state === 'off') detectAI(); });
+}
+window.addEventListener('pagehide', save);
+document.addEventListener('visibilitychange', ()=>{ if (document.hidden) save(); });
+
+// ---------- sizing & loop ----------
+function fit(){
+  const sw = stage.clientWidth, sh = stage.clientHeight;
+  if (!sw || !sh) return;
+  // full 320x200 everywhere — the classic Sierra resolution
+  PX = 1;
+  DW = Math.max(W, Math.min(W + 2*OV, Math.round(sw / sh * H)));
+  OX = Math.floor((DW - W) / 2 / PX) * PX;
+  os.width = Math.ceil(DW / PX); os.height = H / PX;
+  bl.width = os.width; bl.height = os.height; // bloom is blurred at scene res (cheap)
+  const s = Math.min(sw / DW, sh / H);
+  const cssW = Math.floor(DW * s), cssH = Math.floor(H * s);
+  cv.style.width = cssW + 'px'; cv.style.height = cssH + 'px';
+  // back the display canvas with real device pixels so the upscale is razor sharp
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
+}
+window.addEventListener('resize', fit);
+window.addEventListener('orientationchange', ()=> setTimeout(fit, 200));
+document.addEventListener('fullscreenchange', ()=> setTimeout(fit, 100));
+fit();
+hud();
+say('');
+
+// canvas colour/blur filters are needed for the grade; skip it where unsupported
+const CANVAS_FILTER = (()=>{
+  try { const c = document.createElement('canvas').getContext('2d');
+    c.filter = 'blur(1px)'; return c.filter === 'blur(1px)'; } catch(e){ return false; }
+})();
+let _vig = null, _vigW = 0, _vigH = 0;
+function vignette(){
+  if (_vig && _vigW === cv.width && _vigH === cv.height) return _vig;
+  const w = cv.width, h = cv.height;
+  const g = dctx.createRadialGradient(w/2, h/2, Math.min(w,h)*.34, w/2, h/2, Math.max(w,h)*.62);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, 'rgba(6,5,16,' + HD.vignette + ')');
+  _vig = g; _vigW = w; _vigH = h;
+  return g;
+}
+let last = 0;
+function frame(ts){
+  const t = ts / 1000;
+  const dt = Math.min(.05, t - (last || t));
+  last = t;
+  if (introEl.classList.contains('hidden')) update(dt);
+  // scene renders into the offscreen buffer (full res on desktop, half on phones)
+  ctx.setTransform(1/PX, 0, 0, 1/PX, OX/PX, 0);
+  drawFrame(t);
+  dctx.setTransform(1, 0, 0, 1, 0, 0);
+  // classic-styled rooms (kq) skip the whole grade: flat colour, hard edges
+  const flat = rooms[cur] && rooms[cur].kq;
+  // base: crisp nearest-neighbour upscale, colours deepened for a 32-bit feel
+  dctx.globalCompositeOperation = 'source-over'; dctx.globalAlpha = 1;
+  dctx.imageSmoothingEnabled = false;
+  dctx.filter = CANVAS_FILTER && !flat ? HD.color : 'none';
+  dctx.drawImage(os, 0, 0, os.width, os.height, 0, 0, cv.width, cv.height);
+  dctx.filter = 'none';
+  // bloom: blur a copy of the scene and add it back so bright things glow softly
+  if (CANVAS_FILTER && HD.bloom > 0 && !flat){
+    blctx.setTransform(1, 0, 0, 1, 0, 0);
+    blctx.clearRect(0, 0, bl.width, bl.height);
+    blctx.filter = 'blur(1.4px) brightness(1.18)';
+    blctx.drawImage(os, 0, 0);
+    blctx.filter = 'none';
+    dctx.globalCompositeOperation = 'lighter';
+    dctx.globalAlpha = HD.bloom;
+    dctx.imageSmoothingEnabled = true;
+    dctx.drawImage(bl, 0, 0, bl.width, bl.height, 0, 0, cv.width, cv.height);
+    dctx.globalCompositeOperation = 'source-over'; dctx.globalAlpha = 1;
+  }
+  // vignette: gently darken the corners for a storybook frame
+  if (HD.vignette > 0 && !flat){ dctx.fillStyle = vignette(); dctx.fillRect(0, 0, cv.width, cv.height); }
+  if (closeSpot && !closeEl.classList.contains('hidden')) renderCloseup(t);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+if (new URLSearchParams(location.search).has('play')) begin();
+
+// ---------- version display & update check ----------
+document.getElementById('ver').textContent = KQ_VER;
+if (IS_WEB){
+  setTimeout(async ()=>{
+    try {
+      const res = await fetch(location.href.split('#')[0].split('?')[0], { cache: 'no-cache' });
+      if (!res.ok) return;
+      const m = (await res.text()).match(/KQ_VER = '([^']+)'/);
+      if (m && m[1] !== KQ_VER){
+        const btn = document.createElement('button');
+        btn.id = 'updBtn';
+        btn.textContent = '⬆ Update to ' + m[1];
+        btn.addEventListener('click', ()=> location.reload());
+        document.body.appendChild(btn);
+      }
+    } catch(e){}
+  }, 2500);
+}
+</script>
+</body>
+</html>
