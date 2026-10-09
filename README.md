@@ -70,6 +70,14 @@ your Home Screen to play it like an app.
 
 **Live:** https://laseberini.github.io/laurence-playground/mastermind/
 
+## 👑 King’s Quest — [`kings-quest/`](kings-quest/index.html)
+
+*The Crown of Aldermere*, a classic Sierra-style adventure game built for
+phones. Tap to walk, read the story aloud with a phone or AI voice. Your game
+saves on the phone. Add it to your Home Screen to play full screen.
+
+**Live:** https://laseberini.github.io/laurence-playground/kings-quest/
+
 ## 🌀 fractal-loop — [`fractal-loop.html`](fractal-loop.html)
 
 A small interactive fractal toy.
