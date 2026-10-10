@@ -41,6 +41,16 @@
   .rule{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:9px 12px;
         font-size:14px;line-height:1.35;margin-bottom:12px;text-align:center}
   .rule b{color:var(--accent)}
+  /* Easy / Normal switch: Easy shows mistakes and locks right answers, Normal is real sudoku */
+  .mode{position:relative;display:grid;grid-template-columns:1fr 1fr;background:var(--card);border:2px solid var(--line);
+        border-radius:999px;padding:4px;margin-bottom:12px}
+  .mode::before{content:"";position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);border-radius:999px;
+        background:var(--accent);transition:transform .25s ease}
+  .mode.normal::before{transform:translateX(100%)}
+  .mode button{position:relative;z-index:1;padding:9px 4px;font-size:15px;font-weight:800;border-radius:999px;color:var(--muted);
+        transition:color .25s ease}
+  .mode button.on{color:#fff}
+  .mode small{display:block;font-size:11px;font-weight:600;opacity:.85}
 
   #board{display:grid;width:100%;aspect-ratio:1;background:var(--box);border:3px solid var(--box);
          border-radius:14px;overflow:hidden;gap:1px}
@@ -113,6 +123,11 @@
   <button class="round" id="newBtn" aria-label="New puzzle">✨</button>
 </header>
 
+<div class="mode" id="mode" role="radiogroup" aria-label="Help level">
+  <button id="modeEasy" role="radio">Easy<small>shows mistakes</small></button>
+  <button id="modeNormal" role="radio">Normal<small>real sudoku</small></button>
+</div>
+
 <div class="rule">Every <b>row</b>, every <b>column</b> and every <b>box</b> gets each picture <b>once</b>.</div>
 
 <div id="board" role="grid" aria-label="Puzzle"></div>
@@ -121,10 +136,9 @@
 <div class="tools">
   <button class="tool" id="eraseBtn"><span>🧽</span>Rub out</button>
   <button class="tool" id="hintBtn"><span>💡</span>Hint</button>
-  <button class="tool" id="checkBtn"><span>🔍</span>Spot mistakes</button>
 </div>
 
-<p class="foot">Tap a square then a picture, or a picture then squares. <span id="ver">v1.6</span></p>
+<p class="foot">Tap a square then a picture, or a picture then squares. <span id="ver">v1.7</span></p>
 <button id="update">✨ New version ready. Tap to update</button>
 
 <!-- New puzzle sheet -->
@@ -152,7 +166,7 @@
 </div>
 
 <script>
-const VERSION = 'v1.6';
+const VERSION = 'v1.7';
 const THEMES = {
   animals:  { name:'Animals',  icon:'🐶', pics:['🐶','🐱','🐰','🐸','🦁','🐵','🐼','🐷','🐮'] },
   fruit:    { name:'Fruit',    icon:'🍎', pics:['🍎','🍌','🍇','🍓','🍊','🍉','🍒','🍍','🥝'] },
@@ -248,7 +262,7 @@ function isPeer(a,b){
 }
 
 // A square can't be changed if it came with the puzzle, or once it's right.
-// Right answers only lock while Spot mistakes is on: with it off, a square
+// Right answers only lock in Easy mode: in Normal mode, a square
 // refusing to change would give the answer away.
 function locked(i){ return !!S.puz[i] || (spot && !!S.cur[i] && S.cur[i]===S.sol[i]); }
 
@@ -296,7 +310,9 @@ function render(){
   [...$('tray').children].forEach(b=>{
     b.classList.toggle('on', !!selV && +b.dataset.v===selV);
   });
-  $('checkBtn').classList.toggle('off', !spot);
+  $('mode').classList.toggle('normal', !spot);
+  $('modeEasy').classList.toggle('on', spot);  $('modeEasy').setAttribute('aria-checked', spot);
+  $('modeNormal').classList.toggle('on', !spot); $('modeNormal').setAttribute('aria-checked', !spot);
   $('soundBtn').textContent = sound ? '🔊' : '🔈';
 }
 
@@ -329,7 +345,7 @@ function place(i,v){
   if(spot && wrong){
     cell.classList.remove('shake'); void cell.offsetWidth; cell.classList.add('shake'); beep([220,180],.12,'square',.05);
   } else {
-    // With Spot mistakes off, right and wrong look and sound exactly the same
+    // In Normal mode, right and wrong look and sound exactly the same
     cell.classList.remove('pop'); void cell.offsetWidth; cell.classList.add('pop'); beep([660,880],.07);
   }
   done();
@@ -396,7 +412,8 @@ $('againBtn').addEventListener('click',()=>{ $('winSheet').classList.remove('sho
 $('newBtn').addEventListener('click',openSetup);
 $('eraseBtn').addEventListener('click',erase);
 $('hintBtn').addEventListener('click',hint);
-$('checkBtn').addEventListener('click',()=>{ spot=!spot; save(); render(); });
+$('modeEasy').addEventListener('click',()=>{ if(!spot){ spot=true; beep([600],.04,'triangle',.06); save(); render(); } });
+$('modeNormal').addEventListener('click',()=>{ if(spot){ spot=false; beep([600],.04,'triangle',.06); save(); render(); } });
 $('soundBtn').addEventListener('click',()=>{ sound=!sound; save(); render(); beep([660],.06); });
 $('ver').textContent=VERSION;
 
