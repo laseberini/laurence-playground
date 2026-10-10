@@ -25,6 +25,17 @@ Small, self-contained web apps served by GitHub Pages straight from `main`
   page, plus real PNG icons `icon-180.png` (apple-touch-icon),
   `icon-192.png` and `icon-512.png` in the app folder. A data: URI icon is
   not enough; phones refuse to install without the manifest and PNGs.
+- Make it update itself, like `picture-sudoku/`. Installed apps have no
+  refresh button, so people get stuck on old versions otherwise:
+  - Keep a `const VERSION = 'vX.Y';` in the page and show it in the footer.
+    Bump it on every change you push.
+  - On open, and when the app comes back to the front (`visibilitychange`),
+    fetch the page with `cache:'reload'` and read its `VERSION`. If it's
+    different, save the user's data and `location.reload()`.
+  - Reload only once per new version (remember it in `sessionStorage`). If
+    the old copy comes back again (GitHub can hold it ~10 min), show a
+    "New version ready. Tap to update" button instead of reloading in a loop.
+  - Tapping the version number forces a fresh reload.
 - Add a link to it in `apps/index.html` and a section in `README.md`.
 - Store user data in `localStorage` (wrapped in try/catch) and offer a
   backup/restore if losing the data would hurt.
