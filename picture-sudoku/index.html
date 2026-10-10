@@ -147,7 +147,7 @@
   <button class="tool" id="hintBtn"><span>💡</span>Hint</button>
 </div>
 
-<p class="foot">Tap a square, then a picture. <span id="ver">v1.10</span></p>
+<p class="foot">Tap a square, then a picture. <span id="ver">v1.11</span></p>
 <div id="toast" role="status"></div>
 <button id="update">✨ New version ready. Tap to update</button>
 
@@ -191,7 +191,7 @@
 </div>
 
 <script>
-const VERSION = 'v1.10';
+const VERSION = 'v1.11';
 const THEMES = {
   animals:  { name:'Animals',  icon:'🐶', pics:['🐶','🐱','🐰','🐸','🦁','🐵','🐼','🐷','🐮'] },
   fruit:    { name:'Fruit',    icon:'🍎', pics:['🍎','🍌','🍇','🍓','🍊','🍉','🍒','🍍','🥝'] },
@@ -468,6 +468,18 @@ function checkUpdate(){
 $('update').addEventListener('click',()=>location.reload());
 $('ver').addEventListener('click',reloadFresh);
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) checkUpdate(); });
+
+// ---------- keep the screen awake ----------
+// Kids think slowly between moves; don't let the phone dim and lock mid-puzzle.
+// The phone drops the lock when the app is hidden, so take it again on return,
+// and on the first tap in case the browser wants a tap before allowing it.
+let wakeLock=null;
+async function keepAwake(){
+  try{ if('wakeLock' in navigator && !document.hidden && !(wakeLock && !wakeLock.released)) wakeLock=await navigator.wakeLock.request('screen'); }catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) keepAwake(); });
+document.addEventListener('pointerdown',keepAwake,{passive:true});
+keepAwake();
 checkUpdate();
 
 load();
