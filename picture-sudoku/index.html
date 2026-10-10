@@ -64,7 +64,6 @@
   .pick{background:var(--card);border:2px solid var(--line);border-radius:14px;aspect-ratio:1;
         display:grid;place-items:center;font-size:var(--tfs,34px);line-height:1;position:relative}
   .pick:active{transform:scale(.93)}
-  .pick.done{opacity:.35}
   .pick.on{border-color:var(--accent);background:var(--sel)}
 
   .tools{display:flex;gap:8px;margin-top:12px}
@@ -120,7 +119,7 @@
   <button class="tool" id="checkBtn"><span>🔍</span>Spot mistakes</button>
 </div>
 
-<p class="foot">Tap a square, then tap a picture. <span id="ver">v1.0</span></p>
+<p class="foot">Tap a square, then tap a picture. <span id="ver">v1.1</span></p>
 
 <!-- New puzzle sheet -->
 <div class="sheet" id="setup">
@@ -147,7 +146,7 @@
 </div>
 
 <script>
-const VERSION = 'v1.0';
+const VERSION = 'v1.1';
 const THEMES = {
   animals:  { name:'Animals',  icon:'🐶', pics:['🐶','🐱','🐰','🐸','🦁','🐵','🐼','🐷','🐮'] },
   fruit:    { name:'Fruit',    icon:'🍎', pics:['🍎','🍌','🍇','🍓','🍊','🍉','🍒','🍍','🥝'] },
@@ -281,12 +280,9 @@ function render(){
     c.classList.toggle('same', !!selV && i!==sel && v===selV);
     c.classList.toggle('wrong', spot && !!v && !S.puz[i] && v!==S.sol[i]);
   }
-  // Grey out a picture once all of it is placed correctly
+  // All pictures always look the same, so the tray never gives away an answer
   [...$('tray').children].forEach(b=>{
-    const v=+b.dataset.v;
-    let right=0; for(let i=0;i<n*n;i++) if(S.cur[i]===v&&S.sol[i]===v) right++;
-    b.classList.toggle('done', right===n);
-    b.classList.toggle('on', !!selV && v===selV);
+    b.classList.toggle('on', !!selV && +b.dataset.v===selV);
   });
   $('checkBtn').classList.toggle('off', !spot);
   $('soundBtn').textContent = sound ? '🔊' : '🔈';
