@@ -147,7 +147,7 @@
   <button class="tool" id="hintBtn"><span>💡</span>Hint</button>
 </div>
 
-<p class="foot">Tap a square, then a picture. <span id="ver">v1.11</span></p>
+<p class="foot">Tap a square, then a picture. <span id="ver">v1.12</span></p>
 <div id="toast" role="status"></div>
 <button id="update">✨ New version ready. Tap to update</button>
 
@@ -191,7 +191,7 @@
 </div>
 
 <script>
-const VERSION = 'v1.11';
+const VERSION = 'v1.12';
 const THEMES = {
   animals:  { name:'Animals',  icon:'🐶', pics:['🐶','🐱','🐰','🐸','🦁','🐵','🐼','🐷','🐮'] },
   fruit:    { name:'Fruit',    icon:'🍎', pics:['🍎','🍌','🍇','🍓','🍊','🍉','🍒','🍍','🥝'] },
@@ -207,6 +207,7 @@ const KEY = 'picture-sudoku-v1';
 
 let S = null;          // game state
 let sel = -1;          // selected cell index
+let look = 0;          // picture tapped with no square picked: show where it already is (never places it)
 let spot = true;       // show mistakes as you go
 let sound = true;
 let pending = { theme:'animals', size:4, level:'easy' };
@@ -276,7 +277,7 @@ function newGame(theme,n,level){
   const {sol,puz}=makePuzzle(n,level);
   const pics=shuffle(THEMES[theme].pics.slice()).slice(0,n);
   S={theme,n,level,pics,sol,puz,cur:puz.slice(),hints:0,mistakes:0,done:false};
-  sel=-1; save(); build();
+  sel=-1; look=0; save(); build();
 }
 const $=id=>document.getElementById(id);
 function box(){ return SIZES[S.n].box; }
@@ -320,7 +321,7 @@ function build(){
 
 function render(){
   const n=S.n, cells=$('board').children;
-  const selV = sel>=0 ? S.cur[sel] : 0;
+  const selV = sel>=0 ? S.cur[sel] : look;
   for(let i=0;i<n*n;i++){
     const c=cells[i], v=S.cur[i];
     c.firstChild.textContent = v ? S.pics[v-1] : '';
@@ -341,17 +342,22 @@ function render(){
   $('hintBtn').style.display = spot ? '' : 'none';   // No help means no hints
 }
 
-// One way to play: tap a square, then a picture. A picture tapped on its own does nothing,
-// so a stray tap can never drop a picture somewhere by surprise.
+// One way to play: tap a square, then a picture. A picture tapped on its own only lights up
+// where it already is, so a stray tap can never drop a picture somewhere by surprise.
 function tapCell(i){
   if(S.done) return;
+  look = 0;
   sel = (sel===i) ? -1 : i;
   beep([520],.05,'triangle',.06);
   render();
 }
 function tapPick(v){
   if(S.done) return;
-  if(sel<0){ toast('Tap a square first'); return; }
+  if(sel<0){
+    // No square picked: light up every square that already has this picture
+    look = (look===v) ? 0 : v;
+    beep([520],.05,'triangle',.06); render(); return;
+  }
   if(locked(sel)){ toast('That square is done. Pick an empty one'); return; }
   place(sel, v);
 }
