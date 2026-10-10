@@ -119,7 +119,7 @@
   <button class="tool" id="checkBtn"><span>🔍</span>Spot mistakes</button>
 </div>
 
-<p class="foot">Tap a square, then tap a picture. <span id="ver">v1.1</span></p>
+<p class="foot">Tap a square then a picture, or a picture then squares. <span id="ver">v1.2</span></p>
 
 <!-- New puzzle sheet -->
 <div class="sheet" id="setup">
@@ -146,7 +146,7 @@
 </div>
 
 <script>
-const VERSION = 'v1.1';
+const VERSION = 'v1.2';
 const THEMES = {
   animals:  { name:'Animals',  icon:'🐶', pics:['🐶','🐱','🐰','🐸','🦁','🐵','🐼','🐷','🐮'] },
   fruit:    { name:'Fruit',    icon:'🍎', pics:['🍎','🍌','🍇','🍓','🍊','🍉','🍒','🍍','🥝'] },
@@ -162,6 +162,7 @@ const KEY = 'picture-sudoku-v1';
 
 let S = null;          // game state
 let sel = -1;          // selected cell index
+let armed = 0;         // picture picked first (0 = none), placed on each square tapped
 let spot = true;       // show mistakes as you go
 let sound = true;
 let pending = { theme:'animals', size:4, level:'easy' };
@@ -231,7 +232,7 @@ function newGame(theme,n,level){
   const {sol,puz}=makePuzzle(n,level);
   const pics=shuffle(THEMES[theme].pics.slice()).slice(0,n);
   S={theme,n,level,pics,sol,puz,cur:puz.slice(),hints:0,mistakes:0,done:false};
-  sel=-1; save(); build();
+  sel=-1; armed=0; save(); build();
 }
 const $=id=>document.getElementById(id);
 function box(){ return SIZES[S.n].box; }
@@ -270,7 +271,7 @@ function build(){
 
 function render(){
   const n=S.n, cells=$('board').children;
-  const selV = sel>=0 ? S.cur[sel] : 0;
+  const selV = armed || (sel>=0 ? S.cur[sel] : 0);
   for(let i=0;i<n*n;i++){
     const c=cells[i], v=S.cur[i];
     c.firstChild.textContent = v ? S.pics[v-1] : '';
@@ -290,19 +291,25 @@ function render(){
 
 function tapCell(i){
   if(S.done) return;
+  if(armed){
+    // Picture first: put the picked picture in this square
+    if(S.puz[i]){ beep([300],.05,'triangle',.05); return; }
+    place(i, armed);
+    return;
+  }
   sel = (sel===i) ? -1 : i;
   beep([520],.05,'triangle',.06);
   render();
 }
 function tapPick(v){
   if(S.done) return;
-  if(sel<0 || S.puz[sel]){
-    // No square picked: show where this picture already is
-    sel = -1; render();
-    [...$('board').children].forEach((c,i)=>c.classList.toggle('same', S.cur[i]===v));
-    return;
-  }
-  const i=sel;
+  if(sel>=0 && !S.puz[sel]){ place(sel, v); return; }   // square first
+  // Picture first: hold this picture until it's tapped again
+  armed = (armed===v) ? 0 : v; sel = -1;
+  beep([520],.05,'triangle',.06);
+  render();
+}
+function place(i,v){
   S.cur[i] = (S.cur[i]===v) ? 0 : v;
   const cell=$('board').children[i];
   if(S.cur[i] && S.cur[i]!==S.sol[i]){
@@ -326,7 +333,7 @@ function hint(){
     if(!wrongOrEmpty.length) return;
     i=wrongOrEmpty[Math.floor(Math.random()*wrongOrEmpty.length)];
   }
-  S.cur[i]=S.sol[i]; S.hints++; sel=i;
+  S.cur[i]=S.sol[i]; S.hints++; sel=i; armed=0;
   const cell=$('board').children[i];
   cell.classList.remove('hinted','pop'); void cell.offsetWidth; cell.classList.add('hinted','pop');
   beep([520,780,1040],.08);
@@ -334,7 +341,7 @@ function hint(){
 }
 function checkWin(){
   if(S.cur.some((v,i)=>v!==S.sol[i])) return;
-  S.done=true; sel=-1; save(); render();
+  S.done=true; sel=-1; armed=0; save(); render();
   const stars = S.hints===0 && S.mistakes===0 ? 3 : (S.hints+S.mistakes<=3 ? 2 : 1);
   $('winStars').textContent='⭐'.repeat(stars);
   $('winTitle').textContent=['','Well done!','Great job!','Perfect!'][stars];
