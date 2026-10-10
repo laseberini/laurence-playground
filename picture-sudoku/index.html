@@ -124,7 +124,7 @@
   <button class="tool" id="checkBtn"><span>🔍</span>Spot mistakes</button>
 </div>
 
-<p class="foot">Tap a square then a picture, or a picture then squares. <span id="ver">v1.5</span></p>
+<p class="foot">Tap a square then a picture, or a picture then squares. <span id="ver">v1.6</span></p>
 <button id="update">✨ New version ready. Tap to update</button>
 
 <!-- New puzzle sheet -->
@@ -152,7 +152,7 @@
 </div>
 
 <script>
-const VERSION = 'v1.5';
+const VERSION = 'v1.6';
 const THEMES = {
   animals:  { name:'Animals',  icon:'🐶', pics:['🐶','🐱','🐰','🐸','🦁','🐵','🐼','🐷','🐮'] },
   fruit:    { name:'Fruit',    icon:'🍎', pics:['🍎','🍌','🍇','🍓','🍊','🍉','🍒','🍍','🥝'] },
@@ -323,14 +323,17 @@ function tapPick(v){
 function place(i,v){
   S.cur[i] = (S.cur[i]===v) ? 0 : v;
   const cell=$('board').children[i];
-  if(S.cur[i] && S.cur[i]!==S.sol[i]){
-    S.mistakes++;
-    if(spot){ cell.classList.remove('shake'); void cell.offsetWidth; cell.classList.add('shake'); beep([220,180],.12,'square',.05); }
-    else beep([660],.07);
-  } else if(S.cur[i]){
+  const wrong = S.cur[i] && S.cur[i]!==S.sol[i];
+  if(wrong) S.mistakes++;
+  if(!S.cur[i]) return done();
+  if(spot && wrong){
+    cell.classList.remove('shake'); void cell.offsetWidth; cell.classList.add('shake'); beep([220,180],.12,'square',.05);
+  } else {
+    // With Spot mistakes off, right and wrong look and sound exactly the same
     cell.classList.remove('pop'); void cell.offsetWidth; cell.classList.add('pop'); beep([660,880],.07);
   }
-  save(); render(); checkWin();
+  done();
+  function done(){ save(); render(); checkWin(); }
 }
 function erase(){
   if(S.done || sel<0 || locked(sel) || !S.cur[sel]) return;
