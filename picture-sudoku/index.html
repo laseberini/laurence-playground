@@ -98,6 +98,11 @@
   .confetti{position:fixed;top:-40px;font-size:28px;pointer-events:none;z-index:11;animation:fall linear forwards}
   @keyframes fall{to{transform:translateY(110vh) rotate(540deg)}}
   .foot{color:var(--muted);font-size:12px;margin-top:16px;text-align:center}
+  #ver{text-decoration:underline dotted;cursor:pointer}
+  #update{display:none;position:fixed;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom) + 16px);z-index:20;
+          max-width:528px;margin:0 auto;background:var(--accent);color:#fff;font-size:17px;font-weight:800;
+          padding:14px;border-radius:16px;box-shadow:0 6px 20px rgba(59,47,42,.25)}
+  #update.show{display:block}
 </style>
 </head>
 <body>
@@ -119,7 +124,8 @@
   <button class="tool" id="checkBtn"><span>🔍</span>Spot mistakes</button>
 </div>
 
-<p class="foot">Tap a square then a picture, or a picture then squares. <span id="ver">v1.2</span></p>
+<p class="foot">Tap a square then a picture, or a picture then squares. <span id="ver">v1.3</span></p>
+<button id="update">✨ New version ready. Tap to update</button>
 
 <!-- New puzzle sheet -->
 <div class="sheet" id="setup">
@@ -146,7 +152,7 @@
 </div>
 
 <script>
-const VERSION = 'v1.2';
+const VERSION = 'v1.3';
 const THEMES = {
   animals:  { name:'Animals',  icon:'🐶', pics:['🐶','🐱','🐰','🐸','🦁','🐵','🐼','🐷','🐮'] },
   fruit:    { name:'Fruit',    icon:'🍎', pics:['🍎','🍌','🍇','🍓','🍊','🍉','🍒','🍍','🥝'] },
@@ -385,6 +391,22 @@ $('hintBtn').addEventListener('click',hint);
 $('checkBtn').addEventListener('click',()=>{ spot=!spot; save(); render(); });
 $('soundBtn').addEventListener('click',()=>{ sound=!sound; save(); render(); beep([660],.06); });
 $('ver').textContent=VERSION;
+
+// ---------- updates ----------
+// An installed app has no refresh button, so check for a newer copy on open.
+// cache:'reload' also refreshes the phone's stored copy, so a plain reload then gets it.
+function reloadFresh(){ fetch(location.pathname,{cache:'reload'}).catch(()=>{}).finally(()=>location.reload()); }
+function checkUpdate(){
+  if(location.protocol.indexOf('http')!==0) return;
+  fetch(location.pathname,{cache:'reload'}).then(r=>r.ok?r.text():'').then(t=>{
+    const m=t.match(/const VERSION = '([^']+)'/);
+    if(m && m[1]!==VERSION) $('update').classList.add('show');
+  }).catch(()=>{});
+}
+$('update').addEventListener('click',()=>location.reload());
+$('ver').addEventListener('click',reloadFresh);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) checkUpdate(); });
+checkUpdate();
 
 load();
 if(S && S.sol && !S.done){ build(); }
