@@ -124,7 +124,7 @@
   <button class="tool" id="checkBtn"><span>🔍</span>Spot mistakes</button>
 </div>
 
-<p class="foot">Tap a square then a picture, or a picture then squares. <span id="ver">v1.3</span></p>
+<p class="foot">Tap a square then a picture, or a picture then squares. <span id="ver">v1.4</span></p>
 <button id="update">✨ New version ready. Tap to update</button>
 
 <!-- New puzzle sheet -->
@@ -152,7 +152,7 @@
 </div>
 
 <script>
-const VERSION = 'v1.3';
+const VERSION = 'v1.4';
 const THEMES = {
   animals:  { name:'Animals',  icon:'🐶', pics:['🐶','🐱','🐰','🐸','🦁','🐵','🐼','🐷','🐮'] },
   fruit:    { name:'Fruit',    icon:'🍎', pics:['🍎','🍌','🍇','🍓','🍊','🍉','🍒','🍍','🥝'] },
@@ -393,14 +393,20 @@ $('soundBtn').addEventListener('click',()=>{ sound=!sound; save(); render(); bee
 $('ver').textContent=VERSION;
 
 // ---------- updates ----------
-// An installed app has no refresh button, so check for a newer copy on open.
+// An installed app has no refresh button, so check for a newer copy on open and update by itself.
 // cache:'reload' also refreshes the phone's stored copy, so a plain reload then gets it.
 function reloadFresh(){ fetch(location.pathname,{cache:'reload'}).catch(()=>{}).finally(()=>location.reload()); }
 function checkUpdate(){
   if(location.protocol.indexOf('http')!==0) return;
   fetch(location.pathname,{cache:'reload'}).then(r=>r.ok?r.text():'').then(t=>{
     const m=t.match(/const VERSION = '([^']+)'/);
-    if(m && m[1]!==VERSION) $('update').classList.add('show');
+    if(!m || m[1]===VERSION) return;
+    // Reload by itself once per new version. The game is saved, so nothing is lost.
+    // If the old copy still comes back (GitHub can hold it ~10 min), show the button instead of looping.
+    let tried=''; try{ tried=sessionStorage.getItem('ps-update-tried')||''; }catch(e){}
+    if(tried===m[1]){ $('update').classList.add('show'); return; }
+    try{ sessionStorage.setItem('ps-update-tried',m[1]); }catch(e){}
+    save(); location.reload();
   }).catch(()=>{});
 }
 $('update').addEventListener('click',()=>location.reload());
