@@ -19,7 +19,7 @@
     --bg:#fff7e8; --card:#ffffff; --ink:#3b2f2a; --muted:#8a7a70;
     --line:#eadfcf; --box:#7a5c4a; --accent:#ff8a3d; --accent-2:#ffd36b;
     --sel:#ffe7a3; --peer:#fff1d6; --same:#d8f0ff; --wrong:#ffd2d2; --wrong-ink:#e0413a;
-    --hint:#d9f7d4; --given:#f6efe4;
+    --hint:#d9f7d4; --given:#e6d6bd; --given-peer:#ecd3a8; --given-same:#9ccaea;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{background:var(--bg);color:var(--ink);overscroll-behavior:none}
@@ -66,6 +66,9 @@
   .cell.given{background:var(--given)}
   .cell.peer{background:var(--peer)}
   .cell.same{background:var(--same)}
+  /* Fixed squares stay darker even inside the highlighted row/column/box, so you can always tell them from your own */
+  .cell.given.peer{background:var(--given-peer)}
+  .cell.given.same{background:var(--given-same)}
   .cell.sel{background:var(--sel);box-shadow:inset 0 0 0 3px var(--accent)}
   .cell.wrong{background:var(--wrong)}
   .cell.wrong::after{content:"";position:absolute;inset:3px;border:2px dashed var(--wrong-ink);border-radius:8px}
@@ -144,7 +147,7 @@
   <button class="tool" id="hintBtn"><span>💡</span>Hint</button>
 </div>
 
-<p class="foot">Tap a square, then a picture. <span id="ver">v1.9</span></p>
+<p class="foot">Tap a square, then a picture. <span id="ver">v1.10</span></p>
 <div id="toast" role="status"></div>
 <button id="update">✨ New version ready. Tap to update</button>
 
@@ -155,6 +158,7 @@
     <ol>
       <li><span>🧩</span><div>Every <b>row</b>, every <b>column</b> and every <b>box</b> gets each picture <b>once</b>.</div></li>
       <li><span>👆</span><div>Tap an empty <b>square</b>, then tap a <b>picture</b> to put it there.</div></li>
+      <li><span>🟫</span><div><b>Darker squares</b> came with the puzzle and can’t change. White ones are yours.</div></li>
       <li><span>🙂</span><div><b>With help:</b> mistakes go red and right answers lock in.</div></li>
       <li><span>🧠</span><div><b>No help:</b> real sudoku. You find out at the end.</div></li>
     </ol>
@@ -187,7 +191,7 @@
 </div>
 
 <script>
-const VERSION = 'v1.9';
+const VERSION = 'v1.10';
 const THEMES = {
   animals:  { name:'Animals',  icon:'🐶', pics:['🐶','🐱','🐰','🐸','🦁','🐵','🐼','🐷','🐮'] },
   fruit:    { name:'Fruit',    icon:'🍎', pics:['🍎','🍌','🍇','🍓','🍊','🍉','🍒','🍍','🥝'] },
@@ -373,7 +377,10 @@ function place(i,v){
   function done(){ save(); render(); checkWin(); }
 }
 function erase(){
-  if(S.done || sel<0 || locked(sel) || !S.cur[sel]) return;
+  if(S.done) return;
+  if(sel<0){ toast('Tap a square first'); return; }
+  if(locked(sel)){ toast('Darker squares can\u2019t be rubbed out'); return; }
+  if(!S.cur[sel]) return;
   S.cur[sel]=0; beep([300],.06); save(); render();
 }
 function hint(){
