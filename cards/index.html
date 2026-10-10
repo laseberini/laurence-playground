@@ -138,6 +138,7 @@
   <div class="foot">
     <div class="dots" id="dots" aria-hidden="true"></div>
     <div class="hint"><span>&#9666;</span> swipe to switch <span>&#9656;</span></div>
+    <div id="app-ver" style="font-size:10px;opacity:.45"></div>
   </div>
 
 <script>
@@ -238,6 +239,45 @@ var wl = null;
 async function keepAwake(){ try{ if("wakeLock" in navigator){ wl = await navigator.wakeLock.request("screen"); } }catch(e){} }
 document.addEventListener("visibilitychange", function(){ if(document.visibilityState === "visible"){ keepAwake(); } });
 keepAwake();
+</script>
+<script>
+/* Auto-update. Installed apps have no refresh button, so check for a newer copy
+   when the app opens and when it comes back to the front.
+   Bump APP_VERSION on every change you push. */
+(function(){
+  var APP_VERSION = 'v1.0';
+  var TRIED_KEY = 'cards-update-tried';
+  // Opening the app: reload into the new version by itself.
+  // Coming back to it later: show a button, so a reload never interrupts you at the till.
+  var verEl = document.getElementById('app-ver');
+  verEl.textContent = APP_VERSION;
+  verEl.style.cursor = 'pointer';
+  verEl.title = 'Tap to check for a new version';
+  var btn = document.createElement('button');
+  btn.textContent = '✨ New version ready. Tap to update';
+  btn.style.cssText = 'display:none;position:fixed;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom) + 16px);' +
+    'z-index:9999;max-width:520px;margin:0 auto;border:0;border-radius:14px;padding:14px;font:700 16px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;' +
+    'background:#ff8a3d;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.3);cursor:pointer';
+  document.body.appendChild(btn);
+  function reloadFresh(){ fetch(location.pathname, {cache:'reload'}).catch(function(){}).then(function(){ location.reload(); }); }
+  btn.addEventListener('click', function(){ location.reload(); });
+  verEl.addEventListener('click', reloadFresh);
+  function check(opening){
+    if (location.protocol.indexOf('http') !== 0) return;
+    // cache:'reload' also refreshes the phone's stored copy, so a plain reload then gets it
+    fetch(location.pathname, {cache:'reload'}).then(function(r){ return r.ok ? r.text() : ''; }).then(function(t){
+      var m = t.match(/var APP_VERSION = '([^']+)'/);
+      if (!m || m[1] === APP_VERSION) return;
+      var tried = ''; try { tried = sessionStorage.getItem(TRIED_KEY) || ''; } catch(e){}
+      // Already tried once and the old copy came back (GitHub can hold it ~10 min): don't loop
+      if (!opening || tried === m[1]) { btn.style.display = 'block'; return; }
+      try { sessionStorage.setItem(TRIED_KEY, m[1]); } catch(e){}
+      location.reload();
+    }).catch(function(){});
+  }
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) check(false); });
+  check(true);
+})();
 </script>
 </body>
 </html>

@@ -222,7 +222,11 @@ const player = { x:160, y:150, tx:160, ty:150, dir:1, step:0, moving:false };
 let pending = null;
 let fishing = false;
 
+// Only save once the game is running. On the title screen the state is still
+// blank, and saving it then (app hidden, or reloaded to update) would wipe the saved game.
+let started = false;
 function save(){
+  if (!started) return;
   try { localStorage.setItem('kq-save2', JSON.stringify({ F, seen, been, score, cur, x:player.x, y:player.y })); }
   catch(e){}
 }
@@ -629,7 +633,7 @@ if (hasTTS){
 }
 // ---------- AI Storyteller (neural voice, runs on-device via WebAssembly) ----------
 const AI = { state:'off', mod:null, session:null, voiceId:null, pct:0, err:'', storedIds:[], pref:null, initVoice:null };
-const KQ_VER = 'v47';
+const KQ_VER = 'v48';
 const KQ_WEB = 'https://laseberini.github.io/laurence-playground/kings-quest/';
 const IS_WEB = location.protocol.indexOf('http') === 0;
 // The voice library persists models via OPFS createWritable(), which Chrome on
@@ -3902,6 +3906,7 @@ function begin(){
   introEl.classList.add('hidden');
   goFull();
   ac(); // warm audio for sound effects and the storyteller
+  started = true;
   const s = loadSave();
   if (s){ applyState(s); say(rooms[cur].title + '  (welcome back, adventurer)', true); }
   else newGame();
@@ -4063,24 +4068,40 @@ requestAnimationFrame(frame);
 
 if (new URLSearchParams(location.search).has('play')) begin();
 
-// ---------- version display & update check ----------
+// ---------- version display & auto-update ----------
+// Installed apps have no refresh button. Opening the game: reload into a new
+// version by itself (the game is saved first). Coming back to it mid-play: show
+// the update button instead, so a reload never interrupts the story or a voice download.
 document.getElementById('ver').textContent = KQ_VER;
-if (IS_WEB){
-  setTimeout(async ()=>{
-    try {
-      const res = await fetch(location.href.split('#')[0].split('?')[0], { cache: 'no-cache' });
-      if (!res.ok) return;
-      const m = (await res.text()).match(/KQ_VER = '([^']+)'/);
-      if (m && m[1] !== KQ_VER){
-        const btn = document.createElement('button');
-        btn.id = 'updBtn';
-        btn.textContent = '⬆ Update to ' + m[1];
-        btn.addEventListener('click', ()=> location.reload());
-        document.body.appendChild(btn);
-      }
-    } catch(e){}
-  }, 2500);
+function showUpdBtn(v){
+  if (document.getElementById('updBtn')) return;
+  const btn = document.createElement('button');
+  btn.id = 'updBtn';
+  btn.textContent = '⬆ Update to ' + v;
+  btn.addEventListener('click', ()=>{ save(); location.reload(); });
+  document.body.appendChild(btn);
 }
+async function checkUpdate(opening){
+  if (!IS_WEB) return;
+  try {
+    // cache:'reload' also refreshes the phone's stored copy, so a plain reload then gets it
+    const res = await fetch(location.pathname, { cache: 'reload' });
+    if (!res.ok) return;
+    const m = (await res.text()).match(/KQ_VER = '([^']+)'/);
+    if (!m || m[1] === KQ_VER) return;
+    let tried = ''; try { tried = sessionStorage.getItem('kq-update-tried') || ''; } catch(e){}
+    // Already tried once and the old copy came back (GitHub can hold it ~10 min): don't loop
+    if (!opening || tried === m[1]){ showUpdBtn(m[1]); return; }
+    try { sessionStorage.setItem('kq-update-tried', m[1]); } catch(e){}
+    save(); location.reload();
+  } catch(e){}
+}
+document.getElementById('ver').style.cursor = 'pointer';
+document.getElementById('ver').addEventListener('click', ()=>{
+  save(); fetch(location.pathname, { cache: 'reload' }).catch(()=>{}).then(()=> location.reload());
+});
+document.addEventListener('visibilitychange', ()=>{ if (!document.hidden) checkUpdate(false); });
+checkUpdate(true);
 </script>
 </body>
 </html>
