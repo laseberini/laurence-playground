@@ -124,7 +124,7 @@
   <button class="tool" id="checkBtn"><span>🔍</span>Spot mistakes</button>
 </div>
 
-<p class="foot">Tap a square then a picture, or a picture then squares. <span id="ver">v1.4</span></p>
+<p class="foot">Tap a square then a picture, or a picture then squares. <span id="ver">v1.5</span></p>
 <button id="update">✨ New version ready. Tap to update</button>
 
 <!-- New puzzle sheet -->
@@ -152,7 +152,7 @@
 </div>
 
 <script>
-const VERSION = 'v1.4';
+const VERSION = 'v1.5';
 const THEMES = {
   animals:  { name:'Animals',  icon:'🐶', pics:['🐶','🐱','🐰','🐸','🦁','🐵','🐼','🐷','🐮'] },
   fruit:    { name:'Fruit',    icon:'🍎', pics:['🍎','🍌','🍇','🍓','🍊','🍉','🍒','🍍','🥝'] },
@@ -247,6 +247,11 @@ function isPeer(a,b){
   return ra===rb||ca===cb||(Math.floor(ra/br)===Math.floor(rb/br)&&Math.floor(ca/bc)===Math.floor(cb/bc));
 }
 
+// A square can't be changed if it came with the puzzle, or once it's right.
+// Right answers only lock while Spot mistakes is on: with it off, a square
+// refusing to change would give the answer away.
+function locked(i){ return !!S.puz[i] || (spot && !!S.cur[i] && S.cur[i]===S.sol[i]); }
+
 function build(){
   const n=S.n,[br,bc]=box(), board=$('board'), tray=$('tray');
   board.style.gridTemplateColumns=`repeat(${n},minmax(0,1fr))`;
@@ -281,7 +286,7 @@ function render(){
   for(let i=0;i<n*n;i++){
     const c=cells[i], v=S.cur[i];
     c.firstChild.textContent = v ? S.pics[v-1] : '';
-    c.classList.toggle('given', !!S.puz[i]);
+    c.classList.toggle('given', locked(i));
     c.classList.toggle('sel', i===sel);
     c.classList.toggle('peer', sel>=0 && i!==sel && isPeer(i,sel));
     c.classList.toggle('same', !!selV && i!==sel && v===selV);
@@ -299,7 +304,7 @@ function tapCell(i){
   if(S.done) return;
   if(armed){
     // Picture first: put the picked picture in this square
-    if(S.puz[i]){ beep([300],.05,'triangle',.05); return; }
+    if(locked(i)){ beep([300],.05,'triangle',.05); return; }
     place(i, armed);
     return;
   }
@@ -309,7 +314,7 @@ function tapCell(i){
 }
 function tapPick(v){
   if(S.done) return;
-  if(sel>=0 && !S.puz[sel]){ place(sel, v); return; }   // square first
+  if(sel>=0 && !locked(sel)){ place(sel, v); return; }   // square first
   // Picture first: hold this picture until it's tapped again
   armed = (armed===v) ? 0 : v; sel = -1;
   beep([520],.05,'triangle',.06);
@@ -328,7 +333,7 @@ function place(i,v){
   save(); render(); checkWin();
 }
 function erase(){
-  if(S.done || sel<0 || S.puz[sel] || !S.cur[sel]) return;
+  if(S.done || sel<0 || locked(sel) || !S.cur[sel]) return;
   S.cur[sel]=0; beep([300],.06); save(); render();
 }
 function hint(){
