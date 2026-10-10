@@ -37,10 +37,17 @@
   .round{width:44px;height:44px;border-radius:50%;background:var(--card);border:2px solid var(--line);
          font-size:20px;display:grid;place-items:center;flex:none}
   .round:active{transform:scale(.94)}
+  @media (max-width:360px){ h1{font-size:19px} h1 small{font-size:12px} .round{width:38px;height:38px;font-size:17px} header{gap:6px} }
 
-  .rule{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:9px 12px;
-        font-size:14px;line-height:1.35;margin-bottom:12px;text-align:center}
-  .rule b{color:var(--accent)}
+  .howto ol{text-align:left;margin:14px 0 0 0;padding-left:0;list-style:none;display:grid;gap:12px}
+  .howto li{display:flex;gap:12px;align-items:flex-start;font-size:16px;line-height:1.35}
+  .howto li span{font-size:28px;line-height:1;flex:none;width:34px;text-align:center}
+  .howto b{color:var(--accent)}
+  #howto{z-index:12}
+  #toast{position:fixed;left:50%;top:38%;transform:translate(-50%,-20px);opacity:0;z-index:15;
+         background:var(--ink);color:#fff;font-weight:700;font-size:15px;padding:10px 16px;border-radius:999px;
+         pointer-events:none;transition:opacity .2s ease,transform .2s ease;white-space:nowrap}
+  #toast.show{opacity:1;transform:translate(-50%,0)}
   /* With help / No help switch: With help shows mistakes and locks right answers, No help is real sudoku */
   .mode{position:relative;display:grid;grid-template-columns:1fr 1fr;background:var(--card);border:2px solid var(--line);
         border-radius:999px;padding:4px;margin-bottom:12px}
@@ -119,6 +126,7 @@
 
 <header>
   <h1 id="title">Picture Sudoku<small id="subtitle"></small></h1>
+  <button class="round" id="helpBtn" aria-label="How to play">❓</button>
   <button class="round" id="soundBtn" aria-label="Sound on or off">🔊</button>
   <button class="round" id="newBtn" aria-label="New puzzle">✨</button>
 </header>
@@ -128,8 +136,6 @@
   <button id="modeNormal" role="radio">No help<small>real sudoku</small></button>
 </div>
 
-<div class="rule">Every <b>row</b>, every <b>column</b> and every <b>box</b> gets each picture <b>once</b>.</div>
-
 <div id="board" role="grid" aria-label="Puzzle"></div>
 <div id="tray" aria-label="Pictures"></div>
 
@@ -138,8 +144,23 @@
   <button class="tool" id="hintBtn"><span>💡</span>Hint</button>
 </div>
 
-<p class="foot">Tap a square then a picture, or a picture then squares. <span id="ver">v1.8</span></p>
+<p class="foot">Tap a square, then a picture. <span id="ver">v1.9</span></p>
+<div id="toast" role="status"></div>
 <button id="update">✨ New version ready. Tap to update</button>
+
+<!-- How to play (shown once, then from the ❓ button) -->
+<div class="sheet win howto" id="howto">
+  <div class="panel">
+    <h2>How to play</h2>
+    <ol>
+      <li><span>🧩</span><div>Every <b>row</b>, every <b>column</b> and every <b>box</b> gets each picture <b>once</b>.</div></li>
+      <li><span>👆</span><div>Tap an empty <b>square</b>, then tap a <b>picture</b> to put it there.</div></li>
+      <li><span>🙂</span><div><b>With help:</b> mistakes go red and right answers lock in.</div></li>
+      <li><span>🧠</span><div><b>No help:</b> real sudoku. You find out at the end.</div></li>
+    </ol>
+    <button class="go" id="howtoOk">Let's go!</button>
+  </div>
+</div>
 
 <!-- New puzzle sheet -->
 <div class="sheet" id="setup">
@@ -166,7 +187,7 @@
 </div>
 
 <script>
-const VERSION = 'v1.8';
+const VERSION = 'v1.9';
 const THEMES = {
   animals:  { name:'Animals',  icon:'🐶', pics:['🐶','🐱','🐰','🐸','🦁','🐵','🐼','🐷','🐮'] },
   fruit:    { name:'Fruit',    icon:'🍎', pics:['🍎','🍌','🍇','🍓','🍊','🍉','🍒','🍍','🥝'] },
@@ -182,7 +203,6 @@ const KEY = 'picture-sudoku-v1';
 
 let S = null;          // game state
 let sel = -1;          // selected cell index
-let armed = 0;         // picture picked first (0 = none), placed on each square tapped
 let spot = true;       // show mistakes as you go
 let sound = true;
 let pending = { theme:'animals', size:4, level:'easy' };
@@ -252,7 +272,7 @@ function newGame(theme,n,level){
   const {sol,puz}=makePuzzle(n,level);
   const pics=shuffle(THEMES[theme].pics.slice()).slice(0,n);
   S={theme,n,level,pics,sol,puz,cur:puz.slice(),hints:0,mistakes:0,done:false};
-  sel=-1; armed=0; save(); build();
+  sel=-1; save(); build();
 }
 const $=id=>document.getElementById(id);
 function box(){ return SIZES[S.n].box; }
@@ -296,7 +316,7 @@ function build(){
 
 function render(){
   const n=S.n, cells=$('board').children;
-  const selV = armed || (sel>=0 ? S.cur[sel] : 0);
+  const selV = sel>=0 ? S.cur[sel] : 0;
   for(let i=0;i<n*n;i++){
     const c=cells[i], v=S.cur[i];
     c.firstChild.textContent = v ? S.pics[v-1] : '';
@@ -314,27 +334,28 @@ function render(){
   $('modeEasy').classList.toggle('on', spot);  $('modeEasy').setAttribute('aria-checked', spot);
   $('modeNormal').classList.toggle('on', !spot); $('modeNormal').setAttribute('aria-checked', !spot);
   $('soundBtn').textContent = sound ? '🔊' : '🔈';
+  $('hintBtn').style.display = spot ? '' : 'none';   // No help means no hints
 }
 
+// One way to play: tap a square, then a picture. A picture tapped on its own does nothing,
+// so a stray tap can never drop a picture somewhere by surprise.
 function tapCell(i){
   if(S.done) return;
-  if(armed){
-    // Picture first: put the picked picture in this square
-    if(locked(i)){ beep([300],.05,'triangle',.05); return; }
-    place(i, armed);
-    return;
-  }
   sel = (sel===i) ? -1 : i;
   beep([520],.05,'triangle',.06);
   render();
 }
 function tapPick(v){
   if(S.done) return;
-  if(sel>=0 && !locked(sel)){ place(sel, v); return; }   // square first
-  // Picture first: hold this picture until it's tapped again
-  armed = (armed===v) ? 0 : v; sel = -1;
-  beep([520],.05,'triangle',.06);
-  render();
+  if(sel<0){ toast('Tap a square first'); return; }
+  if(locked(sel)){ toast('That square is done. Pick an empty one'); return; }
+  place(sel, v);
+}
+let toastT=0;
+function toast(msg){
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  beep([300],.05,'triangle',.05);
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),1400);
 }
 function place(i,v){
   S.cur[i] = (S.cur[i]===v) ? 0 : v;
@@ -363,7 +384,7 @@ function hint(){
     if(!wrongOrEmpty.length) return;
     i=wrongOrEmpty[Math.floor(Math.random()*wrongOrEmpty.length)];
   }
-  S.cur[i]=S.sol[i]; S.hints++; sel=i; armed=0;
+  S.cur[i]=S.sol[i]; S.hints++; sel=i;
   const cell=$('board').children[i];
   cell.classList.remove('hinted','pop'); void cell.offsetWidth; cell.classList.add('hinted','pop');
   beep([520,780,1040],.08);
@@ -371,7 +392,7 @@ function hint(){
 }
 function checkWin(){
   if(S.cur.some((v,i)=>v!==S.sol[i])) return;
-  S.done=true; sel=-1; armed=0; save(); render();
+  S.done=true; sel=-1; save(); render();
   const stars = S.hints===0 && S.mistakes===0 ? 3 : (S.hints+S.mistakes<=3 ? 2 : 1);
   $('winStars').textContent='⭐'.repeat(stars);
   $('winTitle').textContent=['','Well done!','Great job!','Perfect!'][stars];
@@ -412,6 +433,9 @@ $('againBtn').addEventListener('click',()=>{ $('winSheet').classList.remove('sho
 $('newBtn').addEventListener('click',openSetup);
 $('eraseBtn').addEventListener('click',erase);
 $('hintBtn').addEventListener('click',hint);
+function showHowto(){ $('howto').classList.add('show'); }
+$('helpBtn').addEventListener('click',showHowto);
+$('howtoOk').addEventListener('click',()=>{ $('howto').classList.remove('show'); try{ localStorage.setItem(KEY+'-howto','1'); }catch(e){} });
 $('modeEasy').addEventListener('click',()=>{ if(!spot){ spot=true; beep([600],.04,'triangle',.06); save(); render(); } });
 $('modeNormal').addEventListener('click',()=>{ if(spot){ spot=false; beep([600],.04,'triangle',.06); save(); render(); } });
 $('soundBtn').addEventListener('click',()=>{ sound=!sound; save(); render(); beep([660],.06); });
@@ -443,6 +467,8 @@ load();
 if(S && S.sol && !S.done){ build(); }
 else if(S && S.done){ build(); openSetup(); }
 else { newGame(pending.theme,pending.size,pending.level); openSetup(); }
+let seenHowto=false; try{ seenHowto=!!localStorage.getItem(KEY+'-howto'); }catch(e){}
+if(!seenHowto) showHowto();
 </script>
 </body>
 </html>

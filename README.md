@@ -81,10 +81,10 @@ saves on the phone. Add it to your Home Screen to play full screen.
 ## 🧩 Picture Sudoku — [`picture-sudoku/`](picture-sudoku/index.html)
 
 Sudoku for kids, with pictures instead of numbers: animals, fruit, vehicles
-or sea creatures. Pick a 4×4, 6×6 or 9×9 grid and Easy, Medium or Hard. Wrong
-picks turn red (this can be switched off), there's a Hint button, and a
-star rating when the puzzle is done. The game in progress is saved on the
-phone.
+or sea creatures. Pick a 4×4, 6×6 or 9×9 grid and Easy, Medium or Hard. Tap a
+square, then a picture. **With help**, wrong picks turn red, right ones lock
+and there's a Hint button; **No help** is real sudoku. Star rating at the end,
+the game in progress is saved on the phone, and it updates itself.
 
 **Live:** https://laseberini.github.io/laurence-playground/picture-sudoku/
 
