@@ -97,3 +97,17 @@ A small interactive fractal toy.
 Your loyalty barcodes, one tap away.
 
 **Live:** https://laseberini.github.io/laurence-playground/cards/
+
+## 🎂 Daniella's Birthday Quiz — [`daniella/`](daniella/index.html)
+
+A 20-question *Lost* quiz (easy → hard, multiple choice, a drawn picture per
+question) for Daniella's 27th. Full marks unlocks her birthday voucher, shown
+on screen and downloadable as a PDF.
+
+**Live:** https://laseberini.github.io/laurence-playground/daniella/
+
+- Wrong answers: shows the score and which questions to fix, then walks
+  through just those again.
+- The voucher is stored encrypted in `gift.bin`, with the key made from the
+  20 right answers, so the voucher itself isn't sitting in the public repo.
+
