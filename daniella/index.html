@@ -86,6 +86,9 @@
   #update{display:none;position:fixed;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom) + 16px);z-index:20;
     max-width:528px;margin:0 auto;padding:14px;border-radius:14px;background:var(--gold);color:#1d1606;font-weight:700}
   #update.show{display:block}
+  #music{display:none;position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom) + 12px);z-index:15;width:46px;height:46px;
+    border-radius:50%;background:var(--card2);border:1px solid var(--line);font-size:20px}
+  #music.show{display:block}
 </style>
 </head>
 <body>
@@ -147,10 +150,12 @@
 
   <footer>Made with love for Daniella's 27th · <button id="ver"></button></footer>
 </main>
+<audio id="song" src="song.mp3" loop preload="auto"></audio>
+<button id="music" aria-label="Music on or off">🔊</button>
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.0';
+const VERSION = 'v1.1';
 const $ = id => document.getElementById(id);
 
 // ---------- pictures (drawn, so nothing gives the answer away) ----------
@@ -323,6 +328,7 @@ $('back').onclick = () => { if(pos){ pos--; renderQ(); } };
 
 function startRound(list){ order = list; pos = 0; show('s-quiz'); renderQ(); }
 $('start').onclick = () => {
+  playSong();
   // carry on where she left off if a round was half done
   const first = st.answers.findIndex(a => a===null);
   startRound(QUESTIONS.map((_, i)=>i)); if(first>0){ pos = first; renderQ(); }
@@ -330,6 +336,22 @@ $('start').onclick = () => {
 $('restart').onclick = () => { st.answers = QUESTIONS.map(()=>null); save(); startRound(QUESTIONS.map((_, i)=>i)); };
 $('again').onclick = $('restart').onclick;
 $('see').onclick = () => unlock();
+
+// ---------- music ----------
+// Phones only allow sound after a tap, so the song starts on "Start the quiz". The 🔊 button mutes it.
+const song = $('song');
+let muted = false; try{ muted = localStorage.getItem('dq-muted')==='1'; }catch(e){}
+function setMusicIcon(){ $('music').textContent = muted ? '🔇' : '🔊'; }
+function playSong(){ $('music').classList.add('show'); setMusicIcon(); if(!muted) song.play().catch(()=>{}); }
+$('music').onclick = () => {
+  muted = !muted; try{ localStorage.setItem('dq-muted', muted?'1':'0'); }catch(e){}
+  setMusicIcon(); if(muted) song.pause(); else song.play().catch(()=>{});
+};
+// Pause when the app goes to the background, carry on when she comes back.
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden) song.pause();
+  else if($('music').classList.contains('show') && !muted) song.play().catch(()=>{});
+});
 
 function finish(){
   const wrong = QUESTIONS.map((Q, i) => st.answers[i]===Q.a ? -1 : i).filter(i => i>=0);
