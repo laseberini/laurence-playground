@@ -68,7 +68,8 @@ A notebook app for Fizz's lawn cutting service. Keep a list of clients, log
 each cut (paid or not yet), see who owes money, and see who is due for their
 next cut. WhatsApp buttons send a ready-made "your lawn is due" or "payment
 reminder" message. Data stays on the phone and, once Google Drive is
-connected, is backed up to one file in his Drive after every change.
+connected, is backed up to one file in his Drive after every change. Works with no
+signal too (a small service worker keeps a copy of the app on the phone).
 
 **Live:** https://laseberini.github.io/laurence-playground/fizz-lawn/
 

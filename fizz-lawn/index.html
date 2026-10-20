@@ -152,7 +152,7 @@
 <div id="toast"></div>
 
 <script>
-const VERSION = 'v1.1';
+const VERSION = 'v1.2';
 // Google Drive backup needs an OAuth client ID (Google Cloud console, "Web application",
 // authorised JavaScript origin https://laseberini.github.io). It can also be pasted in on the Backup tab.
 const GOOGLE_CLIENT_ID = '784204784610-0223u6566lueket2t6n12t482kv18qvp.apps.googleusercontent.com';
@@ -601,10 +601,13 @@ async function driveUpload(){
 function backupSoon(quiet){
   if(!drive.on) return;
   drive.pending = true; saveDrive(); renderPill();
+  if(navigator.onLine === false) return; // no signal: it backs up by itself when he's online again
   if(tokenOk()){ clearTimeout(upTimer); upTimer = setTimeout(driveUpload, 600); }
   else if(!quiet) withToken(driveUpload);
 }
-function backupNow(){ if(!drive.on) return showTab('backup'); drive.pending = true; withToken(driveUpload); }
+function backupNow(){
+  if(!drive.on) return showTab('backup');
+  if(navigator.onLine === false){ toast('No signal. It will back up when you are online.'); return; } drive.pending = true; withToken(driveUpload); }
 
 function summary(d){ return d.clients.length + ' client' + (d.clients.length === 1 ? '' : 's') + ', ' + d.jobs.length + ' job' + (d.jobs.length === 1 ? '' : 's'); }
 function connectDrive(){
@@ -661,6 +664,7 @@ function renderPill(){
   let t = '', cls = '';
   if(!drive.on){ t = has ? '⚠️ No backup' : '☁️ Backup'; cls = has ? 'warn' : ''; }
   else if(uploading){ t = '⏳ Backing up…'; }
+  else if(drive.pending && navigator.onLine === false){ t = '📴 Offline, saved on phone'; }
   else if(drive.pending){ t = '⚠️ Tap to back up'; cls = 'warn'; }
   else { t = '☁️ Backed up'; cls = 'ok'; }
   p.textContent = t; p.className = cls;
@@ -692,7 +696,7 @@ function renderBackup(){
     '<label style="margin-top:0">Your name<input id="s-me" value="' + esc(state.settings.me) + '"></label>' +
     '<label>Business name (optional)<input id="s-biz" value="' + esc(state.settings.biz) + '" placeholder="e.g. Fizz Garden Services"></label>' +
     '<div class="btns"><button class="btn go" id="s-save">Save</button></div></div>';
-  h += '<footer>Fizz Lawn · <button id="ver">' + VERSION + '</button><br>Everything is saved on this phone' + (drive.on ? ' and in Google Drive' : '') + '.</footer>';
+  h += '<footer>Fizz Lawn · <button id="ver">' + VERSION + '</button><br>Everything is saved on this phone' + (drive.on ? ' and in Google Drive' : '') + '.<br>Works with no signal too.</footer>';
   const v = $('v-backup');
   if(v.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return; // don't wipe what he's typing
   v.innerHTML = h;
@@ -733,7 +737,8 @@ function loadFile(e){
 }
 
 // Retry a waiting backup when the phone gets signal again or the app comes back.
-addEventListener('online', () => { if(drive.on && drive.pending) driveUpload(); });
+addEventListener('online', () => { renderPill(); if(drive.on && drive.pending) driveUpload(); });
+addEventListener('offline', renderPill);
 document.addEventListener('visibilitychange', () => {
   if(document.hidden) return;
   render();
@@ -760,6 +765,9 @@ function checkUpdate(){
 }
 $('update').addEventListener('click', () => location.reload());
 document.addEventListener('visibilitychange', () => { if(!document.hidden) checkUpdate(); });
+
+// Keep a copy of the app on the phone so it opens with no signal.
+if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
 
 render();
 checkUpdate();
