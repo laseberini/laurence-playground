@@ -62,6 +62,20 @@ on the phone; use the Backup section in Edit chores to save a copy.
 
 **Live:** https://laseberini.github.io/laurence-playground/chores/
 
+## 🌿 Fizz Lawn — [`fizz-lawn/`](fizz-lawn/index.html)
+
+A notebook app for Fizz's lawn cutting service. Keep a list of clients, log
+each cut (paid or not yet), see who owes money, and see who is due for their
+next cut. WhatsApp buttons send a ready-made "your lawn is due" or "payment
+reminder" message. Data stays on the phone and, once Google Drive is
+connected, is backed up to one file in his Drive after every change.
+
+**Live:** https://laseberini.github.io/laurence-playground/fizz-lawn/
+
+- Google Drive backup needs a Google OAuth client ID (Web application,
+  authorised JavaScript origin `https://laseberini.github.io`, Drive API on).
+  Put it in `GOOGLE_CLIENT_ID` in the page, or paste it on the Backup tab.
+
 ## 🔴 Mastermind — [`mastermind/`](mastermind/index.html)
 
 The classic code-breaking game, built for phones. Break the computer's code, or

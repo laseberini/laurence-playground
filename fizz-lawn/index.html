@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Fizz Lawn">
+<meta name="theme-color" content="#1f7a44">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>Fizz Lawn</title>
+<style>
+  /* One light, high-contrast look on purpose: it gets used outside in the sun. */
+  :root{
+    color-scheme: light;
+    --bg:#f3f7f1; --card:#ffffff; --ink:#15241a; --muted:#5d6e62; --line:#dbe6d7;
+    --green:#1f7a44; --green-2:#e3f3e7; --red:#c2362b; --red-2:#fdecea;
+    --amber:#9a6200; --amber-2:#fff3d6; --wa:#1fa855;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:var(--bg);color:var(--ink)}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.4;font-size:16px;
+    padding:0 16px calc(env(safe-area-inset-bottom) + 96px);
+    max-width:560px;margin:0 auto;min-height:100vh;
+  }
+  header{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 14px) 0 10px;
+    position:sticky;top:0;background:var(--bg);z-index:5}
+  header h1{font-size:22px;font-weight:750;letter-spacing:-.3px;flex:1}
+  #pill{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:6px 11px;
+    font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
+  #pill.warn{background:var(--amber-2);border-color:#f0d9a0;color:var(--amber)}
+  #pill.ok{background:var(--green-2);border-color:#bfe0c8;color:var(--green)}
+
+  h2{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:22px 0 8px}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;text-align:left;font:inherit;color:inherit}
+  .stat small{display:block;font-size:13px;color:var(--muted);font-weight:600}
+  .stat b{display:block;font-size:24px;font-weight:750;letter-spacing:-.4px;margin-top:2px}
+  .stat.owed b{color:var(--red)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+  .card.tap{cursor:pointer}
+  .row1{display:flex;align-items:baseline;gap:8px}
+  .row1 b{font-size:17px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .meta{font-size:14px;color:var(--muted);margin-top:2px}
+  .tag{font-size:13px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--green-2);color:var(--green);white-space:nowrap}
+  .tag.late{background:var(--red-2);color:var(--red)}
+  .tag.today{background:var(--amber-2);color:var(--amber)}
+  .tag.owe{background:var(--red-2);color:var(--red)}
+  .acts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .acts > *{flex:1 1 0;min-width:0}
+  .empty{color:var(--muted);text-align:center;padding:26px 10px;font-size:15px}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font:inherit;font-size:15px;font-weight:650;
+    border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:11px;padding:10px 12px;
+    text-decoration:none;cursor:pointer;white-space:nowrap}
+  .btn:active{opacity:.7}
+  .btn.go{background:var(--green);border-color:var(--green);color:#fff}
+  .btn.wa{background:var(--wa);border-color:var(--wa);color:#fff}
+  .btn.danger{color:var(--red);border-color:#f0c4bf}
+  .btn.big{width:100%;padding:14px;font-size:17px}
+  .btn.sm{padding:6px 10px;font-size:14px}
+  .btn[aria-disabled="true"]{opacity:.4;pointer-events:none}
+
+  #fab{position:fixed;right:max(16px, calc(50% - 264px));bottom:calc(env(safe-area-inset-bottom) + 80px);z-index:6;
+    background:var(--green);color:#fff;border:0;border-radius:99px;padding:14px 20px;font:inherit;font-size:17px;font-weight:700;
+    box-shadow:0 6px 18px rgba(20,60,35,.3)}
+  nav{position:fixed;left:0;right:0;bottom:0;z-index:7;background:var(--card);border-top:1px solid var(--line);
+    display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom)}
+  nav button{flex:1;max-width:140px;background:none;border:0;font:inherit;font-size:12px;font-weight:650;color:var(--muted);padding:8px 0 9px}
+  nav button span{display:block;font-size:22px;line-height:1.2}
+  nav button.on{color:var(--green)}
+
+  input,select,textarea{font:inherit;font-size:16px;width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;
+    background:#fff;color:var(--ink)}
+  textarea{min-height:70px;resize:vertical}
+  label{display:block;font-size:14px;font-weight:650;color:var(--muted);margin:12px 0 0}
+  label > input,label > select,label > textarea{margin-top:5px}
+  .hint{font-size:13px;color:var(--muted);margin-top:5px}
+  .seg{display:flex;gap:8px;margin-top:5px}
+  .seg button{flex:1;font:inherit;font-size:16px;font-weight:650;padding:11px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+  .seg button.on{background:var(--green);border-color:var(--green);color:#fff}
+  .seg button.on.no{background:var(--red);border-color:var(--red)}
+  .search{margin:6px 0 12px}
+
+  .jobs{margin-top:6px}
+  .job{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line)}
+  .job:first-child{border-top:0}
+  .job .d{flex:1;min-width:0}
+  .job .d small{display:block;color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chip{font:inherit;font-size:13px;font-weight:700;border-radius:99px;padding:5px 10px;border:1px solid;background:#fff;white-space:nowrap}
+  .chip.paid{color:var(--green);border-color:#bfe0c8;background:var(--green-2)}
+  .chip.unpaid{color:var(--red);border-color:#f0c4bf;background:var(--red-2)}
+  .x{background:none;border:0;font-size:18px;color:var(--muted);padding:4px 6px}
+  .month{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+  .month:first-child{border-top:0}
+  .month small{color:var(--muted);font-size:13px;display:block}
+
+  /* sheets and dialogs */
+  .wrap{position:fixed;inset:0;z-index:20;background:rgba(10,25,15,.45);display:none;align-items:flex-end;justify-content:center}
+  .wrap.show{display:flex}
+  #sheet{background:var(--bg);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;
+    padding:18px 16px calc(env(safe-area-inset-bottom) + 18px)}
+  #sheet h3{font-size:21px;font-weight:750;letter-spacing:-.3px}
+  .btns{display:flex;gap:10px;margin-top:18px}
+  .btns .btn{flex:1;padding:13px}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:12px}
+  #ask{z-index:30;align-items:center;padding:16px}
+  #ask .dlg{background:var(--card);border-radius:16px;padding:18px;max-width:420px;width:100%}
+  #ask h4{font-size:18px}
+  #ask p{color:var(--muted);margin-top:6px;white-space:pre-line}
+  #ask .btns{flex-direction:column}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 150px);z-index:40;
+    background:#15241a;color:#fff;padding:10px 16px;border-radius:99px;font-size:15px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
+  #toast.show{opacity:1}
+  #update{display:none;position:fixed;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom) + 80px);z-index:15;
+    background:var(--amber);color:#fff;border:0;border-radius:12px;padding:14px;font:inherit;font-weight:700}
+  #update.show{display:block}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:28px}
+  #ver{background:none;border:0;font:inherit;color:inherit;text-decoration:underline}
+  .view{display:none}
+  .view.on{display:block}
+</style>
+</head>
+<body>
+<header>
+  <h1>🌿 Fizz Lawn</h1>
+  <button id="pill">…</button>
+</header>
+
+<section class="view on" id="v-home"></section>
+<section class="view" id="v-clients"></section>
+<section class="view" id="v-money"></section>
+<section class="view" id="v-backup"></section>
+
+<button id="fab">＋ Job</button>
+<button id="update">✨ New version ready. Tap to update</button>
+
+<nav>
+  <button data-tab="home" class="on"><span>🏠</span>Today</button>
+  <button data-tab="clients"><span>👥</span>Clients</button>
+  <button data-tab="money"><span>💰</span>Money</button>
+  <button data-tab="backup"><span>☁️</span>Backup</button>
+</nav>
+
+<div class="wrap" id="sheet-wrap"><div id="sheet"></div></div>
+<div class="wrap" id="ask"><div class="dlg"><h4 id="ask-t"></h4><p id="ask-p"></p><div class="btns" id="ask-b"></div></div></div>
+<div id="toast"></div>
+
+<script>
+const VERSION = 'v1.0';
+// Google Drive backup needs an OAuth client ID (Google Cloud console, "Web application",
+// authorised JavaScript origin https://laseberini.github.io). It can also be pasted in on the Backup tab.
+const GOOGLE_CLIENT_ID = '';
+const KEY = 'fizz-lawn-data', DKEY = 'fizz-lawn-drive', TKEY = 'fizz-lawn-token';
+const DRIVE_FILE = 'Fizz Lawn backup.json';
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+// ---------- data ----------
+function blank(){ return { clients: [], jobs: [], settings: { me: 'Fizz', biz: '', clientId: '' } }; }
+function valid(s){ return s && Array.isArray(s.clients) && Array.isArray(s.jobs); }
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if(valid(s)){ s.settings = Object.assign(blank().settings, s.settings || {}); return s; }
+  }catch(e){}
+  return blank();
+}
+let state = load();
+function persist(){
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){ toast('Could not save on this phone!'); }
+}
+// Every change goes through here: save on the phone, redraw, back up to Drive.
+// quiet: don't pop up a Google sign-in (e.g. we're also opening WhatsApp right now).
+function commit(quiet){
+  state.changed = Date.now();
+  persist(); render(); backupSoon(quiet);
+}
+function exportData(){
+  return { app: 'fizz-lawn', saved: new Date().toISOString(), clients: state.clients, jobs: state.jobs, settings: state.settings, changed: state.changed || 0 };
+}
+function applyData(d){
+  state = { clients: d.clients, jobs: d.jobs, settings: Object.assign(blank().settings, d.settings || {}), changed: d.changed || Date.now() };
+  persist(); render();
+}
+
+// ---------- dates and money ----------
+const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTH = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function ymd(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function today(){ return ymd(new Date()); }
+function parse(s){ const p = s.split('-').map(Number); return new Date(p[0], p[1]-1, p[2]); }
+function addDays(s, n){ const d = parse(s); d.setDate(d.getDate() + n); return ymd(d); }
+function daysBetween(a, b){ return Math.round((parse(b) - parse(a)) / 864e5); }
+function fmtD(s){ const d = parse(s); return DOW[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()]; }
+function rel(s){
+  const n = daysBetween(today(), s);
+  if(n === 0) return 'Today';
+  if(n === 1) return 'Tomorrow';
+  if(n === -1) return '1 day late';
+  if(n < 0) return (-n) + ' days late';
+  if(n < 7) return 'In ' + n + ' days';
+  return fmtD(s);
+}
+function money(n){
+  n = Math.round((+n || 0) * 100) / 100;
+  const p = Math.abs(n).toFixed(2).split('.');
+  return (n < 0 ? '-' : '') + 'R' + p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + (p[1] === '00' ? '' : '.' + p[1]);
+}
+function everyText(w){ w = +w || 0; return w === 0 ? 'when needed' : w === 1 ? 'every week' : 'every ' + w + ' weeks'; }
+
+// ---------- clients and jobs ----------
+const cById = id => state.clients.find(c => c.id === id);
+const jById = id => state.jobs.find(j => j.id === id);
+function jobsOf(id){ return state.jobs.filter(j => j.clientId === id).sort((a, b) => b.date.localeCompare(a.date)); }
+function unpaidOf(id){ return state.jobs.filter(j => j.clientId === id && !j.paid).sort((a, b) => a.date.localeCompare(b.date)); }
+function owedOf(id){ return unpaidOf(id).reduce((s, j) => s + (+j.amount || 0), 0); }
+function totalOwed(){ return state.jobs.filter(j => !j.paid && cById(j.clientId)).reduce((s, j) => s + (+j.amount || 0), 0); }
+function byName(a, b){ return a.name.localeCompare(b.name); }
+
+// WhatsApp wants 27821234567, people type 082 123 4567.
+function waNumber(p){
+  let d = String(p || '').replace(/\D/g, '');
+  if(d.startsWith('00')) d = d.slice(2);
+  if(d.startsWith('0')) d = '27' + d.slice(1);
+  else if(d.length === 9) d = '27' + d;
+  return d.length >= 10 ? d : '';
+}
+// "Thandi Ndlovu" -> "Thandi", "Mrs Thandi Ndlovu" -> "Mrs Ndlovu".
+function first(name){
+  const w = String(name).trim().split(/\s+/);
+  return w.length > 1 && /^(mr|mrs|ms|miss|dr|prof|mnr|mev|sis|aunt|auntie|uncle|mama|tata|baba|gogo)\.?$/i.test(w[0]) ? w[0] + ' ' + w[w.length - 1] : w[0];
+}
+function me(){ return (state.settings.me || 'Fizz') + (state.settings.biz ? ' from ' + state.settings.biz : ''); }
+function remindText(c){
+  return 'Hi ' + first(c.name) + ', it\'s ' + me() + '. Your lawn is due for a cut. Which day suits you this week?';
+}
+function payText(c){
+  const u = unpaidOf(c.id), tot = u.reduce((s, j) => s + (+j.amount || 0), 0);
+  const what = u.length === 1 ? 'the lawn cut on ' + fmtD(u[0].date) : u.length + ' lawn cuts (' + u.map(j => fmtD(j.date)).join(', ') + ')';
+  return 'Hi ' + first(c.name) + ', it\'s ' + me() + '. Just a friendly reminder that ' + money(tot) + ' is still owing for ' + what + '. Thank you!';
+}
+function waLink(c, text){ const n = waNumber(c.phone); return n ? 'https://wa.me/' + n + '?text=' + encodeURIComponent(text) : ''; }
+function waBtn(c, kind, label){
+  const href = waLink(c, kind === 'pay' ? payText(c) : remindText(c));
+  return '<a class="btn wa" target="_blank" rel="noopener" data-wa="' + kind + '" data-id="' + c.id + '" ' +
+    (href ? 'href="' + esc(href) + '"' : 'aria-disabled="true"') + '>💬 ' + label + '</a>';
+}
+function callBtn(c){
+  return '<a class="btn" ' + (c.phone ? 'href="tel:' + esc(String(c.phone).replace(/[^\d+]/g, '')) + '"' : 'aria-disabled="true"') + '>📞 Call</a>';
+}
+
+// ---------- screens ----------
+let tab = 'home';
+function render(){
+  renderHome(); renderClients(); renderMoney(); renderBackup(); renderPill();
+  $('fab').style.display = (tab === 'home' || tab === 'clients') ? '' : 'none';
+  if(navigator.setAppBadge){
+    const t = today(), n = state.clients.filter(c => c.next && c.next <= t).length;
+    try{ (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {}); }catch(e){}
+  }
+}
+
+function dueTag(c){
+  const n = daysBetween(today(), c.next);
+  return '<span class="tag ' + (n < 0 ? 'late' : n === 0 ? 'today' : '') + '">' + rel(c.next) + '</span>';
+}
+function dueCard(c){
+  const asked = c.asked ? ' · messaged ' + (c.asked === today() ? 'today' : fmtD(c.asked)) : '';
+  return '<div class="card tap" data-open="' + c.id + '">' +
+    '<div class="row1"><b>' + esc(c.name) + '</b>' + dueTag(c) + '</div>' +
+    '<div class="meta">' + esc(c.area || '') + (c.area && c.price ? ' · ' : '') + (c.price ? money(c.price) : '') + asked + '</div>' +
+    '<div class="acts">' + waBtn(c, 'remind', 'Remind') + callBtn(c) +
+    '<button class="btn go" data-log="' + c.id + '">✓ Cut done</button></div></div>';
+}
+function renderHome(){
+  const t = today(), ym = t.slice(0, 7);
+  const month = state.jobs.filter(j => j.date.startsWith(ym)).reduce((s, j) => s + (+j.amount || 0), 0);
+  const withNext = state.clients.filter(c => c.next).sort((a, b) => a.next.localeCompare(b.next));
+  const due = withNext.filter(c => c.next <= t);
+  const soon = withNext.filter(c => c.next > t && c.next <= addDays(t, 7));
+  let h = '<div class="stats">' +
+    '<button class="stat owed" data-go="money"><small>Owed to you</small><b>' + money(totalOwed()) + '</b></button>' +
+    '<button class="stat" data-go="money"><small>Work in ' + MONTH[new Date().getMonth()] + '</small><b>' + money(month) + '</b></button></div>';
+  if(!state.clients.length){
+    h += '<div class="empty">No clients yet.<br><br><button class="btn go" data-newclient>＋ Add your first client</button></div>';
+  } else {
+    h += '<h2>Follow up now</h2>' + (due.length ? due.map(dueCard).join('') : '<div class="empty">Nobody is due. 👍</div>');
+    h += '<h2>Coming up this week</h2>' + (soon.length ? soon.map(dueCard).join('') : '<div class="empty">Nothing booked for the next 7 days.</div>');
+  }
+  $('v-home').innerHTML = h;
+}
+
+let search = '';
+function renderClients(){
+  const q = search.trim().toLowerCase();
+  const list = state.clients.filter(c => !q || (c.name + ' ' + (c.area || '') + ' ' + (c.phone || '')).toLowerCase().includes(q)).sort(byName);
+  let h = '<input class="search" id="search" type="search" placeholder="🔍 Search name, area or phone" value="' + esc(search) + '">' +
+    '<button class="btn big" data-newclient>＋ New client</button><h2>' + state.clients.length + ' client' + (state.clients.length === 1 ? '' : 's') + '</h2>';
+  h += list.length ? list.map(c => {
+    const owed = owedOf(c.id);
+    return '<div class="card tap" data-open="' + c.id + '"><div class="row1"><b>' + esc(c.name) + '</b>' +
+      (owed ? '<span class="tag owe">owes ' + money(owed) + '</span>' : '') + '</div>' +
+      '<div class="meta">' + [esc(c.area || ''), everyText(c.every), c.next ? 'next: ' + rel(c.next) : ''].filter(Boolean).join(' · ') + '</div></div>';
+  }).join('') : '<div class="empty">' + (q ? 'No match.' : 'No clients yet.') + '</div>';
+  const had = document.activeElement && document.activeElement.id === 'search';
+  $('v-clients').innerHTML = h;
+  if(had){ const s = $('search'); s.focus(); s.setSelectionRange(s.value.length, s.value.length); }
+}
+
+function renderMoney(){
+  const owing = state.clients.filter(c => owedOf(c.id) > 0).sort((a, b) => owedOf(b.id) - owedOf(a.id));
+  let h = '<div class="stats"><div class="stat owed" style="grid-column:1/-1"><small>Owed to you</small><b>' + money(totalOwed()) + '</b></div></div>';
+  h += '<h2>Who still owes</h2>';
+  h += owing.length ? owing.map(c => '<div class="card"><div class="row1"><b>' + esc(c.name) + '</b><span class="tag owe">' + money(owedOf(c.id)) + '</span></div>' +
+    '<div class="jobs">' + unpaidOf(c.id).map(j => '<div class="job"><div class="d">' + fmtD(j.date) + ' · ' + money(j.amount) +
+      (j.note ? '<small>' + esc(j.note) + '</small>' : '') + '</div><button class="btn sm go" data-paid="' + j.id + '">✓ Paid</button></div>').join('') + '</div>' +
+    '<div class="acts">' + waBtn(c, 'pay', 'Ask to pay') + callBtn(c) + '</div></div>').join('')
+    : '<div class="empty">Everyone has paid. 🎉</div>';
+  // last 6 months
+  const d = new Date(); d.setDate(1);
+  let rows = '';
+  for(let i = 0; i < 6; i++){
+    const ym = ymd(d).slice(0, 7), js = state.jobs.filter(j => j.date.startsWith(ym));
+    const tot = js.reduce((s, j) => s + (+j.amount || 0), 0), paid = js.filter(j => j.paid).reduce((s, j) => s + (+j.amount || 0), 0);
+    rows += '<div class="month"><div>' + MONTH[d.getMonth()] + ' ' + d.getFullYear() + '<small>' + js.length + ' job' + (js.length === 1 ? '' : 's') +
+      (tot > paid ? ' · ' + money(tot - paid) + ' still owed' : '') + '</small></div><b>' + money(tot) + '</b></div>';
+    d.setMonth(d.getMonth() - 1);
+  }
+  h += '<h2>Work done per month</h2><div class="card">' + rows + '</div>';
+  $('v-money').innerHTML = h;
+}
+
+// ---------- sheets ----------
+let sheetOpen = false;
+function sheet(html){
+  $('sheet').innerHTML = html;
+  $('sheet-wrap').classList.add('show');
+  $('sheet').scrollTop = 0;
+  // The phone's back button closes the sheet instead of leaving the app.
+  if(!sheetOpen){ sheetOpen = true; history.pushState({ sheet: 1 }, ''); }
+}
+function closeSheet(){
+  if(!sheetOpen) return;
+  sheetOpen = false;
+  $('sheet-wrap').classList.remove('show');
+  if(history.state && history.state.sheet) history.back();
+}
+addEventListener('popstate', () => { if(sheetOpen){ sheetOpen = false; $('sheet-wrap').classList.remove('show'); } });
+$('sheet-wrap').addEventListener('click', e => { if(e.target.id === 'sheet-wrap') closeSheet(); });
+
+function ask(title, text, buttons){
+  return new Promise(res => {
+    $('ask-t').textContent = title; $('ask-p').textContent = text || '';
+    $('ask-b').innerHTML = '';
+    buttons.forEach(b => {
+      const el = document.createElement('button');
+      el.className = 'btn ' + (b.cls || ''); el.textContent = b.t;
+      el.onclick = () => { $('ask').classList.remove('show'); res(b.v); };
+      $('ask-b').appendChild(el);
+    });
+    $('ask').classList.add('show');
+  });
+}
+let toastT;
+function toast(t){ const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 2400); }
+
+function openClientView(id){
+  const c = cById(id); if(!c) return closeSheet();
+  const owed = owedOf(id), js = jobsOf(id);
+  sheet('<h3>' + esc(c.name) + '</h3>' +
+    '<div class="meta">' + [esc(c.phone || 'no phone'), esc(c.area || ''), everyText(c.every), c.price ? money(c.price) + ' a cut' : ''].filter(Boolean).join(' · ') + '</div>' +
+    '<div class="acts">' + waBtn(c, 'remind', 'Remind') + callBtn(c) + '</div>' +
+    '<div class="acts"><button class="btn go" data-log="' + c.id + '">✓ Log a job</button><button class="btn" data-edit="' + c.id + '">✏️ Edit</button></div>' +
+    '<div class="box"><label style="margin:0">Next cut<input type="date" id="d-next" value="' + (c.next || '') + '"></label>' +
+    '<div class="hint">' + (c.next ? rel(c.next) + '. ' : '') + 'Shows on the Today screen when it is due.</div></div>' +
+    (owed ? '<div class="box"><div class="row1"><b>Owes ' + money(owed) + '</b></div><div class="acts">' + waBtn(c, 'pay', 'Ask to pay') +
+      '<button class="btn" data-allpaid="' + c.id + '">✓ All paid</button></div></div>' : '') +
+    (c.notes ? '<div class="box" style="white-space:pre-wrap">' + esc(c.notes) + '</div>' : '') +
+    '<h2>Jobs (' + js.length + ')</h2><div class="card jobs">' + (js.length ? js.map(j =>
+      '<div class="job"><div class="d">' + fmtD(j.date) + ' · ' + money(j.amount) + (j.note ? '<small>' + esc(j.note) + '</small>' : '') + '</div>' +
+      '<button class="chip ' + (j.paid ? 'paid' : 'unpaid') + '" data-toggle="' + j.id + '">' + (j.paid ? 'Paid ✓' : 'Not paid') + '</button>' +
+      '<button class="x" data-deljob="' + j.id + '" aria-label="Delete">🗑</button></div>').join('') : '<div class="empty">No jobs yet.</div>') + '</div>' +
+    '<div class="btns"><button class="btn" data-close>Close</button></div>');
+  $('d-next').addEventListener('change', e => { c.next = e.target.value; commit(); openClientView(id); });
+}
+
+function openClientForm(id, then){
+  const c = id ? cById(id) : { name: '', phone: '', area: '', price: '', every: 2, notes: '' };
+  const opts = [[0, 'When needed'], [1, 'Every week'], [2, 'Every 2 weeks'], [3, 'Every 3 weeks'], [4, 'Every 4 weeks'], [6, 'Every 6 weeks'], [8, 'Every 8 weeks']];
+  sheet('<h3>' + (id ? 'Edit client' : 'New client') + '</h3>' +
+    '<label>Name<input id="c-name" value="' + esc(c.name) + '" autocomplete="off" placeholder="e.g. Mrs Ndlovu"></label>' +
+    '<label>Phone (for WhatsApp)<input id="c-phone" type="tel" value="' + esc(c.phone) + '" placeholder="082 123 4567"></label>' +
+    '<label>Area / address<input id="c-area" value="' + esc(c.area) + '" placeholder="e.g. 12 Main St"></label>' +
+    '<label>Price per cut (R)<input id="c-price" type="number" inputmode="decimal" value="' + esc(c.price) + '" placeholder="e.g. 250"></label>' +
+    '<label>How often<select id="c-every">' + opts.map(o => '<option value="' + o[0] + '"' + (+c.every === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select></label>' +
+    '<label>Notes<textarea id="c-notes" placeholder="Gate code, dog, edges, rubbish...">' + esc(c.notes) + '</textarea></label>' +
+    '<div class="btns"><button class="btn" data-close>Cancel</button><button class="btn go" id="c-save">Save</button></div>' +
+    (id ? '<div class="btns"><button class="btn danger" id="c-del">Delete client</button></div>' : ''));
+  $('c-save').onclick = () => {
+    const name = $('c-name').value.trim();
+    if(!name){ toast('Type a name first'); $('c-name').focus(); return; }
+    const t = id ? c : { id: uid(), next: '', created: today() };
+    Object.assign(t, { name, phone: $('c-phone').value.trim(), area: $('c-area').value.trim(),
+      price: $('c-price').value === '' ? '' : +$('c-price').value, every: +$('c-every').value, notes: $('c-notes').value.trim() });
+    if(!id) state.clients.push(t);
+    commit(); toast('Saved');
+    if(then) then(t.id); else openClientView(t.id);
+  };
+  if(id) $('c-del').onclick = async () => {
+    const n = state.jobs.filter(j => j.clientId === id).length;
+    if(await ask('Delete ' + c.name + '?', 'This also deletes their ' + n + ' job' + (n === 1 ? '' : 's') + '.', [{ t: 'Delete', v: 1, cls: 'danger' }, { t: 'Keep', v: 0 }]) !== 1) return;
+    state.clients = state.clients.filter(x => x.id !== id);
+    state.jobs = state.jobs.filter(j => j.clientId !== id);
+    commit(); closeSheet(); toast('Deleted');
+  };
+  if(!id) setTimeout(() => $('c-name').focus(), 50);
+}
+
+function openJob(clientId){
+  if(!state.clients.length){ toast('Add the client first'); return openClientForm(null, openJob); }
+  const list = state.clients.slice().sort(byName);
+  sheet('<h3>Log a job</h3>' +
+    '<label>Client<select id="j-client">' + (clientId ? '' : '<option value="">Choose…</option>') +
+      list.map(c => '<option value="' + c.id + '"' + (c.id === clientId ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('') +
+      '<option value="+">＋ New client…</option></select></label>' +
+    '<label>Date<input type="date" id="j-date" value="' + today() + '"></label>' +
+    '<label>Amount (R)<input type="number" inputmode="decimal" id="j-amt"></label>' +
+    '<label>Paid?</label><div class="seg"><button id="j-paid">Paid ✓</button><button id="j-unpaid">Not yet</button></div>' +
+    '<label>Next cut<input type="date" id="j-next"></label><div class="hint" id="j-hint"></div>' +
+    '<label>Note<input id="j-note" placeholder="optional, e.g. also trimmed hedge"></label>' +
+    '<div class="btns"><button class="btn" data-close>Cancel</button><button class="btn go" id="j-save">Save job</button></div>');
+  let paid = null;
+  const setPaid = p => { paid = p; $('j-paid').className = p === true ? 'on' : ''; $('j-unpaid').className = p === false ? 'on no' : ''; };
+  $('j-paid').onclick = () => setPaid(true);
+  $('j-unpaid').onclick = () => setPaid(false);
+  const fill = () => {
+    const c = cById($('j-client').value);
+    $('j-amt').value = c && c.price !== '' && c.price != null ? c.price : '';
+    fillNext();
+  };
+  const fillNext = () => {
+    const c = cById($('j-client').value), d = $('j-date').value;
+    $('j-next').value = c && +c.every && d ? addDays(d, 7 * c.every) : '';
+    $('j-hint').textContent = c ? (+c.every ? 'Set from "' + everyText(c.every) + '". Change it if you agreed another day.' : 'Leave empty if there is no next cut yet.') : '';
+  };
+  $('j-client').onchange = () => { if($('j-client').value === '+') return openClientForm(null, openJob); fill(); };
+  $('j-date').onchange = fillNext;
+  fill();
+  $('j-save').onclick = () => {
+    const c = cById($('j-client').value);
+    if(!c){ toast('Choose the client'); return; }
+    if(!$('j-date').value){ toast('Choose the date'); return; }
+    if($('j-amt').value === ''){ toast('Type the amount'); $('j-amt').focus(); return; }
+    if(paid === null){ toast('Tap Paid or Not yet'); return; }
+    state.jobs.push({ id: uid(), clientId: c.id, date: $('j-date').value, amount: +$('j-amt').value, paid, paidDate: paid ? today() : '', note: $('j-note').value.trim() });
+    c.next = $('j-next').value; c.asked = '';
+    commit(); closeSheet(); toast(paid ? 'Saved. Nice work! 💪' : 'Saved. ' + c.name + ' owes ' + money(owedOf(c.id)));
+  };
+}
+
+// ---------- taps ----------
+document.addEventListener('click', async e => {
+  const el = e.target.closest('[data-tab],[data-go],[data-open],[data-log],[data-edit],[data-newclient],[data-paid],[data-allpaid],[data-toggle],[data-deljob],[data-wa],[data-close]');
+  if(!el) return;
+  const d = el.dataset;
+  if(d.tab || d.go) return showTab(d.tab || d.go);
+  if(d.close !== undefined) return closeSheet();
+  if(d.wa){
+    // Remember that we messaged them, but don't throw a Google sign-in over WhatsApp.
+    const c = cById(d.id);
+    if(c && d.wa === 'remind'){ c.asked = today(); commit(true); }
+    return;
+  }
+  if(d.newclient !== undefined) return openClientForm(null);
+  if(d.log) return openJob(d.log);
+  if(d.edit) return openClientForm(d.edit);
+  if(d.paid){ const j = jById(d.paid); j.paid = true; j.paidDate = today(); commit(); toast('Marked paid'); if(sheetOpen) openClientView(j.clientId); return; }
+  if(d.allpaid){ unpaidOf(d.allpaid).forEach(j => { j.paid = true; j.paidDate = today(); }); commit(); toast('All paid'); return openClientView(d.allpaid); }
+  if(d.toggle){ const j = jById(d.toggle); j.paid = !j.paid; j.paidDate = j.paid ? today() : ''; commit(); return openClientView(j.clientId); }
+  if(d.deljob){
+    const j = jById(d.deljob);
+    if(await ask('Delete this job?', fmtD(j.date) + ' · ' + money(j.amount), [{ t: 'Delete', v: 1, cls: 'danger' }, { t: 'Keep', v: 0 }]) !== 1) return;
+    state.jobs = state.jobs.filter(x => x.id !== j.id); commit(); return openClientView(j.clientId);
+  }
+  if(d.open) return openClientView(d.open);
+});
+document.addEventListener('input', e => { if(e.target.id === 'search'){ search = e.target.value; renderClients(); } });
+$('fab').addEventListener('click', () => openJob(null));
+function showTab(t){
+  tab = t;
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === 'v-' + t));
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  render(); scrollTo(0, 0);
+}
+
+// ---------- Google Drive backup ----------
+// After every change the whole notebook is written to one file in his Google Drive
+// (Drive keeps old versions of it too). The app can only see files it made itself (drive.file).
+let drive = {};
+try{ drive = JSON.parse(localStorage.getItem(DKEY)) || {}; }catch(e){}
+function saveDrive(){ try{ localStorage.setItem(DKEY, JSON.stringify(drive)); }catch(e){} }
+let gToken = '', gExp = 0;
+try{ const t = JSON.parse(localStorage.getItem(TKEY)); if(t){ gToken = t.t; gExp = t.exp; } }catch(e){}
+function saveToken(){ try{ localStorage.setItem(TKEY, JSON.stringify({ t: gToken, exp: gExp })); }catch(e){} }
+const tokenOk = () => gToken && Date.now() < gExp;
+const clientId = () => GOOGLE_CLIENT_ID || state.settings.clientId || '';
+
+let gsiP = null, tokenClient = null, afterToken = null, asking = 0, uploading = false, again = false, upTimer;
+function loadGsi(){
+  if(window.google && google.accounts && google.accounts.oauth2) return Promise.resolve();
+  if(!gsiP) gsiP = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+    s.onload = res; s.onerror = () => { gsiP = null; rej(); };
+    document.head.appendChild(s);
+  });
+  return gsiP;
+}
+function getTokenClient(){
+  if(tokenClient) return tokenClient;
+  if(!clientId() || !(window.google && google.accounts && google.accounts.oauth2)) return null;
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId(),
+    scope: 'https://www.googleapis.com/auth/drive.file',
+    login_hint: drive.email || undefined,
+    callback: r => {
+      asking = 0;
+      if(r.error){ drive.err = 'Google said: ' + r.error; afterToken = null; renderPill(); renderBackup(); return; }
+      gToken = r.access_token; gExp = Date.now() + (r.expires_in - 120) * 1000; saveToken();
+      drive.err = ''; const f = afterToken; afterToken = null; if(f) f();
+    },
+    error_callback: err => {
+      asking = 0; afterToken = null;
+      drive.err = err && err.type === 'popup_closed' ? 'Google sign-in was closed.' : 'Could not open Google sign-in.';
+      renderPill(); renderBackup();
+    }
+  });
+  return tokenClient;
+}
+// Must be called straight from a tap: the Google sign-in opens in a pop-up.
+// Once he has said yes the first time, later pop-ups just flash and close by themselves.
+function withToken(fn){
+  if(tokenOk()) return fn();
+  const tc = getTokenClient();
+  if(!tc){ loadGsi().catch(() => {}); drive.err = 'Still loading Google. Tap again in a second.'; renderPill(); renderBackup(); return; }
+  if(asking && Date.now() - asking < 15000){ afterToken = fn; return; }
+  afterToken = fn; asking = Date.now();
+  tc.requestAccessToken({ prompt: drive.on ? '' : 'consent' });
+}
+function gfetch(url, opt){
+  opt = opt || {};
+  opt.headers = Object.assign({ Authorization: 'Bearer ' + gToken }, opt.headers || {});
+  return fetch(url, opt).then(r => {
+    if(r.status === 401){ gToken = ''; gExp = 0; saveToken(); }
+    if(!r.ok){ const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+    return r;
+  });
+}
+async function driveFind(){
+  const q = encodeURIComponent("name='" + DRIVE_FILE + "' and trashed=false");
+  const r = await gfetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&orderBy=modifiedTime%20desc&pageSize=1&fields=files(id,modifiedTime)');
+  return (await r.json()).files[0] || null;
+}
+async function driveRead(id){ return (await gfetch('https://www.googleapis.com/drive/v3/files/' + id + '?alt=media')).json(); }
+async function driveUpload(){
+  if(!drive.on || !tokenOk()) return;
+  if(uploading){ again = true; return; }
+  uploading = true; again = false; renderPill();
+  const body = JSON.stringify(exportData());
+  try{
+    let id = drive.fileId;
+    if(id){
+      try{ await gfetch('https://www.googleapis.com/upload/drive/v3/files/' + id + '?uploadType=media', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body }); }
+      catch(e){ if(e.status === 404) id = ''; else throw e; }
+    }
+    if(!id){
+      const b = 'fizzlawn' + Date.now();
+      const mp = '--' + b + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify({ name: DRIVE_FILE, mimeType: 'application/json' }) +
+        '\r\n--' + b + '\r\nContent-Type: application/json\r\n\r\n' + body + '\r\n--' + b + '--';
+      const r = await gfetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + b }, body: mp });
+      drive.fileId = (await r.json()).id;
+    }
+    drive.last = Date.now(); drive.pending = false; drive.err = '';
+  }catch(e){
+    drive.pending = true;
+    drive.err = navigator.onLine === false ? 'No internet. Will back up when you are online.' : 'Backup failed (' + e.message + '). Tap to try again.';
+  }
+  uploading = false; saveDrive(); renderPill(); renderBackup();
+  // Something changed while we were uploading: send the newer copy too.
+  if(again){ drive.pending = true; saveDrive(); driveUpload(); }
+}
+function backupSoon(quiet){
+  if(!drive.on) return;
+  drive.pending = true; saveDrive(); renderPill();
+  if(tokenOk()){ clearTimeout(upTimer); upTimer = setTimeout(driveUpload, 600); }
+  else if(!quiet) withToken(driveUpload);
+}
+function backupNow(){ if(!drive.on) return showTab('backup'); drive.pending = true; withToken(driveUpload); }
+
+function summary(d){ return d.clients.length + ' client' + (d.clients.length === 1 ? '' : 's') + ', ' + d.jobs.length + ' job' + (d.jobs.length === 1 ? '' : 's'); }
+function connectDrive(){
+  withToken(async () => {
+    try{
+      try{ drive.email = (await (await gfetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)')).json()).user.emailAddress; }catch(e){}
+      const f = await driveFind();
+      drive.on = true; drive.err = ''; saveDrive();
+      if(f){
+        const remote = await driveRead(f.id);
+        drive.fileId = f.id; saveDrive();
+        if(valid(remote) && (remote.clients.length || remote.jobs.length)){
+          const local = state.clients.length || state.jobs.length;
+          const when = new Date(f.modifiedTime).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' });
+          const pick = local
+            ? await ask('There is already a backup in Drive', 'Drive (' + when + '): ' + summary(remote) + '\nThis phone: ' + summary(state) + '\n\nWhich one do you want to keep?',
+                [{ t: 'Use the Drive backup', v: 'drive', cls: 'go' }, { t: 'Keep this phone\'s', v: 'phone' }])
+            : 'drive';
+          if(pick === 'drive'){ applyData(remote); drive.last = Date.now(); drive.pending = false; saveDrive(); render(); toast('Restored ' + summary(remote) + ' from Drive'); return; }
+        }
+      }
+      toast('Google Drive connected');
+      drive.pending = true; render(); driveUpload();
+    }catch(e){ drive.err = 'Could not connect (' + e.message + ').'; render(); }
+  });
+}
+function restoreDrive(){
+  withToken(async () => {
+    try{
+      const f = await driveFind();
+      if(!f){ toast('No backup found in this Google Drive'); return; }
+      const remote = await driveRead(f.id);
+      if(!valid(remote)){ toast('That backup file looks broken'); return; }
+      const when = new Date(f.modifiedTime).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' });
+      if(await ask('Restore from Drive?', 'Backup from ' + when + ': ' + summary(remote) + '.\nThis replaces what is on this phone now.', [{ t: 'Restore', v: 1, cls: 'go' }, { t: 'Cancel', v: 0 }]) !== 1) return;
+      drive.fileId = f.id; applyData(remote); drive.last = Date.now(); drive.pending = false; saveDrive(); render(); toast('Restored');
+    }catch(e){ toast('Could not read Drive (' + e.message + ')'); }
+  });
+}
+function disconnectDrive(){
+  try{ if(gToken && window.google) google.accounts.oauth2.revoke(gToken, () => {}); }catch(e){}
+  gToken = ''; gExp = 0; saveToken(); drive = {}; saveDrive(); tokenClient = null; render();
+}
+
+function ago(t){
+  const m = Math.round((Date.now() - t) / 60000);
+  if(m < 1) return 'just now';
+  if(m < 60) return m + ' min ago';
+  if(m < 60 * 24) return Math.round(m / 60) + ' h ago';
+  return Math.round(m / 1440) + ' days ago';
+}
+function renderPill(){
+  const p = $('pill'), has = state.clients.length || state.jobs.length;
+  let t = '', cls = '';
+  if(!drive.on){ t = has ? '⚠️ No backup' : '☁️ Backup'; cls = has ? 'warn' : ''; }
+  else if(uploading){ t = '⏳ Backing up…'; }
+  else if(drive.pending){ t = '⚠️ Tap to back up'; cls = 'warn'; }
+  else { t = '☁️ Backed up'; cls = 'ok'; }
+  p.textContent = t; p.className = cls;
+}
+$('pill').addEventListener('click', () => { if(drive.on && drive.pending) backupNow(); else showTab('backup'); });
+
+function renderBackup(){
+  let h = '<h2>Google Drive</h2><div class="card">';
+  if(!clientId()){
+    h += '<p>Google Drive backup is not switched on yet. Laurence needs to do a one-time setup.</p>' +
+      '<details style="margin-top:10px"><summary class="hint">Setup (for Laurence)</summary>' +
+      '<label>Google OAuth client ID<input id="cid" placeholder="1234-abc.apps.googleusercontent.com"></label>' +
+      '<div class="btns"><button class="btn go" id="cid-save">Save</button></div></details>';
+  } else if(!drive.on){
+    h += '<p>Connect your Google account once. After that, everything you type is saved to your Google Drive straight away.</p>' +
+      '<div class="btns"><button class="btn go big" id="g-connect">Connect Google Drive</button></div>';
+  } else {
+    h += '<div class="row1"><b>✅ Connected</b></div><div class="meta">' + esc(drive.email || 'Google Drive') + '<br>File: ' + DRIVE_FILE + '</div>' +
+      '<p class="hint" style="margin-top:8px">' + (uploading ? 'Backing up…' : drive.pending ? '⚠️ Latest changes not backed up yet.' : drive.last ? 'Last backup ' + ago(drive.last) + '.' : '') + '</p>' +
+      '<div class="acts"><button class="btn go" id="g-now">Back up now</button><button class="btn" id="g-restore">Restore</button></div>' +
+      '<div class="acts"><button class="btn danger" id="g-off">Disconnect</button></div>';
+  }
+  if(drive.err) h += '<p class="hint" style="color:var(--red)">' + esc(drive.err) + '</p>';
+  h += '</div>';
+  h += '<h2>Backup file</h2><div class="card"><p class="hint" style="margin-top:0">Extra copy: save a file and keep it anywhere (WhatsApp to yourself, email, Files).</p>' +
+    '<div class="acts"><button class="btn" id="f-save">Save file</button><button class="btn" id="f-load">Restore file</button></div>' +
+    '<input type="file" id="f-pick" accept=".json,.txt,application/json,text/plain" hidden></div>';
+  h += '<h2>Your details (used in WhatsApp messages)</h2><div class="card">' +
+    '<label style="margin-top:0">Your name<input id="s-me" value="' + esc(state.settings.me) + '"></label>' +
+    '<label>Business name (optional)<input id="s-biz" value="' + esc(state.settings.biz) + '" placeholder="e.g. Fizz Garden Services"></label>' +
+    '<div class="btns"><button class="btn go" id="s-save">Save</button></div></div>';
+  h += '<footer>Fizz Lawn · <button id="ver">' + VERSION + '</button><br>Everything is saved on this phone' + (drive.on ? ' and in Google Drive' : '') + '.</footer>';
+  const v = $('v-backup');
+  if(v.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return; // don't wipe what he's typing
+  v.innerHTML = h;
+  const on = (id, f) => { const el = $(id); if(el) el.onclick = f; };
+  on('cid-save', () => { const v = $('cid').value.trim(); if(!v) return; document.activeElement.blur(); state.settings.clientId = v; persist(); tokenClient = null; loadGsi().catch(() => {}); render(); toast('Saved'); });
+  on('g-connect', connectDrive);
+  on('g-now', backupNow);
+  on('g-restore', restoreDrive);
+  on('g-off', async () => { if(await ask('Disconnect Google Drive?', 'Your backup stays in Drive, but new changes will not be backed up.', [{ t: 'Disconnect', v: 1, cls: 'danger' }, { t: 'Cancel', v: 0 }]) === 1) disconnectDrive(); });
+  on('f-save', saveFile);
+  on('f-load', () => $('f-pick').click());
+  $('f-pick').onchange = loadFile;
+  on('s-save', () => { state.settings.me = $('s-me').value.trim() || 'Fizz'; state.settings.biz = $('s-biz').value.trim(); document.activeElement.blur(); commit(); toast('Saved'); });
+  on('ver', reloadFresh);
+}
+
+function saveFile(){
+  const name = 'fizz-lawn-backup-' + today() + '.json';
+  const text = JSON.stringify(exportData(), null, 1);
+  const file = new File([text], name, { type: 'application/json' });
+  if(navigator.canShare && navigator.canShare({ files: [file] })){
+    navigator.share({ files: [file], title: 'Fizz Lawn backup' }).catch(() => {});
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(file); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function loadFile(e){
+  const f = e.target.files[0]; e.target.value = '';
+  if(!f) return;
+  f.text().then(async t => {
+    let d; try{ d = JSON.parse(t); }catch(err){}
+    if(!valid(d)){ toast('That is not a Fizz Lawn backup'); return; }
+    if(await ask('Restore this file?', summary(d) + '.\nThis replaces what is on this phone now.', [{ t: 'Restore', v: 1, cls: 'go' }, { t: 'Cancel', v: 0 }]) !== 1) return;
+    applyData(d); backupSoon(); toast('Restored');
+  });
+}
+
+// Retry a waiting backup when the phone gets signal again or the app comes back.
+addEventListener('online', () => { if(drive.on && drive.pending) driveUpload(); });
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden) return;
+  render();
+  if(drive.on && drive.pending) driveUpload();
+});
+if(clientId()) loadGsi().catch(() => {});
+
+// ---------- updates ----------
+// An installed app has no refresh button, so check for a newer copy on open and update by itself.
+// cache:'reload' also refreshes the phone's stored copy, so a plain reload then gets it.
+function reloadFresh(){ fetch(location.pathname, { cache: 'reload' }).catch(() => {}).finally(() => location.reload()); }
+function checkUpdate(){
+  if(location.protocol.indexOf('http') !== 0) return;
+  fetch(location.pathname, { cache: 'reload' }).then(r => r.ok ? r.text() : '').then(t => {
+    const m = t.match(/const VERSION = '([^']+)'/);
+    if(!m || m[1] === VERSION) return;
+    // Reload by itself once per new version. Everything is saved, so nothing is lost.
+    // If the old copy still comes back (GitHub can hold it ~10 min), show the button instead of looping.
+    let tried = ''; try{ tried = sessionStorage.getItem('fl-update-tried') || ''; }catch(e){}
+    if(tried === m[1]){ $('update').classList.add('show'); return; }
+    try{ sessionStorage.setItem('fl-update-tried', m[1]); }catch(e){}
+    persist(); location.reload();
+  }).catch(() => {});
+}
+$('update').addEventListener('click', () => location.reload());
+document.addEventListener('visibilitychange', () => { if(!document.hidden) checkUpdate(); });
+
+render();
+checkUpdate();
+if(drive.on && drive.pending) driveUpload();
+</script>
+</body>
+</html>
