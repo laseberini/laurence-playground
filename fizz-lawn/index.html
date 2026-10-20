@@ -152,7 +152,7 @@
 <div id="toast"></div>
 
 <script>
-const VERSION = 'v1.2';
+const VERSION = 'v1.3';
 // Google Drive backup needs an OAuth client ID (Google Cloud console, "Web application",
 // authorised JavaScript origin https://laseberini.github.io). It can also be pasted in on the Backup tab.
 const GOOGLE_CLIENT_ID = '784204784610-0223u6566lueket2t6n12t482kv18qvp.apps.googleusercontent.com';
@@ -469,6 +469,7 @@ function openJob(clientId){
 
 // ---------- taps ----------
 document.addEventListener('click', async e => {
+  catchUp(e);
   const el = e.target.closest('[data-tab],[data-go],[data-open],[data-log],[data-edit],[data-newclient],[data-paid],[data-allpaid],[data-toggle],[data-deljob],[data-wa],[data-close]');
   if(!el) return;
   const d = el.dataset;
@@ -477,6 +478,11 @@ document.addEventListener('click', async e => {
   if(d.wa){
     // Remember that we messaged them, but don't throw a Google sign-in over WhatsApp.
     const c = cById(d.id);
+    if(c && navigator.onLine === false && waNumber(c.phone)){
+      // wa.me needs the internet to open; whatsapp:// goes straight to the app, which sends it later.
+      e.preventDefault();
+      location.href = 'whatsapp://send?phone=' + waNumber(c.phone) + '&text=' + encodeURIComponent(d.wa === 'pay' ? payText(c) : remindText(c));
+    }
     if(c && d.wa === 'remind'){ c.asked = today(); commit(true); }
     return;
   }
@@ -605,6 +611,17 @@ function backupSoon(quiet){
   if(tokenOk()){ clearTimeout(upTimer); upTimer = setTimeout(driveUpload, 600); }
   else if(!quiet) withToken(driveUpload);
 }
+// He's often out of signal, and Google's sign-in only lasts an hour. So when there is
+// signal again and changes are waiting, his next tap in the app signs in and backs up.
+// Not on WhatsApp/Call taps, and not again for 10 minutes if he closed Google's window.
+let autoAskAt = 0;
+function catchUp(e){
+  if(!drive.on || !drive.pending || uploading || navigator.onLine === false || e.target.closest('a')) return;
+  if(tokenOk()) return driveUpload();
+  if(Date.now() - autoAskAt < 10 * 60000) return;
+  autoAskAt = Date.now();
+  withToken(driveUpload);
+}
 function backupNow(){
   if(!drive.on) return showTab('backup');
   if(navigator.onLine === false){ toast('No signal. It will back up when you are online.'); return; } drive.pending = true; withToken(driveUpload); }
@@ -665,7 +682,7 @@ function renderPill(){
   if(!drive.on){ t = has ? '⚠️ No backup' : '☁️ Backup'; cls = has ? 'warn' : ''; }
   else if(uploading){ t = '⏳ Backing up…'; }
   else if(drive.pending && navigator.onLine === false){ t = '📴 Offline, saved on phone'; }
-  else if(drive.pending){ t = '⚠️ Tap to back up'; cls = 'warn'; }
+  else if(drive.pending){ const d = drive.last ? Math.floor((Date.now() - drive.last) / 864e5) : 0; t = d >= 2 ? '⚠️ No backup ' + d + ' days' : '⚠️ Tap to back up'; cls = 'warn'; }
   else { t = '☁️ Backed up'; cls = 'ok'; }
   p.textContent = t; p.className = cls;
 }
@@ -737,7 +754,7 @@ function loadFile(e){
 }
 
 // Retry a waiting backup when the phone gets signal again or the app comes back.
-addEventListener('online', () => { renderPill(); if(drive.on && drive.pending) driveUpload(); });
+addEventListener('online', () => { if(clientId()) loadGsi().catch(() => {}); renderPill(); if(drive.on && drive.pending) driveUpload(); });
 addEventListener('offline', renderPill);
 document.addEventListener('visibilitychange', () => {
   if(document.hidden) return;
@@ -766,6 +783,8 @@ function checkUpdate(){
 $('update').addEventListener('click', () => location.reload());
 document.addEventListener('visibilitychange', () => { if(!document.hidden) checkUpdate(); });
 
+// Ask the phone never to clear his data to free up space.
+if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 // Keep a copy of the app on the phone so it opens with no signal.
 if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
 
