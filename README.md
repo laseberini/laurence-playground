@@ -106,13 +106,15 @@ the game in progress is saved on the phone, and it updates itself.
 ## ✖️ Times Tables — [`times-tables/`](times-tables/index.html)
 
 Quick-fire times tables for Zac (2 to 12). Pick a table and type the answer to
-each random sum on the number pad. Get a sum right in under 3 seconds, 3 times
-in a row, and it's automatic and drops off the list; keep going until the
-table is clear. Questions stay random and the same sum never comes back until
-4 others have been asked (near the end, known sums fill the gaps), so it's
-real recall, not short-term memory. Each table shows a progress bar. Pause any time (it also
-pauses when you leave the app), reset a table from the main page, and progress
-is saved on the phone. It updates itself.
+each random sum on the number pad. Get a sum right within the time limit
+(3 seconds to start), 3 times in a row, and it's automatic and drops off the
+list; keep going until the table is clear. Questions stay random and the same
+sum never comes back until 4 others have been asked (near the end, known sums
+fill the gaps), so it's real recall, not short-term memory. Each table shows a
+progress bar. On the main page you can set the time limit (2, 2.5, 3 or 4
+seconds) and show or hide a timer bar. Pause any time (it also pauses when you
+leave the app), reset a table from the main page, and progress is saved on the
+phone. It updates itself.
 
 **Live:** https://laseberini.github.io/laurence-playground/times-tables/
 
