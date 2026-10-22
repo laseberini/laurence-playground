@@ -142,16 +142,17 @@
   </div>
 </div>
 
-<p class="foot"><span id="ver">v1.0</span></p>
+<p class="foot"><span id="ver">v1.1</span></p>
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.0';
+const VERSION = 'v1.1';
 const KEY = 'times-tables-zac';
 const TABLES = [2,3,4,5,6,7,8,9,10,11,12];
 const FACTS = 12;          // n×1 … n×12
 const LIMIT = 3000;        // ms: answer faster than this…
 const NEEDED = 3;          // …this many times in a row and it's automatic
+const GAP = 4;             // a sum never comes back until this many other sums have been asked
 const $ = id => document.getElementById(id);
 
 // progress[n] = 12 streaks (0–3); 3 means that sum is automatic and off the list.
@@ -192,10 +193,10 @@ $('grid').addEventListener('click', e => {
 $('resetBtn').addEventListener('click', () => { resetMode = !resetMode; renderChooser(); });
 
 // ---------- practice ----------
-let table = 0, fact = 0, lastFact = 0, typed = '', shownAt = 0, busy = false, isPaused = false, raf = 0, nextTimer = 0;
+let table = 0, fact = 0, recent = [], typed = '', shownAt = 0, busy = false, isPaused = false, raf = 0, nextTimer = 0;
 
 function start(n){
-  table = n; lastFact = 0; isPaused = false;
+  table = n; recent = []; isPaused = false;
   $('chooser').classList.add('hidden'); $('play').classList.remove('hidden');
   $('playTitle').textContent = `${n} times table`;
   if(doneCount(n)===FACTS){ showWon(); return; }
@@ -214,10 +215,16 @@ function renderDots(){
 function nextQuestion(){
   const r = remaining();
   if(!r.length){ showWon(); return; }
-  let pick = r.filter(f => f!==lastFact);
+  // Spread each sum out so he answers from memory, not from seeing it a moment ago.
+  // Near the end, when too few sums are left, mix in ones he already knows as fillers.
+  let pick = r.filter(f => !recent.includes(f));
+  if(!pick.length){
+    const all = Array.from({length:FACTS}, (_,i) => i+1);
+    pick = all.filter(f => !recent.includes(f) && !r.includes(f));
+  }
   if(!pick.length) pick = r;
   fact = pick[Math.floor(Math.random()*pick.length)];
-  lastFact = fact;
+  recent = [fact, ...recent].slice(0, GAP);
   showQuestion();
 }
 function showQuestion(){
@@ -250,7 +257,13 @@ function check(){
   const ms = performance.now()-shownAt, secs = (ms/1000).toFixed(1);
   const right = +typed===table*fact, s = progress[table];
   let wait = 900;
-  if(right && ms<LIMIT){
+  if(s[fact-1]>=NEEDED){
+    // A filler he already knows: just feedback, his progress doesn't change.
+    $('ans').classList.add(right ? (ms<LIMIT ? 'good' : 'slow') : 'bad');
+    $('msg').textContent = right ? `⚡ ${secs}s` : `Oops! ${table} × ${fact} = ${table*fact}`;
+    if(!right) wait = 2200;
+    beep(right ? [880] : [220], right ? .09 : .18);
+  } else if(right && ms<LIMIT){
     s[fact-1]++;
     $('ans').classList.add('good');
     if(s[fact-1]>=NEEDED){ $('msg').textContent = `⭐ ${table} × ${fact} is automatic!`; wait = 1300; beep([660,880,1100]); }
