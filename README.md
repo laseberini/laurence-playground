@@ -103,6 +103,17 @@ the game in progress is saved on the phone, and it updates itself.
 
 **Live:** https://laseberini.github.io/laurence-playground/picture-sudoku/
 
+## ✖️ Times Tables — [`times-tables/`](times-tables/index.html)
+
+Quick-fire times tables for Zac (2 to 12). Pick a table and type the answer to
+each random sum on the number pad. Get a sum right in under 3 seconds, 3 times
+in a row, and it's automatic and drops off the list; keep going until the
+table is clear. Each table shows a progress bar. Pause any time (it also
+pauses when you leave the app), reset a table from the main page, and progress
+is saved on the phone. It updates itself.
+
+**Live:** https://laseberini.github.io/laurence-playground/times-tables/
+
 ## 🌀 fractal-loop — [`fractal-loop.html`](fractal-loop.html)
 
 A small interactive fractal toy.
