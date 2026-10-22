@@ -54,8 +54,10 @@
   .seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(43,37,80,.15)}
   .reset-row{display:flex;gap:10px;margin-top:18px}
   .ghost{flex:1;background:var(--card);border:2px solid var(--line);border-radius:14px;padding:12px;font-weight:700;color:var(--muted)}
-  .ghost.on{border-color:var(--bad);color:var(--bad)}
-  .hint{color:var(--muted);font-size:13px;text-align:center;margin-top:10px;min-height:18px}
+  .rgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+  .rgrid button{background:var(--bg);border:2px solid var(--line);border-radius:12px;padding:8px 0;font-size:20px;font-weight:800}
+  .rgrid button small{display:block;font-size:11px;font-weight:600;color:var(--muted)}
+  .rgrid button:active{border-color:var(--bad)}
 
   /* Practice */
   .top{display:flex;align-items:center;gap:10px}
@@ -118,7 +120,6 @@
   <div class="reset-row">
     <button class="ghost" id="resetBtn">↺ Reset a table</button>
   </div>
-  <p class="hint" id="resetHint"></p>
 </section>
 
 <!-- Practise one table -->
@@ -148,6 +149,15 @@
   </div>
 </div>
 
+<div class="ov hidden" id="resetOv">
+  <div class="box">
+    <h3>Reset which table?</h3>
+    <p>It goes back to zero so he can start it again.</p>
+    <div class="rgrid" id="rgrid"></div>
+    <button class="go alt" id="resetCancel">Cancel</button>
+  </div>
+</div>
+
 <div class="ov hidden" id="won">
   <div class="box">
     <div class="big">🏆</div>
@@ -157,11 +167,11 @@
   </div>
 </div>
 
-<p class="foot"><span id="ver">v1.3</span></p>
+<p class="foot"><span id="ver">v1.4</span></p>
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.3';
+const VERSION = 'v1.4';
 const KEY = 'times-tables-zac';
 const TABLES = [2,3,4,5,6,7,8,9,10,11,12];
 const FACTS = 12;          // n×1 … n×12
@@ -188,7 +198,6 @@ function saveSettings(){ try{ localStorage.setItem(KEY+'-settings', JSON.stringi
 function doneCount(n){ return progress[n].filter(s => s>=NEEDED).length; }
 
 // ---------- chooser ----------
-let resetMode = false;
 function renderChooser(){
   $('grid').innerHTML = TABLES.map(n => {
     const d = doneCount(n), all = d===FACTS;
@@ -202,20 +211,24 @@ function renderChooser(){
   $('limitTxt').textContent = `${settings.limit/1000} seconds`;
   [...$('limitSeg').children].forEach(b => b.classList.toggle('on', +b.dataset.v===settings.limit));
   [...$('timerSeg').children].forEach(b => b.classList.toggle('on', +b.dataset.v===+settings.timer));
-  $('resetBtn').classList.toggle('on', resetMode);
-  $('resetBtn').textContent = resetMode ? '✕ Cancel reset' : '↺ Reset a table';
-  $('resetHint').textContent = resetMode ? 'Tap the table you want to start again.' : '';
 }
 $('grid').addEventListener('click', e => {
   const b = e.target.closest('.tbl'); if(!b) return;
   const n = +b.dataset.n;
-  if(resetMode){
-    if(confirm(`Start the ${n} times table again from zero?`)){ progress[n] = blank(); save(); }
-    resetMode = false; renderChooser(); return;
-  }
   start(n);
 });
-$('resetBtn').addEventListener('click', () => { resetMode = !resetMode; renderChooser(); });
+$('resetBtn').addEventListener('click', () => {
+  $('rgrid').innerHTML = TABLES.map(n => `<button data-n="${n}">${n}<small>${doneCount(n)}/${FACTS}</small></button>`).join('');
+  $('resetOv').classList.remove('hidden');
+});
+$('rgrid').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  const n = +b.dataset.n;
+  if(!confirm(`Start the ${n} times table again from zero?`)) return;
+  progress[n] = blank(); save();
+  $('resetOv').classList.add('hidden'); renderChooser();
+});
+$('resetCancel').addEventListener('click', () => $('resetOv').classList.add('hidden'));
 $('limitSeg').addEventListener('click', e => {
   const b = e.target.closest('button'); if(!b) return;
   settings.limit = +b.dataset.v; saveSettings(); renderChooser();
