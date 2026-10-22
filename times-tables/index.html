@@ -62,9 +62,7 @@
   .ans.good{border-color:var(--good);color:var(--good)}
   .ans.slow{border-color:var(--slow);color:var(--slow)}
   .ans.bad{border-color:var(--bad);color:var(--bad)}
-  .clock{height:8px;width:180px;margin:10px auto 0;border-radius:99px;background:#ece8fb;overflow:hidden}
-  .clock i{display:block;height:100%;width:100%;background:var(--good);transform-origin:left}
-  .dots{display:flex;justify-content:center;gap:10px;margin-top:12px}
+  .dots{display:flex;justify-content:center;gap:10px;margin-top:16px}
   .dots b{width:16px;height:16px;border-radius:50%;background:#ece8fb;border:2px solid var(--line)}
   .dots b.on{background:var(--gold);border-color:#e6a800}
   .msg{text-align:center;font-size:17px;font-weight:700;min-height:26px;margin-top:10px}
@@ -117,7 +115,6 @@
   <div class="left" id="playLeft"></div>
   <div class="q" id="q"></div>
   <div class="ans" id="ans"></div>
-  <div class="clock"><i id="clock"></i></div>
   <div class="dots" id="dots"><b></b><b></b><b></b></div>
   <div class="msg" id="msg"></div>
   <div class="keys" id="keys"></div>
@@ -142,11 +139,11 @@
   </div>
 </div>
 
-<p class="foot"><span id="ver">v1.1</span></p>
+<p class="foot"><span id="ver">v1.2</span></p>
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.1';
+const VERSION = 'v1.2';
 const KEY = 'times-tables-zac';
 const TABLES = [2,3,4,5,6,7,8,9,10,11,12];
 const FACTS = 12;          // n×1 … n×12
@@ -193,7 +190,7 @@ $('grid').addEventListener('click', e => {
 $('resetBtn').addEventListener('click', () => { resetMode = !resetMode; renderChooser(); });
 
 // ---------- practice ----------
-let table = 0, fact = 0, recent = [], typed = '', shownAt = 0, busy = false, isPaused = false, raf = 0, nextTimer = 0;
+let table = 0, fact = 0, recent = [], typed = '', shownAt = 0, busy = false, isPaused = false, nextTimer = 0;
 
 function start(n){
   table = n; recent = []; isPaused = false;
@@ -233,16 +230,8 @@ function showQuestion(){
   $('ans').textContent = ''; $('ans').className = 'ans';
   $('msg').textContent = '';
   renderPlayBar(); renderDots();
+  // Timed quietly in the background: a visible clock made him fumble.
   shownAt = performance.now();
-  tick();
-}
-// The green bar drains over 3 seconds so he can see the clock.
-function tick(){
-  cancelAnimationFrame(raf);
-  const left = Math.max(0, 1-(performance.now()-shownAt)/LIMIT);
-  $('clock').style.transform = `scaleX(${left})`;
-  $('clock').style.background = left>0 ? 'var(--good)' : 'var(--slow)';
-  if(left>0 && !busy && !isPaused) raf = requestAnimationFrame(tick);
 }
 function press(k){
   if(busy || isPaused || $('play').classList.contains('hidden')) return;
@@ -253,7 +242,7 @@ function press(k){
   if(typed.length===String(table*fact).length) check();
 }
 function check(){
-  busy = true; cancelAnimationFrame(raf);
+  busy = true;
   const ms = performance.now()-shownAt, secs = (ms/1000).toFixed(1);
   const right = +typed===table*fact, s = progress[table];
   let wait = 900;
@@ -283,17 +272,17 @@ function check(){
 
 function pause(){
   if(isPaused || $('play').classList.contains('hidden') || !$('won').classList.contains('hidden')) return;
-  isPaused = true; cancelAnimationFrame(raf);
+  isPaused = true;
   $('paused').classList.remove('hidden');
 }
-// After a pause he gets a fresh question with a fresh clock, so a pause never costs him a streak.
+// After a pause he gets a fresh question with a fresh timer, so a pause never costs him a streak.
 function resume(){
   isPaused = false; clearTimeout(nextTimer);
   $('paused').classList.add('hidden');
   nextQuestion();
 }
 function quit(){
-  isPaused = false; busy = false; clearTimeout(nextTimer); cancelAnimationFrame(raf);
+  isPaused = false; busy = false; clearTimeout(nextTimer);
   $('paused').classList.add('hidden'); $('won').classList.add('hidden');
   $('play').classList.add('hidden'); $('chooser').classList.remove('hidden');
   renderChooser();
@@ -321,7 +310,7 @@ $('resumeBtn').addEventListener('click', resume);
 $('quitBtn').addEventListener('click', quit);
 $('backBtn').addEventListener('click', quit);
 $('wonBtn').addEventListener('click', quit);
-// Leaving the app mid-question pauses it, so the clock doesn't run while he's away.
+// Leaving the app mid-question pauses it, so the timer doesn't run while he's away.
 document.addEventListener('visibilitychange', () => { if(document.hidden) pause(); });
 
 // ---------- fun bits ----------
