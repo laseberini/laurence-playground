@@ -23,6 +23,7 @@
     --muted: #5f6f66;
     --line: #dfe6df;
     --danger: #c23b2b;
+    --danger-soft: #fbe4e1;
     /* one colour per child, in the order they were added */
     --c0: #1d6fd1; --c0s: #e3eefc;
     --c1: #d9551a; --c1s: #fdebe1;
@@ -42,6 +43,7 @@
       --muted: #9aa99f;
       --line: #2b362f;
       --danger: #ef7565;
+      --danger-soft: #3a1f1c;
       --c0: #5a9cf0; --c0s: #1a2a40;
       --c1: #f08a55; --c1s: #3a2418;
       --c2: #4cc27f; --c2s: #16301f;
@@ -51,7 +53,7 @@
   }
   :root[data-theme="dark"]{
     --bg: #111713; --surface: #1a221d; --ink: #e7eee9; --muted: #9aa99f; --line: #2b362f;
-    --danger: #ef7565;
+    --danger: #ef7565; --danger-soft: #3a1f1c;
     --c0: #5a9cf0; --c0s: #1a2a40; --c1: #f08a55; --c1s: #3a2418;
     --c2: #4cc27f; --c2s: #16301f; --c3: #b58af0; --c3s: #2c1f3d;
     color-scheme: dark;
@@ -146,7 +148,7 @@
   }
   .jar .label{ font-size: 14px; color: var(--muted); }
   .jar .owed{ font: 700 52px/1 var(--display); color: var(--kid); letter-spacing: -.01em; }
-  .stats{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stats{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
   .stat{ display: flex; flex-direction: column; }
   .stat b{ font: 600 18px/1.2 var(--display); }
   .stat span{ font-size: 12px; color: var(--muted); }
@@ -187,6 +189,17 @@
     font-size: 12px; font-weight: 700; display: grid; place-items: center;
   }
   .chore.pop{ animation: pop .45s ease; }
+  .chore.pen{ border-color: var(--danger-soft); }
+  .chore.pen .ca{ color: var(--danger); }
+  .chore.pen .cnt{ background: var(--danger-soft); color: var(--danger); }
+  .chore.ouch{ animation: ouch .5s ease; }
+  @keyframes ouch{
+    0%{ background: var(--danger); color: #fff; transform: translateX(0) }
+    20%{ transform: translateX(-6px) } 40%{ transform: translateX(6px) }
+    60%{ transform: translateX(-3px) } 80%{ transform: translateX(3px) }
+    100%{ background: var(--surface); transform: translateX(0) }
+  }
+  .row.penalty .amt{ color: var(--danger); }
   @keyframes pop{ 0%{ background: var(--kid); color:#fff } 100%{ background: var(--surface) } }
 
   /* History */
@@ -238,7 +251,7 @@
 
   @media (prefers-reduced-motion: reduce){
     .chore, .kid, .bar i{ transition: none; }
-    .chore.pop{ animation: none; }
+    .chore.pop, .chore.ouch{ animation: none; }
   }
 </style>
 </head>
@@ -254,13 +267,14 @@
 
   <section class="jar" aria-live="polite">
     <div>
-      <div class="label"><span class="kidname"></span> is owed</div>
+      <div class="label"><span class="kidname"></span> <span id="owed-word">is owed</span></div>
       <div class="owed num" id="owed">R0</div>
     </div>
     <div class="stats">
       <div class="stat"><b class="num" id="st-week">R0</b><span>This week</span></div>
       <div class="stat"><b class="num" id="st-total">R0</b><span>Earned all time</span></div>
       <div class="stat"><b class="num" id="st-paid">R0</b><span>Paid out</span></div>
+      <div class="stat"><b class="num" id="st-pen">R0</b><span>Penalties</span></div>
     </div>
     <div class="pay">
       <button class="btn" id="pay-btn">Pay out</button>
@@ -298,6 +312,12 @@
   </section>
 
   <section class="sec">
+    <h2>Penalty?</h2>
+    <p class="hint">Tap it to take the money off <span class="kidname"></span>'s jar.</p>
+    <div class="chores" id="pens"></div>
+  </section>
+
+  <section class="sec">
     <div class="sec-head">
       <h2><span class="kidname"></span>'s history</h2>
       <span class="hint num" id="hist-count"></span>
@@ -330,16 +350,32 @@
 
     <div class="sec">
       <p class="hint">Change an icon, name or amount and it saves straight away. Past history keeps the old amount. Tap an icon box and pick any emoji from your keyboard.</p>
-      <div class="sec" id="edit-list"></div>
+      <div class="sec" id="edit-list" data-kind="chores"></div>
     </div>
 
-    <form class="sec" id="add-form" autocomplete="off">
+    <form class="sec" id="add-form" data-kind="chores" autocomplete="off">
       <h2>Add a chore</h2>
       <div class="edit-row">
         <input class="field icon" id="add-icon" placeholder="?" maxlength="8" aria-label="Icon (optional emoji)">
         <input class="field" id="add-name" placeholder="e.g. Feed the dog" required>
         <div class="money"><input class="field" id="add-amt" type="number" inputmode="decimal" min="0" step="0.5" placeholder="10" required></div>
         <button class="btn" type="submit" aria-label="Add chore" style="padding:10px 0">+</button>
+      </div>
+    </form>
+
+    <div class="sec">
+      <h2>Penalties</h2>
+      <p class="hint">Money taken off the jar. Change or remove them here.</p>
+      <div class="sec" id="pen-edit-list" data-kind="penalties"></div>
+    </div>
+
+    <form class="sec" id="pen-add-form" data-kind="penalties" autocomplete="off">
+      <h2>Add a penalty</h2>
+      <div class="edit-row">
+        <input class="field icon" id="pen-add-icon" placeholder="?" maxlength="8" aria-label="Icon (optional emoji)">
+        <input class="field" id="pen-add-name" placeholder="e.g. Shoes left out" required>
+        <div class="money"><input class="field" id="pen-add-amt" type="number" inputmode="decimal" min="0" step="0.5" placeholder="10" required></div>
+        <button class="btn danger" type="submit" aria-label="Add penalty" style="padding:10px 0">+</button>
       </div>
     </form>
 
@@ -420,11 +456,13 @@
       log: [], // { id, kid, type: 'chore'|'payout', name, amount, ts }
       goals: {},
       // a new phone skips the extras that were added for the first family
-      seeded: { zac: true, adam: true, setTable: true, poolLeaves: true }
+      penalties: [],
+      seeded: { zac: true, adam: true, setTable: true, poolLeaves: true, penalties: true }
     };
   }
   // data saved before children could be named belongs to Zac and Adam
   function normalize(s){
+    if (!Array.isArray(s.penalties)) s.penalties = [];
     if (!Array.isArray(s.kids)) s.kids = [{ id: 'zac', name: 'Zac', color: 0 }, { id: 'adam', name: 'Adam', color: 1 }];
     return s;
   }
@@ -460,6 +498,16 @@
         state.chores.push({ id: uid(), name: x.name, amount: x.amount, icon: x.icon });
       state.seeded[x.key] = true;
     });
+    // starter penalties, added once
+    if (!Array.isArray(state.penalties)) state.penalties = [];
+    if (!state.seeded.penalties) {
+      if (!state.penalties.length) state.penalties = [
+        { id: uid(), name: 'Peeing in the garden', amount: 10, icon: '🌳' },
+        { id: uid(), name: 'Peeing on the seat', amount: 10, icon: '🚽' },
+        { id: uid(), name: 'Not putting dish in the sink', amount: 10, icon: '🥣' }
+      ];
+      state.seeded.penalties = true;
+    }
     Object.keys(starters).forEach(function(k){
       if (state.seeded[k]) return;
       if (!state.goals[k]) state.goals[k] = starters[k];
@@ -472,20 +520,22 @@
   var $ = function(id){ return document.getElementById(id); };
   function R(n){
     n = Math.round(n * 100) / 100;
-    return 'R' + (n % 1 ? n.toFixed(2) : n);
+    var a = Math.abs(n);
+    return (n < 0 ? '−' : '') + 'R' + (a % 1 ? a.toFixed(2) : a);
   }
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); }
 
   function totals(kid){
-    var earned = 0, paid = 0, week = 0;
+    var earned = 0, paid = 0, pen = 0, week = 0;
     var now = new Date();
     var monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7)).getTime();
     state.log.forEach(function(e){
       if (e.kid !== kid) return;
       if (e.type === 'payout') paid += e.amount;
+      else if (e.type === 'penalty') pen += e.amount;
       else { earned += e.amount; if (e.ts >= monday) week += e.amount; }
     });
-    return { earned: earned, paid: paid, owed: earned - paid, week: week };
+    return { earned: earned, paid: paid, pen: pen, owed: earned - paid - pen, week: week };
   }
 
   function kids(){ return state.kids; }
@@ -519,10 +569,12 @@
     document.querySelectorAll('.kidname').forEach(function(el){ el.textContent = cur.name; });
 
     var t = totals(kid);
-    $('owed').textContent = R(t.owed);
+    $('owed').textContent = R(Math.abs(t.owed));
+    $('owed-word').textContent = t.owed < 0 ? 'owes' : 'is owed';
     $('st-week').textContent = R(t.week);
     $('st-total').textContent = R(t.earned);
     $('st-paid').textContent = R(t.paid);
+    $('st-pen').textContent = R(t.pen);
     $('pay-btn').disabled = t.owed <= 0;
     $('pay-amt').textContent = R(t.owed);
     renderGoal(kid, t.owed);
@@ -532,15 +584,19 @@
     var today = new Date(); today.setHours(0,0,0,0);
     var counts = {};
     state.log.forEach(function(e){
-      if (e.kid === kid && e.type === 'chore' && e.ts >= today.getTime()) counts[e.choreId] = (counts[e.choreId] || 0) + 1;
+      if (e.kid === kid && e.type !== 'payout' && e.ts >= today.getTime()) counts[e.choreId] = (counts[e.choreId] || 0) + 1;
     });
-    $('chores').innerHTML = state.chores.map(function(c){
+    function card(c, isPen){
       var n = counts[c.id];
-      return '<button class="chore" data-id="' + c.id + '">' +
-        (n ? '<span class="cnt num" title="Done today">' + n + '×</span>' : '') +
+      return '<button class="chore' + (isPen ? ' pen' : '') + '" data-id="' + c.id + '">' +
+        (n ? '<span class="cnt num" title="Today">' + n + '×</span>' : '') +
         '<span class="ci" aria-hidden="true">' + esc(iconOf(c)) + '</span>' +
-        '<span class="cn">' + esc(c.name) + '</span><span class="ca num">' + R(c.amount) + '</span></button>';
-    }).join('') || '<div class="empty" style="grid-column:1/-1">No chores yet. Tap Edit chores to add some.</div>';
+        '<span class="cn">' + esc(c.name) + '</span><span class="ca num">' + (isPen ? '−' : '') + R(c.amount) + '</span></button>';
+    }
+    $('chores').innerHTML = state.chores.map(function(c){ return card(c, false); }).join('') ||
+      '<div class="empty" style="grid-column:1/-1">No chores yet. Tap Edit to add some.</div>';
+    $('pens').innerHTML = state.penalties.map(function(c){ return card(c, true); }).join('') ||
+      '<div class="empty" style="grid-column:1/-1">No penalties. Tap Edit to add some.</div>';
 
     // history
     var items = state.log.filter(function(e){ return e.kid === kid; }).sort(function(a, b){ return b.ts - a.ts; });
@@ -556,11 +612,11 @@
           html += '<div class="day">' + d + '</div><div class="list">';
           open = true; lastDay = d;
         }
-        var isPay = e.type === 'payout';
-        html += '<div class="row' + (isPay ? ' payout' : '') + '" data-id="' + e.id + '">' +
+        var isPay = e.type === 'payout', minus = isPay || e.type === 'penalty';
+        html += '<div class="row' + (isPay ? ' payout' : '') + (e.type === 'penalty' ? ' penalty' : '') + '" data-id="' + e.id + '">' +
           '<span class="ri" aria-hidden="true">' + (isPay ? '💰' : esc(e.icon || guessIcon(e.name))) + '</span>' +
           '<div class="what"><div>' + (isPay ? 'Paid out' : esc(e.name)) + '</div><div class="when num">' + timeLabel(e.ts) + '</div></div>' +
-          '<span class="amt num">' + (isPay ? '−' : '+') + R(e.amount) + '</span>' +
+          '<span class="amt num">' + (minus ? '−' : '+') + R(e.amount) + '</span>' +
           '<button class="del" data-del="' + e.id + '" aria-label="Delete ' + (isPay ? 'payout' : esc(e.name)) + '">Delete</button></div>';
       });
       if (open) html += '</div>';
@@ -653,6 +709,17 @@
     if (navigator.vibrate) try { navigator.vibrate(15); } catch (x) {}
   });
 
+  // ---- log a penalty
+  $('pens').addEventListener('click', function(ev){
+    var btn = ev.target.closest('.chore'); if (!btn) return;
+    var c = state.penalties.filter(function(x){ return x.id === btn.dataset.id; })[0]; if (!c) return;
+    state.log.push({ id: uid(), kid: state.kid, type: 'penalty', choreId: c.id, name: c.name, icon: iconOf(c), amount: c.amount, ts: Date.now() });
+    save(); render();
+    var nb = document.querySelector('#pens .chore[data-id="' + c.id + '"]');
+    if (nb) nb.classList.add('ouch');
+    if (navigator.vibrate) try { navigator.vibrate([30, 40, 30]); } catch (x) {}
+  });
+
   // ---- fireworks after a chore tap
   var fx = $('fx'), fxc = fx.getContext('2d'), sparks = [], fxRunning = false;
   var calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -718,47 +785,56 @@
   $('more').addEventListener('click', function(){ showCount += 50; render(); });
 
   // ---- edit chores sheet
+  var EDIT_LISTS = { chores: 'edit-list', penalties: 'pen-edit-list' };
   function renderEdit(){
-    $('edit-list').innerHTML = state.chores.map(function(c){
+    Object.keys(EDIT_LISTS).forEach(renderEditList);
+  }
+  function renderEditList(kind){
+    $(EDIT_LISTS[kind]).innerHTML = state[kind].map(function(c){
       return '<div class="edit-row" data-id="' + c.id + '">' +
         '<input class="field icon" id="i-' + c.id + '" data-f="icon" maxlength="8" value="' + esc(iconOf(c)) + '" aria-label="Icon for ' + esc(c.name) + '">' +
         '<input class="field" id="n-' + c.id + '" data-f="name" value="' + esc(c.name) + '" aria-label="Chore name">' +
         '<div class="money"><input class="field num" id="a-' + c.id + '" data-f="amount" type="number" inputmode="decimal" min="0" step="0.5" value="' + c.amount + '" aria-label="Amount in rand"></div>' +
         '<button class="x" data-rm="' + c.id + '" aria-label="Remove ' + esc(c.name) + '">×</button></div>';
-    }).join('') || '<p class="hint">No chores. Add one below.</p>';
+    }).join('') || '<p class="hint">None yet. Add one below.</p>';
   }
   $('edit-open').addEventListener('click', function(){ renderChildren(); renderEdit(); renderGoals(); renderPhotos(); $('bk-msg').textContent = ''; $('sheet').hidden = false; });
   function closeSheet(){ $('sheet').hidden = true; render(); }
   $('edit-close').addEventListener('click', closeSheet);
   $('sheet').addEventListener('click', function(ev){ if (ev.target === $('sheet')) closeSheet(); });
 
-  $('edit-list').addEventListener('input', function(ev){
-    var row = ev.target.closest('.edit-row'); if (!row) return;
-    var c = state.chores.filter(function(x){ return x.id === row.dataset.id; })[0]; if (!c) return;
-    if (ev.target.dataset.f === 'icon') { c.icon = ev.target.value.trim(); }
-    else if (ev.target.dataset.f === 'name') { if (ev.target.value.trim()) c.name = ev.target.value.trim(); }
-    else { var v = parseFloat(ev.target.value); if (!isNaN(v) && v >= 0) c.amount = v; }
-    save();
+  Object.keys(EDIT_LISTS).forEach(function(kind){
+    var list = $(EDIT_LISTS[kind]);
+    list.addEventListener('input', function(ev){
+      var row = ev.target.closest('.edit-row'); if (!row) return;
+      var c = state[kind].filter(function(x){ return x.id === row.dataset.id; })[0]; if (!c) return;
+      if (ev.target.dataset.f === 'icon') { c.icon = ev.target.value.trim(); }
+      else if (ev.target.dataset.f === 'name') { if (ev.target.value.trim()) c.name = ev.target.value.trim(); }
+      else { var v = parseFloat(ev.target.value); if (!isNaN(v) && v >= 0) c.amount = v; }
+      save();
+    });
+    list.addEventListener('click', function(ev){
+      var rm = ev.target.closest('[data-rm]');
+      var yes = ev.target.closest('[data-rmyes]');
+      if (rm) {
+        rm.outerHTML = '<button class="x" data-rmyes="' + rm.dataset.rm + '" aria-label="Confirm remove" style="color:var(--danger);font-size:14px;font-weight:700">Del?</button>';
+      } else if (yes) {
+        state[kind] = state[kind].filter(function(c){ return c.id !== yes.dataset.rmyes; });
+        save(); renderEditList(kind);
+      }
+    });
   });
-  $('edit-list').addEventListener('click', function(ev){
-    var rm = ev.target.closest('[data-rm]');
-    var yes = ev.target.closest('[data-rmyes]');
-    var no = ev.target.closest('[data-rmno]');
-    if (rm) {
-      rm.outerHTML = '<button class="x" data-rmyes="' + rm.dataset.rm + '" aria-label="Confirm remove" style="color:var(--danger);font-size:14px;font-weight:700">Del?</button>';
-    } else if (yes) {
-      state.chores = state.chores.filter(function(c){ return c.id !== yes.dataset.rmyes; });
-      save(); renderEdit();
-    } else if (no) renderEdit();
-  });
-  $('add-form').addEventListener('submit', function(ev){
-    ev.preventDefault();
-    var name = $('add-name').value.trim(), amt = parseFloat($('add-amt').value);
-    if (!name || isNaN(amt) || amt < 0) return;
-    state.chores.push({ id: uid(), name: name, amount: amt, icon: $('add-icon').value.trim() || guessIcon(name) });
-    save(); renderEdit();
-    $('add-icon').value = ''; $('add-name').value = ''; $('add-amt').value = '';
-    $('add-name').focus();
+  [['add-form', 'chores', 'add-'], ['pen-add-form', 'penalties', 'pen-add-']].forEach(function(f){
+    var kind = f[1], pre = f[2];
+    $(f[0]).addEventListener('submit', function(ev){
+      ev.preventDefault();
+      var name = $(pre + 'name').value.trim(), amt = parseFloat($(pre + 'amt').value);
+      if (!name || isNaN(amt) || amt < 0) return;
+      state[kind].push({ id: uid(), name: name, amount: amt, icon: $(pre + 'icon').value.trim() || guessIcon(name) });
+      save(); renderEditList(kind);
+      $(pre + 'icon').value = ''; $(pre + 'name').value = ''; $(pre + 'amt').value = '';
+      $(pre + 'name').focus();
+    });
   });
 
   // ---- savings goal
@@ -936,7 +1012,7 @@
    when the app opens and when it comes back to the front.
    Bump APP_VERSION on every change you push. */
 (function(){
-  var APP_VERSION = 'v1.0';
+  var APP_VERSION = 'v1.1';
   var TRIED_KEY = 'chores-update-tried';
   // Opening the app: reload into the new version by itself.
   // Coming back to it later: show a button, so a reload never interrupts a backup or restore.
