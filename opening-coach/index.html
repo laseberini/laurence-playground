@@ -76,8 +76,10 @@
   .intro{margin:10px 0 14px;font-size:15px}
   .actions{display:flex;gap:10px;margin-bottom:18px}
   .actions .btn{flex:1}
-  .line{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);
-        border-radius:12px;padding:10px 12px;margin-bottom:8px}
+  .line{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+  .line .lb{display:flex;gap:8px;margin-top:10px}
+  .line .lb button{flex:1;min-height:46px;border-radius:10px;font-size:16px;font-weight:650;border:1px solid var(--line);background:var(--bg)}
+  .line .lb button.pr{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
   .line .name{font-weight:600;font-size:15px}
   .line .st{font-size:12px;color:var(--muted)}
   .pips{letter-spacing:2px;font-size:11px;color:var(--good)}
@@ -131,6 +133,8 @@
   .msg.opp{border-color:var(--muted)}
   .msg.info{border-color:var(--accent)}
   .msg.done{border-color:var(--warn)}
+  .msg.think{border-color:#7b61ff;background:rgba(123,97,255,.08);border-radius:0 10px 10px 0;padding:6px 10px}
+  .msg.think .h{color:#7b61ff}
   .prompt{font-size:14px;font-weight:650;color:var(--accent)}
   .ctrls{display:flex;gap:8px}
   .ctrls .btn{flex:1;padding:12px 8px;white-space:nowrap}
@@ -221,7 +225,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.1';
+const VERSION = 'v1.2';
 
 /*BOOK-START*/
 const BOOK = [
@@ -926,6 +930,300 @@ lines:[
  Be7 {Same plan as the Queen's Gambit Declined.}`}
 ]}
 ];
+// Think: a nudge shown before each of your moves, keyed by "side|moves so far"
+// (or "chapter|moves" when one chapter needs its own).
+const THINK = {
+"w|": "The board is empty in the middle. Which pawn move grabs the centre and frees your bishop and queen?",
+"w|e4 e5": "Get a piece out. Can you develop one AND attack Black's e5 pawn at the same time?",
+"w|e4 e5 Nf3 Nc6": "Black's weakest square is f7: only the king guards it. Which piece can you bring out to aim at it?",
+"w|e4 e5 Nf3 Nc6 Bc4 Bc5": "You'd like to play d4 one day. Which small pawn move gets that ready?",
+"w|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6": "Your e4 pawn is attacked. How can you protect it calmly with a pawn?",
+"w|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 d6": "Your king is still in the middle. How do you make it safe?",
+"w|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 d6 O-O O-O": "Both kings are safe. Which piece hasn't joined in yet? A rook would love the e-file.",
+"w|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 d6 O-O O-O Re1 a6": "Black wants ...b5 to kick your bishop. Can you move it to safety first, still aiming at f7?",
+"w|e4 e5 Nf3 Nc6 Bc4 Nf6": "Black's knight left f7 with only the king to defend it. Can another piece join your bishop in attacking f7?",
+"w|e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5": "Black's pawn on d5 blocks your bishop and attacks it. What can you capture?",
+"w|e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Na5": "Your bishop is attacked. Can it move with check?",
+"w|e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Na5 Bb5+ c6": "Black offers a pawn. Can you take it?",
+"w|e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Na5 Bb5+ c6 dxc6 bxc6": "Your bishop on b5 is attacked. Where is a safe square near your king?",
+"w|e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Na5 Bb5+ c6 dxc6 bxc6 Be2 h6": "Your knight on g5 is attacked. Where should it go?",
+"w|e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Na5 Bb5+ c6 dxc6 bxc6 Be2 h6 Nf3 e4": "Your knight is attacked again. Is there a strong square in the centre for it?",
+"w|e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Na5 Bb5+ c6 dxc6 bxc6 Be2 h6 Nf3 e4 Ne5 Bd6": "Black attacks your knight on e5. How can a pawn support it?",
+"w|e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Nxd5": "Black took with the knight, so f7 is guarded only by the king. Is there a bold sacrifice?",
+"w|e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Nxd5 Nxf7 Kxf7": "Black's king is out in the open. Can your queen give a check that also attacks the d5 knight?",
+"w|e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Nxd5 Nxf7 Kxf7 Qf3+ Ke6": "The d5 knight is pinned to the king. Can you attack it with one more piece?",
+"w|e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Nxd5 Nxf7 Kxf7 Qf3+ Ke6 Nc3 Nb4": "Black's king is stuck in the middle, but yours is too. What's the safest move before you attack?",
+"w|e4 e5 Nf3 Nc6 Bc4 Nd4": "Careful: e5 looks free, but it's a trap. Is there a simple swap instead?",
+"w|e4 e5 Nf3 Nc6 Bc4 Nd4 Nxd4 exd4": "Black has a pawn on d4. Which pawn can attack it and open lines for your pieces?",
+"w|e4 e5 Nf3 Nc6 Bc4 Nd4 Nxd4 exd4 c3 dxc3": "Black took your pawn. Can you take back and develop a piece at the same time?",
+"w|e4 e5 Nf3 Nf6": "Black attacks e4 but left e5 unguarded. Can you take something?",
+"w|e4 e5 Nf3 Nf6 Nxe5 d6": "Your knight on e5 is attacked. Where should it go?",
+"w|e4 e5 Nf3 Nf6 Nxe5 d6 Nf3 Nxe4": "Pawns are even again. What pawn move grabs the centre?",
+"w|e4 e5 Nf3 Nf6 Nxe5 d6 Nf3 Nxe4 d4 d5": "Black's knight sits on e4. Which piece can develop and aim at it?",
+"w|e4 e5 Nf3 Nf6 Nxe5 d6 Nf3 Nxe4 d4 d5 Bd3 Nc6": "Your pieces are out. What's the last thing to do before the middle game?",
+"w|e4 e5 Nf3 Nf6 Nxe5 Nxe4": "Black copied you. Black's king and your queen share the e-file. Can your queen attack the knight on e4?",
+"w|e4 e5 Nf3 Nf6 Nxe5 Nxe4 Qe2 Nf6": "If your knight moves off the e-file, your queen gives check. Where can it go to attack Black's queen too?",
+"w|e4 e5 Nf3 d6": "Black is playing passively. Can you hit the centre with a pawn right now?",
+"w|e4 e5 Nf3 d6 d4 exd4": "Black took on d4. How do you take back?",
+"w|e4 e5 Nf3 d6 d4 exd4 Nxd4 Nf6": "Your e4 pawn is attacked. Which piece can defend it and develop?",
+"w|e4 e5 Nf3 d6 d4 exd4 Nxd4 Nf6 Nc3 Be7": "One minor piece is still at home. Where does it hit hardest?",
+"w|e4 e5 Nf3 d6 d4 exd4 Nxd4 Nf6 Nc3 Be7 Bc4 O-O": "Black's king is safe. Is yours?",
+"w|e4 c5": "Black is fighting for d4. Can a small pawn move help you play d4 next?",
+"w|e4 c5 c3 d5": "Black attacks your e4 pawn. What can you capture?",
+"w|e4 c5 c3 d5 exd5 Qxd5": "Your pawn on c3 means Nc3 isn't possible. What's the plan you prepared with c3?",
+"w|e4 c5 c3 d5 exd5 Qxd5 d4 Nf6": "Get a piece out. Which knight move is natural?",
+"w|e4 c5 c3 d5 exd5 Qxd5 d4 Nf6 Nf3 Bg4": "Your knight is pinned to your queen. Which piece can break the pin and get you ready to castle?",
+"w|e4 c5 c3 d5 exd5 Qxd5 d4 Nf6 Nf3 Bg4 Be2 e6": "Your kingside pieces are out. What should you do with your king?",
+"w|e4 c5 c3 Nf6": "Your e4 pawn is attacked. Can you push it forward and kick the knight?",
+"w|e4 c5 c3 Nf6 e5 Nd5": "This is why you played c3. Which pawn move builds a big centre now?",
+"w|e4 c5 c3 Nf6 e5 Nd5 d4 cxd4": "Black took on d4. How do you keep two pawns in the centre?",
+"w|e4 c5 c3 Nf6 e5 Nd5 d4 cxd4 cxd4 d6": "Black attacks your e5 pawn. Which piece can defend it and develop?",
+"w|e4 c5 c3 Nf6 e5 Nd5 d4 cxd4 cxd4 d6 Nf3 Nc6": "Black's knight on d5 is a target. Which bishop can attack it?",
+"w|e4 c5 c3 Nf6 e5 Nd5 d4 cxd4 cxd4 d6 Nf3 Nc6 Bc4 Nb6": "Your bishop on c4 is attacked. Where can it go and keep aiming at f7?",
+"w|e4 c5 c3 Nc6": "Same plan as always against the Sicilian. Which pawn move?",
+"w|e4 c5 c3 Nc6 d4 d5": "Black attacks e4. What can you capture?",
+"w|e4 c5 c3 Nc6 d4 d5 exd5 Qxd5": "Get a piece out. Which knight move is natural?",
+"w|e4 c5 c3 Nc6 d4 d5 exd5 Qxd5 Nf3 Bg4": "Your knight is pinned to your queen. How do you break the pin?",
+"w|e4 c5 c3 Nc6 d4 d5 exd5 Qxd5 Nf3 Bg4 Be2 cxd4": "Black took on d4. Which pawn takes back and frees c3 for your knight?",
+"w|e4 c5 c3 Nc6 d4 d5 exd5 Qxd5 Nf3 Bg4 Be2 cxd4 cxd4 e6": "The c3 square is free now. Can you develop and attack Black's queen?",
+"w|e4 c5 c3 e6": "Black is slow. Can you grab the centre now?",
+"w|e4 c5 c3 e6 d4 d5": "Black attacks e4. What can you capture?",
+"w|e4 c5 c3 e6 d4 d5 exd5 exd5": "Get a piece out. Which knight move is natural?",
+"w|e4 c5 c3 e6 d4 d5 exd5 exd5 Nf3 Nc6": "Black's knight on c6 helps defend d5 and d4 is under pressure. Can a bishop pin that knight?",
+"w|e4 c5 c3 e6 d4 d5 exd5 exd5 Nf3 Nc6 Bb5 Bd6": "Can you swap pawns so Black is left with a lonely pawn on d5?",
+"w|e4 c5 c3 e6 d4 d5 exd5 exd5 Nf3 Nc6 Bb5 Bd6 dxc5 Bxc5": "Your king is still in the middle. What now?",
+"w|e4 c5 c3 d6": "Black is quiet. Can you grab the centre now?",
+"w|e4 c5 c3 d6 d4 Nf6": "Your e4 pawn is attacked and Nc3 isn't possible. Which piece can protect it?",
+"w|e4 c5 c3 d6 d4 Nf6 Bd3 g6": "Get another piece out. Which knight move is natural?",
+"w|e4 c5 c3 d6 d4 Nf6 Bd3 g6 Nf3 Bg7": "Your kingside pieces are out. What should your king do?",
+"w|e4 e6": "Black isn't fighting for the centre yet. Can you take more of it?",
+"w|e4 e6 d4 d5": "Your e4 pawn is attacked. Instead of defending or taking, can you push past?",
+"w|e4 e6 d4 d5 e5 c5": "Black attacks d4, the base of your pawn chain. Which pawn can support it?",
+"w|e4 e6 d4 d5 e5 c5 c3 Nc6": "More pressure on d4. Which piece can defend it and develop?",
+"w|e4 e6 d4 d5 e5 c5 c3 Nc6 Nf3 Qb6": "Don't put your bishop on d3 yet (d4 would drop). Can a quiet pawn move prepare b4 for more space?",
+"w|e4 e6 d4 d5 e5 c5 c3 Nc6 Nf3 Qb6 a3 c4": "The queenside is locked. Which piece hasn't moved yet?",
+"w|e4 e6 d4 d5 e5 c5 c3 Nc6 Nf3 Bd7": "Get a kingside piece out so you can castle. Which one?",
+"w|e4 e6 d4 d5 e5 c5 c3 Nc6 Nf3 Bd7 Be2 Nge7": "You're ready. What should your king do?",
+"w|e4 e6 d4 d5 e5 c5 c3 Qb6": "d4 needs more help. Which piece can defend it and develop?",
+"w|e4 e6 d4 d5 e5 c5 c3 Qb6 Nf3 Bd7": "Can a quiet pawn move prepare b4 to gain queenside space?",
+"w|e4 e6 d4 d5 e5 c5 c3 Qb6 Nf3 Bd7 a3 Bb5": "Black offers a bishop swap. Can you take with check?",
+"w|e4 e6 d4 d5 e5 c5 c3 Qb6 Nf3 Bd7 a3 Bb5 Bxb5+ Qxb5": "Which knight still needs to come out?",
+"w|e4 c6": "Black isn't fighting for the centre yet. Can you take more of it?",
+"w|e4 c6 d4 d5": "Your e4 pawn is attacked. Instead of defending or taking, can you push past?",
+"w|e4 c6 d4 d5 e5 Bf5": "Get a piece out. Which knight move is natural?",
+"w|e4 c6 d4 d5 e5 Bf5 Nf3 e6": "Get your other kingside piece out so you can castle.",
+"w|e4 c6 d4 d5 e5 Bf5 Nf3 e6 Be2 c5": "Black attacks d4. Which bishop can protect it?",
+"w|e4 c6 d4 d5 e5 Bf5 Nf3 e6 Be2 c5 Be3 Nd7": "You're ready. What should your king do?",
+"w|e4 c6 d4 d5 e5 c5": "Black's c-pawn has moved twice to get here. Can you just take it?",
+"w|e4 c6 d4 d5 e5 c5 dxc5 e6": "Get a piece out. Which knight move is natural?",
+"w|e4 c6 d4 d5 e5 c5 dxc5 e6 Nf3 Bxc5": "Which bishop can come out and aim at Black's king?",
+"w|e4 c6 d4 d5 e5 c5 dxc5 e6 Nf3 Bxc5 Bd3 Nc6": "Your kingside pieces are out. What now?",
+"w|e4 d5": "Black attacks your e4 pawn. What can you do about it?",
+"w|e4 d5 exd5 Qxd5": "Black's queen is out early. Can you develop a piece and attack her?",
+"w|e4 d5 exd5 Qxd5 Nc3 Qa5": "Black's queen left the centre. Which pawn move takes it?",
+"w|e4 d5 exd5 Qxd5 Nc3 Qa5 d4 Nf6": "Get a piece out. Which knight move is natural?",
+"w|e4 d5 exd5 Qxd5 Nc3 Qa5 d4 Nf6 Nf3 c6": "Which bishop can come out to its best diagonal?",
+"w|e4 d5 exd5 Qxd5 Nc3 Qa5 d4 Nf6 Nf3 c6 Bc4 Bf5": "Your knight on c3 is pinned by the queen on a5. How can a bishop unpin it?",
+"w|e4 d5 exd5 Qxd5 Nc3 Qa5 d4 Nf6 Nf3 c6 Bc4 Bf5 Bd2 e6": "Where can your queen go to get ready for castling queenside?",
+"w|e4 d5 exd5 Qxd5 Nc3 Qd6": "Black's queen left the centre. Which pawn move takes it?",
+"w|e4 d5 exd5 Qxd5 Nc3 Qd6 d4 Nf6": "Get a piece out. Which knight move is natural?",
+"w|e4 d5 exd5 Qxd5 Nc3 Qd6 d4 Nf6 Nf3 a6": "Get your other kingside piece out so you can castle.",
+"w|e4 d5 exd5 Qxd5 Nc3 Qd6 d4 Nf6 Nf3 a6 Be2 Bg4": "Your pieces are ready. What should your king do?",
+"w|e4 d5 exd5 Qxd5 Nc3 Qd8": "Black's queen went home. Which pawn move takes the centre?",
+"w|e4 d5 exd5 Qxd5 Nc3 Qd8 d4 Nf6": "Get a piece out. Which knight move is natural?",
+"w|e4 d5 exd5 Qxd5 Nc3 Qd8 d4 Nf6 Nf3 Bg4": "Black's bishop pins your knight. Can a pawn ask it a question?",
+"w|e4 d5 exd5 Qxd5 Nc3 Qd8 d4 Nf6 Nf3 Bg4 h3 Bxf3": "Black took your knight. How do you take back?",
+"w|e4 d5 exd5 Nf6": "Don't hang on to the d5 pawn. Which pawn move takes the centre?",
+"w|e4 d5 exd5 Nf6 d4 Nxd5": "Get a piece out. Which knight move is natural?",
+"w|e4 d5 exd5 Nf6 d4 Nxd5 Nf3 Bg4": "Your knight is pinned to your queen. How do you break the pin?",
+"w|e4 d5 exd5 Nf6 d4 Nxd5 Nf3 Bg4 Be2 e6": "Your kingside pieces are out. What now?",
+"w|e4 d6": "Black lets you have the centre. Can you take more of it?",
+"w|e4 d6 d4 Nf6": "Your e4 pawn is attacked. Which piece defends it and develops?",
+"w|e4 d6 d4 Nf6 Nc3 g6": "Black's bishop is going to g7. Start your attack setup: which bishop goes first?",
+"w|e4 d6 d4 Nf6 Nc3 g6 Be3 Bg7": "Your plan is Bh6 to swap Black's best bishop. Which piece should back up your bishop first?",
+"w|e4 d6 d4 Nf6 Nc3 g6 Be3 Bg7 Qd2 O-O": "Everything is ready. Can you offer a swap of Black's best defender?",
+"w|e4 d6 d4 Nf6 Nc3 g6 Be3 Bg7 Qd2 O-O Bh6 Bxh6": "Black took your bishop. How do you take back?",
+"w|e4 g6": "Black lets you have the centre. Can you take more of it?",
+"w|e4 g6 d4 Bg7": "Black's bishop eyes d4. Which knight move develops and adds control of the centre?",
+"w|e4 g6 d4 Bg7 Nc3 d6": "Start your attack setup. Which bishop goes first?",
+"w|e4 g6 d4 Bg7 Nc3 d6 Be3 a6": "Same plan as against the Pirc. Which piece backs up the bishop?",
+"w|e4 g6 d4 Bg7 Nc3 d6 Be3 a6 Qd2 b5": "Black wants ...b4 to kick your knight away from e4. Can a pawn make e4 rock solid?",
+"london|": "Which pawn move starts a London System?",
+"w|d4 d5": "Before you play e3, which bishop do you want outside the pawn chain?",
+"w|d4 d5 Bf4 Nf6": "Your bishop is out. Which pawn move opens your other bishop and makes your centre solid?",
+"w|d4 d5 Bf4 Nf6 e3 e6": "Get a piece out. Which knight move is natural?",
+"w|d4 d5 Bf4 Nf6 e3 e6 Nf3 c5": "Black attacks d4. Which pawn can make a solid pyramid?",
+"w|d4 d5 Bf4 Nf6 e3 e6 Nf3 c5 c3 Nc6": "Which knight still needs to come out? It should support a future e4.",
+"w|d4 d5 Bf4 Nf6 e3 e6 Nf3 c5 c3 Nc6 Nbd2 Bd6": "Black wants to swap off your good bishop. Where can it step back and stay on the same diagonal?",
+"w|d4 d5 Bf4 Nf6 e3 e6 Nf3 c5 c3 Nc6 Nbd2 Bd6 Bg3 O-O": "One bishop is still at home. Where does it aim at Black's king?",
+"w|d4 d5 Bf4 c5": "Black attacks d4. Stay calm: which pawn move keeps your setup?",
+"w|d4 d5 Bf4 c5 e3 Nc6": "More pressure on d4. Which pawn makes the pyramid?",
+"w|d4 d5 Bf4 c5 e3 Nc6 c3 Qb6": "Black's queen hits b2. Can your queen defend it and offer a swap?",
+"w|d4 d5 Bf4 c5 e3 Nc6 c3 Qb6 Qb3 c4": "Your queen is attacked. What's the simplest answer?",
+"w|d4 d5 Bf4 c5 e3 Nc6 c3 Qb6 Qb3 c4 Qxb6 axb6": "Queens are off. Which knight comes out to support e4?",
+"w|d4 Nf6": "Same London setup. Which bishop comes out first?",
+"w|d4 Nf6 Bf4 g6": "Which pawn move makes your centre solid and opens your other bishop?",
+"w|d4 Nf6 Bf4 g6 e3 Bg7": "Get a piece out. Which knight move is natural?",
+"w|d4 Nf6 Bf4 g6 e3 Bg7 Nf3 O-O": "Get your last kingside piece out, quietly.",
+"w|d4 Nf6 Bf4 g6 e3 Bg7 Nf3 O-O Be2 d6": "Black may play ...Nh5 to chase your bishop. Can a pawn give it a safe square?",
+"b|e4": "White grabbed the centre. Which pawn move takes your share?",
+"b|e4 e5 Nf3": "Your e5 pawn is attacked. Which piece defends it and develops?",
+"b|e4 e5 Nf3 Nc6 Bc4": "White's bishop aims at f7. Can your bishop aim back at f2?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 c3": "White wants d4. Which knight move develops and hits e4?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3": "Your e5 pawn needs a solid friend. Which pawn can protect it?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 d6 O-O": "White's king is safe. Is yours?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 d6 O-O O-O Re1": "White wants d4 to kick your bishop. Can a pawn make a safe hole for it?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 d6 O-O O-O Re1 a6 Bb3": "Now tuck your bishop into the hole you made.",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 d6 O-O O-O Re1 a6 Bb3 Ba7 h3": "White stopped ...Bg4. Can you stop Bg5 the same way?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4": "White attacks e5 and your bishop's line. What can you capture?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4 e5": "Your knight is attacked. Instead of running, can a pawn hit back in the centre and attack the bishop?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4 e5 d5 Bb5": "Your knight on f6 is still attacked. Is there a strong central square for it?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4 e5 d5 Bb5 Ne4 cxd4": "Your bishop on c5 is attacked. Where does it stay on its good diagonal?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4 cxd4": "Your bishop is attacked by the d4 pawn. Can it move with check?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4 cxd4 Bb4+ Bd2": "White blocked with a bishop. Can you swap pieces with check?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4 cxd4 Bb4+ Bd2 Bxd2+ Nbxd2": "White has two pawns in the centre. Which pawn move breaks them up?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4 cxd4 Bb4+ Bd2 Bxd2+ Nbxd2 d5 exd5": "White took your pawn. How do you take back?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4 cxd4 Bb4+ Bd2 Bxd2+ Nbxd2 d5 exd5 Nxd5 Qb3": "White's queen and bishop both hit your knight on d5. Which knight can protect it?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4 cxd4 Bb4+ Bd2 Bxd2+ Nbxd2 d5 exd5 Nxd5 Qb3 Nce7 O-O": "White's king is safe. Is yours?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 d3": "A quiet move. Which knight can come out and hit e4?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 d3 Nf6 Ng5": "White attacks f7 twice. Don't panic. Is there a move that makes your king safe and guards f7 with a rook?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 d3 Nf6 Ng5 O-O O-O": "Your king is safe. Which pawn move makes e5 solid?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 b4": "White offers a pawn. You don't have to take it. Where can your bishop go and stay on its diagonal?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 b4 Bb6 a4": "White threatens a5 to trap your bishop. Can a pawn give it an escape square?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 b4 Bb6 a4 a6 Nc3": "Your bishop is safe. Which knight still needs to come out?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 b4 Bb6 a4 a6 Nc3 Nf6 Nd5": "White's knight attacks yours. What can you capture?",
+"b|e4 e5 Nf3 Nc6 Bc4 Bc5 b4 Bb6 a4 a6 Nc3 Nf6 Nd5 Nxd5 exd5": "Your c6 knight is attacked. Is there a great central square for it?",
+"b|e4 e5 Nf3 Nc6 Bb5": "White attacks the knight that guards e5. Can a pawn ask the bishop what it wants?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Ba4": "Get a piece out. Which knight move develops and hits e4?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O": "Your king is still in the middle. Which bishop move gets you ready to castle?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1": "White now threatens Bxc6 and Nxe5. Can a pawn push the bishop away from your knight?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3": "Your e5 pawn could use a solid friend. Which pawn move?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3": "White's king is safe. Is yours?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3": "White's bishop on b3 is their best piece. Which knight can attack it?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3 Na5 Bc2": "Your knight on a5 needs a job. Which pawn move grabs space on the queenside?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 d3": "White's bishop still eyes your knight. Can a pawn push it away?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 d3 b5 Bb3": "Which bishop move gets you ready to castle?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 d3 b5 Bb3 Be7 O-O": "Your e5 pawn could use a solid friend. Which pawn move?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 d3 b5 Bb3 Be7 O-O d6 c3": "White's king is safe. Is yours?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Bxc6": "White took your knight. Which pawn should take back to open lines for your queen and bishop?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6 Nxe5": "White grabbed a pawn. Can your queen attack two things at once?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6 Nxe5 Qd4 Nf3": "The knight ran away. What's left undefended?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6 Nxe5 Qd4 Nf3 Qxe4+ Qe2": "White offers a queen swap. With two bishops, is an endgame good for you?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6 O-O": "Now Nxe5 really threatens to win a pawn. Which pawn can protect e5?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6 O-O f6 d4": "White attacks e5. What can you capture?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6 O-O f6 d4 exd4 Nxd4": "White's knight sits in the centre. Can a pawn kick it?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6 O-O f6 d4 exd4 Nxd4 c5 Nb3": "The queens face each other on the d-file. Can you swap them?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6 O-O f6 d4 exd4 Nxd4 c5 Nb3 Qxd1 Rxd1": "Can a bishop come out and attack White's rook?",
+"b|e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6 O-O f6 d4 exd4 Nxd4 c5 Nb3 Qxd1 Rxd1 Bg4 f3": "Your bishop is attacked. Where is it safe and still useful?",
+"b|e4 e5 Nf3 Nc6 d4": "White attacks e5. What can you capture?",
+"b|e4 e5 Nf3 Nc6 d4 exd4 Nxd4": "Get a piece out. Which knight move develops and hits e4?",
+"b|e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6 Nxc6": "White took your knight. Which pawn takes back toward the centre?",
+"b|e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6 Nxc6 bxc6 e5": "Your knight is attacked, but White's e5 pawn is on the open e-file. Can your queen attack it?",
+"b|e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6 Nxc6 bxc6 e5 Qe7 Qe2": "Your knight on f6 still has to move. Where is a strong square?",
+"b|e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6 Nxc6 bxc6 e5 Qe7 Qe2 Nd5 c4": "Your knight is attacked by the c4 pawn. Can a bishop pin that pawn to White's queen?",
+"b|e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6 Nc3": "White's knight on c3 guards e4. Can a bishop pin it?",
+"b|e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6 Nc3 Bb4 Nxc6": "White took your knight. How do you take back?",
+"b|e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6 Nc3 Bb4 Nxc6 bxc6 Bd3": "White is defending e4. Can a pawn strike the centre?",
+"b|e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6 Nc3 Bb4 Nxc6 bxc6 Bd3 d5 exd5": "White took your pawn. Which pawn takes back to keep the centre?",
+"b|e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6 Nc3 Bb4 Nxc6 bxc6 Bd3 d5 exd5 cxd5 O-O": "White's king is safe. Is yours?",
+"b|e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6 Nc3 Bb4 Nxc6 bxc6 Bd3 d5 exd5 cxd5 O-O O-O Bg5": "Your d5 pawn could use support. Which pawn helps?",
+"b|e4 e5 Nf3 Nc6 d4 exd4 Bc4": "White gives up a pawn to develop. Which knight comes out and hits e4?",
+"b|e4 e5 Nf3 Nc6 d4 exd4 Bc4 Nf6 e5": "Your knight is attacked. Can a pawn hit back in the centre and attack the bishop?",
+"b|e4 e5 Nf3 Nc6 d4 exd4 Bc4 Nf6 e5 d5 Bb5": "Your knight on f6 is still attacked. Is there a strong central square?",
+"b|e4 e5 Nf3 Nc6 d4 exd4 Bc4 Nf6 e5 d5 Bb5 Ne4 Nxd4": "Your c6 knight is pinned. Which bishop move breaks the pin?",
+"b|e4 e5 Nf3 Nc6 Nc3": "White develops calmly. Which knight move does the same and hits e4?",
+"b|e4 e5 Nf3 Nc6 Nc3 Nf6 Bb5": "White's bishop came out. Can your bishop copy it?",
+"b|e4 e5 Nf3 Nc6 Nc3 Nf6 Bb5 Bb4 O-O": "White's king is safe. Is yours?",
+"b|e4 e5 Nf3 Nc6 Nc3 Nf6 Bb5 Bb4 O-O O-O d3": "Your e5 pawn could use a solid friend. Which pawn move?",
+"b|e4 e5 Nf3 Nc6 Nc3 Nf6 Bb5 Bb4 O-O O-O d3 d6 Bg5": "Your knight is pinned. Can you swap a piece first, before White gets Nd5?",
+"b|e4 e5 Nf3 Nc6 Nc3 Nf6 Bb5 Bb4 O-O O-O d3 d6 Bg5 Bxc3 bxc3": "Your f6 knight is still pinned to your queen. Where can the queen go to unpin it?",
+"b|e4 e5 Nf3 Nc6 Nc3 Nf6 Bc4": "White's e4 pawn looks guarded by the knight. Is there a trick that grabs it anyway?",
+"b|e4 e5 Nf3 Nc6 Nc3 Nf6 Bc4 Nxe4 Nxe4": "You gave up a knight. Which pawn move attacks two white pieces at once?",
+"b|e4 e5 Nf3 Nc6 Nc3 Nf6 Bc4 Nxe4 Nxe4 d5 Bd3": "The bishop ran. What can you take?",
+"b|e4 e5 Nf3 Nc6 Nc3 Nf6 Bc4 Nxe4 Nxe4 d5 Bd3 dxe4 Bxe4": "Material is even. Which bishop develops and guards e5?",
+"b|e4 e5 Qh5": "White's queen attacks e5. Which piece defends it and develops?",
+"b|e4 e5 Qh5 Nc6 Bc4": "Danger! Queen and bishop both aim at f7. Can a pawn block the queen and kick her?",
+"b|e4 e5 Qh5 Nc6 Bc4 g6 Qf3": "The queen threatens f7 again. Which piece can block her line and develop?",
+"b|e4 e5 Qh5 Nc6 Bc4 g6 Qf3 Nf6 Ne2": "You played ...g6. Where does your bishop love to go now?",
+"b|e4 e5 Qh5 Nc6 Bc4 g6 Qf3 Nf6 Ne2 Bg7 Nbc3": "Your e5 pawn could use a pawn friend. Which one?",
+"b|e4 e5 Qh5 Nc6 Bc4 g6 Qf3 Nf6 g4": "White wants g5 to kick your knight. Can a knight jump forward and attack the queen and c2?",
+"b|e4 e5 Qh5 Nc6 Bc4 g6 Qf3 Nf6 g4 Nd4 Qd1": "The queen ran home. Can a pawn hit the centre and the bishop on c4?",
+"b|e4 e5 Bc4": "White aims at f7. Which knight move develops and hits e4?",
+"b|e4 e5 Bc4 Nf6 d3": "You want ...d5. Which pawn move prepares it?",
+"b|e4 e5 Bc4 Nf6 d3 c6 Nf3": "Your c-pawn supports d5. Time to play it?",
+"b|e4 e5 Bc4 Nf6 d3 c6 Nf3 d5 Bb3": "Your e5 pawn needs protection. Which bishop can defend it?",
+"b|e4 e5 Nc3": "Get a piece out. Which knight move is natural?",
+"b|e4 e5 Nc3 Nf6 f4": "White opens the f-file. Can a pawn hit back in the centre instead of taking?",
+"b|e4 e5 Nc3 Nf6 f4 d5 fxe5": "Your knight on f6 is attacked. Is there a central square where it is safe and strong?",
+"b|e4 e5 Nc3 Nf6 f4 d5 fxe5 Nxe4 Nf3": "Which bishop gets you ready to castle?",
+"b|e4 e5 Nc3 Nf6 Bc4": "White aims at f7. Which knight still needs to come out?",
+"b|e4 e5 Nc3 Nf6 Bc4 Nc6 d3": "Can your bishop aim at f2, like White's aims at f7?",
+"b|e4 e5 Nc3 Nf6 Bc4 Nc6 d3 Bc5 Nf3": "Your e5 pawn could use a solid friend. Which pawn move?",
+"b|e4 e5 f4": "White offers a pawn. Before taking it, can you hit back in the centre?",
+"b|e4 e5 f4 d5 exd5": "Now there's a pawn you can take. Which one?",
+"b|e4 e5 f4 d5 exd5 exf4 Nf3": "Get a piece out. Which knight move develops?",
+"b|e4 e5 f4 d5 exd5 exf4 Nf3 Nf6 Bc4": "White's d5 pawn is now a target. Can you take it?",
+"b|e4 e5 f4 d5 exd5 exf4 Nf3 Nf6 Bc4 Nxd5 O-O": "White's king is safe. Which bishop move gets you ready to castle?",
+"b|e4 e5 d4": "White attacks e5. What can you capture?",
+"b|e4 e5 d4 exd4 Qxd4": "White's queen is in the middle of the board. Can you develop and attack her?",
+"b|e4 e5 d4 exd4 Qxd4 Nc6 Qe3": "Get another piece out. Which knight move?",
+"b|e4 e5 d4 exd4 Qxd4 Nc6 Qe3 Nf6 Nc3": "White's knight guards e4. Can a bishop pin it?",
+"b|e4 e5 d4 exd4 Qxd4 Nc6 Qe3 Nf6 Nc3 Bb4 Bd2": "Your pieces are out. Is your king safe yet?",
+"b|e4 e5 d4 exd4 Qxd4 Nc6 Qe3 Nf6 Nc3 Bb4 Bd2 O-O O-O-O": "White's e4 pawn and queen are on the e-file. Which rook can pressure them?",
+"b|d4": "White grabbed the centre. Which pawn move stops e4 and takes your share?",
+"b|d4 d5 c4": "White offers a pawn. Instead of taking, which pawn move supports d5 and opens your bishop?",
+"b|d4 d5 c4 e6 Nc3": "White adds pressure on d5. Which knight protects it and develops?",
+"b|d4 d5 c4 e6 Nc3 Nf6 Bg5": "Your knight is pinned to your queen. Develop a piece that also sets a trap.",
+"b|d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7 e3": "Your knight is still pinned. Which bishop move breaks the pin?",
+"b|d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7 e3 Be7 Nf3": "Your pieces are ready. Is your king safe?",
+"b|d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7 e3 Be7 Nf3 O-O Rc1": "White's rook eyes the c-file. Which pawn move makes d5 rock solid?",
+"b|d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7 e3 Be7 Nf3 O-O Rc1 c6 Bd3": "White's bishop just moved. If you take on c4, it has to move again. Can you win a little time?",
+"b|d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7 e3 Be7 Nf3 O-O Rc1 c6 Bd3 dxc4 Bxc4": "You're a bit cramped. Can a knight jump to the centre and offer swaps?",
+"b|d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7 cxd5": "White took on d5. How do you take back?",
+"b|d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7 cxd5 exd5 Nxd5": "White grabbed a pawn because your knight looks pinned. Is it really pinned? What happens if you take?",
+"b|d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7 cxd5 exd5 Nxd5 Nxd5 Bxd8": "White took your queen! Is there a check that wins it back?",
+"b|d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7 cxd5 exd5 Nxd5 Nxd5 Bxd8 Bb4+ Qd2": "White's queen blocked the check. What can you take?",
+"b|d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7 cxd5 exd5 Nxd5 Nxd5 Bxd8 Bb4+ Qd2 Bxd2+ Kxd2": "A white bishop is still sitting on d8. Can you take it?",
+"b|d4 d5 c4 e6 Nc3 Nf6 cxd5": "White took on d5. How do you take back?",
+"b|d4 d5 c4 e6 Nc3 Nf6 cxd5 exd5 Bg5": "White pins your knight. Which pawn makes d5 solid?",
+"b|d4 d5 c4 e6 Nc3 Nf6 cxd5 exd5 Bg5 c6 e3": "Your knight is still pinned. Which bishop move breaks the pin?",
+"b|d4 d5 c4 e6 Nc3 Nf6 cxd5 exd5 Bg5 c6 e3 Be7 Bd3": "Which knight still needs to come out?",
+"b|d4 d5 c4 e6 Nc3 Nf6 cxd5 exd5 Bg5 c6 e3 Be7 Bd3 Nbd7 Qc2": "White's queen and bishop aim at h7. Is your king safe yet?",
+"b|d4 d5 c4 e6 Nf3": "Get a piece out. Which knight move protects d5?",
+"b|d4 d5 c4 e6 Nf3 Nf6 Nc3": "Which bishop move gets you ready to castle?",
+"b|d4 d5 c4 e6 Nf3 Nf6 Nc3 Be7 Bf4": "Your pieces are ready. Is your king safe?",
+"b|d4 d5 c4 e6 Nf3 Nf6 Nc3 Be7 Bf4 O-O e3": "Your king is safe. Can a pawn hit White's centre?",
+"b|d4 d5 Bf4": "Get a piece out. Which knight move is natural?",
+"b|d4 d5 Bf4 Nf6 e3": "White builds a solid wall. Which pawn can strike d4 straight away?",
+"b|d4 d5 Bf4 Nf6 e3 c5 c3": "White's d4 is solid. Which piece adds more pressure on it?",
+"b|d4 d5 Bf4 Nf6 e3 c5 c3 Nc6 Nd2": "Your light bishop needs a way out. Which pawn move opens it?",
+"b|d4 d5 Bf4 Nf6 e3 c5 c3 Nc6 Nd2 e6 Ngf3": "White's bishop on f4 is their best piece. Can you challenge it?",
+"b|d4 d5 Bf4 Nf6 e3 c5 c3 Nc6 Nd2 e6 Ngf3 Bd6 Bg3": "Your pieces are out. Is your king safe?",
+"b|d4 d5 Bf4 Nf6 e3 c5 Nf3": "Which knight adds pressure on d4?",
+"b|d4 d5 Bf4 Nf6 e3 c5 Nf3 Nc6 c3": "White's bishop left the queenside. Is b2 now weak? Which piece can hit it?",
+"b|d4 d5 Bf4 Nf6 e3 c5 Nf3 Nc6 c3 Qb6 Qb3": "White offers a queen swap. Can a pawn kick the queen instead?",
+"b|d4 d5 Bf4 Nf6 e3 c5 Nf3 Nc6 c3 Qb6 Qb3 c4 Qc2": "Can you develop a piece and kick White's queen again?",
+"b|d4 d5 e3": "White is very quiet. Which knight move develops?",
+"b|d4 d5 e3 Nf6 Bd3": "White aims at your kingside. Which pawn strikes the centre?",
+"b|d4 d5 e3 Nf6 Bd3 c5 c3": "Get another piece out. Which knight adds pressure on d4?",
+"b|d4 d5 e3 Nf6 Bd3 c5 c3 Nc6 f4": "Your light bishop is still free. Get it out before you play ...e6. Where?",
+"b|d4 d5 e3 Nf6 Bd3 c5 c3 Nc6 f4 Bg4 Nf3": "Your bishop is out. Which pawn move builds a solid centre?",
+"b|c4": "White plays on the side. Which pawn move takes the centre?",
+"b|c4 e5 Nc3": "Get a piece out. Which knight move is natural?",
+"b|c4 e5 Nc3 Nf6 g3": "White's bishop is going to g2. Can you grab more of the centre?",
+"b|c4 e5 Nc3 Nf6 g3 d5 cxd5": "White took on d5. How do you take back?",
+"b|c4 e5 Nc3 Nf6 g3 d5 cxd5 Nxd5 Bg2": "White's bishop attacks your knight. Where can it go?",
+"b|c4 e5 Nc3 Nf6 g3 d5 cxd5 Nxd5 Bg2 Nb6 Nf3": "Your e5 pawn is attacked. Which piece defends it and develops?",
+"b|c4 e5 Nc3 Nf6 g3 d5 cxd5 Nxd5 Bg2 Nb6 Nf3 Nc6 O-O": "White's king is safe. Which bishop move gets you ready to castle?",
+"b|Nf3": "White starts quietly. Which pawn move takes the centre?",
+"b|Nf3 d5 g3": "Get a piece out. Which knight move is natural?",
+"b|Nf3 d5 g3 Nf6 Bg2": "Keep it solid. Which pawn move supports d5 and opens your bishop?",
+"b|Nf3 d5 g3 Nf6 Bg2 e6 O-O": "Which bishop move gets you ready to castle?",
+"b|Nf3 d5 g3 Nf6 Bg2 e6 O-O Be7 d3": "Your pieces are ready. Is your king safe?",
+"b|Nf3 d5 c4": "White hits d5. Which pawn supports it?",
+"b|Nf3 d5 c4 e6 d4": "Get a piece out. Which knight move protects d5?",
+"b|Nf3 d5 c4 e6 d4 Nf6 Nc3": "Same plan as the Queen's Gambit Declined. Which bishop move gets you ready to castle?"
+};
 /*BOOK-END*/
 
 // ================= chess rules =================
@@ -1041,11 +1339,13 @@ const ALL=[], said={};   // said: comments by side + moves so far, shared across
 BOOK.forEach(ch=>{
   ch.lines.forEach((ln,i)=>{
     ln.id=ch.id+'|'+ln.name; ln.ch=ch; ln.idx=i;
-    let pos=startPos(), key=ch.side;
+    let pos=startPos(), key=ch.side, sofar=[];
     ln.moves=parsePgn(ln.pgn).map(mv=>{
+      const think=THINK[ch.id+'|'+sofar.join(' ')]||THINK[ch.side+'|'+sofar.join(' ')]||'';
+      sofar.push(mv.san);
       const m=moveFromSan(pos,mv.san);
       if(!m) throw new Error('Bad move '+mv.san+' in '+ln.id);
-      const out={m,san:san(pos,m),pos};
+      const out={m,san:san(pos,m),pos,think};
       key+=' '+out.san;
       if(mv.c&&!said[key]) said[key]=mv.c;
       out.c=mv.c||said[key]||'';
@@ -1230,9 +1530,9 @@ function lineStatus(ln){
   const d=Math.ceil((r.due-Date.now())/DAY); return 'Review in '+d+(d===1?' day':' days');
 }
 function renderLines(){
-  $('lineList').innerHTML=curCh.lines.map(ln=>`<div class="line"><div class="grow"><div class="name">${esc(ln.name)}</div>
-    <div class="st">${pips(ln)} &nbsp;${lineStatus(ln)}</div></div>
-    <button class="mini" data-learn="${ln.idx}">📖</button><button class="mini" data-prac="${ln.idx}">🎯</button></div>`).join('');
+  $('lineList').innerHTML=curCh.lines.map(ln=>`<div class="line"><div class="name">${esc(ln.name)}</div>
+    <div class="st">${pips(ln)} &nbsp;${lineStatus(ln)}</div>
+    <div class="lb"><button data-learn="${ln.idx}">📖 Learn</button><button class="pr" data-prac="${ln.idx}">🎯 Practise</button></div></div>`).join('');
 }
 $('lineList').addEventListener('click',e=>{
   const l=e.target.closest('[data-learn]'), p=e.target.closest('[data-prac]');
@@ -1310,14 +1610,16 @@ function learnGo(k,anim){
   if(fwd) sndMove(!!mv[k-1].m.cap);
   drawBoard(fwd?mv[k-1].m:null);
   const you=line.ch.side;
-  if(k===0) setMsgs([{k:'info',h:'New line: '+line.name,x:line.ch.intro}], 'You play '+sideName(you)+'. Tap ▶ to see the first move.');
+  if(k===0) setMsgs([{k:'info',h:'New line: '+line.name,x:line.ch.intro}].concat(you==='w'?[{k:'think',h:'🤔 Think',x:mv[0].think}]:[]),
+    'You play '+sideName(you)+'. '+(you==='w'?'Find your first move, or tap ▶.':'Tap ▶ to see White\'s first move.'));
   else{
     const who=(k-1)%2===0?'w':'b';
     const msgs=[{k:who===you?'good':'opp',h:(who===you?'You: ':sideName(who)+': ')+plyLabel(k-1,mv[k-1].san),x:mv[k-1].c}];
     let prompt='';
     if(k===mv.length){ const nx=line.ch.lines[line.idx+1];
       msgs.push({k:'done',h:'End of this line: '+line.name,x:'Tap 🎯 to practise it from memory.'+(nx?' Or tap "Next line" to learn the next one: '+nx.name+'.':' That was the last line in this opening.')}); }
-    else prompt=(k%2===0?'w':'b')===you?'Your move next. Can you find it? Play it on the board, or tap ▶.':'Tap ▶ to see the reply.';
+    else if((k%2===0?'w':'b')===you){ msgs.push({k:'think',h:'🤔 Think',x:mv[k].think}); prompt='Your move next. Can you find it? Play it on the board, or tap ▶.'; }
+    else prompt='Tap ▶ to see the reply.';
     setMsgs(msgs,prompt);
   }
   const atEnd=k===mv.length, nx=line.ch.lines[line.idx+1];
@@ -1358,8 +1660,9 @@ function startPractice(ln,how,queue){
   pr.msgs=[{k:'info',h:'New line: '+line.name,x:'You play '+sideName(you)+'. '+(you==='w'?'Make your first move.':'White moves first. Find the right answer to what they play.')}];
   announce('🎯 New line',ln);
   if(you==='b'){ pr.busy=true; setMsgs(pr.msgs); later(opponentMove,2000); }
-  else setMsgs(pr.msgs,'Your move.');
+  else { pr.msgs.push(thinkMsg()); setMsgs(pr.msgs,'Your move.'); }
 }
+function thinkMsg(){ const t=line.moves[ply].think; return t?{k:'think',h:'🤔 Think',x:t}:{k:'think',h:'🤔 Your move',x:''}; }
 function applyPly(){
   const mv=line.moves[ply];
   B.pos=makeMove(mv.pos,mv.m); B.last=mv.m; B.arrow=null; B.hint=-1; B.wrong=-1;
@@ -1368,10 +1671,11 @@ function applyPly(){
 function opponentMove(){
   const mv=line.moves[ply], opp=line.ch.side==='w'?'b':'w';
   applyPly();
-  pr.msgs=pr.msgs.filter(m=>m.k==='good').slice(-1);
+  pr.msgs=pr.msgs.filter(m=>m.k==='good').slice(-1);  // keep your last move's note, drop old ones
   pr.msgs.push({k:'opp',h:sideName(opp)+' plays '+plyLabel(ply-1,mv.san),x:mv.c});
   pr.busy=false;
   if(ply>=line.moves.length) return finish();
+  pr.msgs.push(thinkMsg());
   setMsgs(pr.msgs,'Your move.');
 }
 function practiceMove(m){
