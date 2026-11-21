@@ -251,7 +251,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.5';
+const VERSION = 'v1.6';
 
 /*BOOK-START*/
 const BOOK = [
@@ -1624,7 +1624,7 @@ function startLearn(ln){
     <button class="btn" id="lNext">▶</button><button class="btn ghost" id="lPrac">🎯</button>`;
   $('lFirst').onclick=()=>learnGo(0); $('lPrev').onclick=()=>learnGo(ply-1);
   $('lNext').onclick=()=>{ if(ply<line.moves.length) learnGo(ply+1,true); else { const nx=line.ch.lines[line.idx+1]; if(nx) startLearn(nx); } }; $('lPrac').onclick=()=>startPractice(line,'chapter');
-  B.canMove=()=>mode==='learn'&&ply<line.moves.length;
+  B.canMove=()=>mode==='learn'&&ply<line.moves.length&&B.pos.turn===line.ch.side&&!timers.length;
   B.onMove=m=>{
     const want=line.moves[ply].m;
     if(m.from===want.from&&m.to===want.to) learnGo(ply+1,true);
@@ -1634,6 +1634,7 @@ function startLearn(ln){
 }
 $('lineSel').onchange=e=>startLearn(line.ch.lines[+e.target.value]);
 function learnGo(k,anim){
+  stopTimers();
   k=Math.max(0,Math.min(line.moves.length,k)); const fwd=anim&&k===ply+1; ply=k;
   const mv=line.moves; B.sel=-1; B.targets=[]; B.arrow=null;
   B.pos=k<mv.length?mv[k].pos:makeMove(mv[k-1].pos,mv[k-1].m);
@@ -1644,17 +1645,23 @@ function learnGo(k,anim){
   if(k===0) setMsgs([{k:'info',h:'New line: '+line.title,x:(line.when?line.when+'. ':'')+line.ch.intro}].concat(you==='w'?[{k:'think',h:'🤔 Think',x:mv[0].think}]:[]),
     'You play '+sideName(you)+'. '+(you==='w'?'Find your first move, or tap ▶.':'Tap ▶ to see White\'s first move.'));
   else{
-    const who=(k-1)%2===0?'w':'b';
-    const msgs=[{k:who===you?'good':'opp',h:(who===you?'You: ':sideName(who)+': ')+plyLabel(k-1,mv[k-1].san),x:mv[k-1].c}];
+    const who=(k-1)%2===0?'w':'b', msgs=[];
+    // after their reply, keep your move's note above it
+    if(who!==you&&k>=2) msgs.push({k:'good',h:'You: '+plyLabel(k-2,mv[k-2].san),x:mv[k-2].c});
+    msgs.push({k:who===you?'good':'opp',h:(who===you?'You: ':sideName(who)+': ')+plyLabel(k-1,mv[k-1].san),x:mv[k-1].c});
     let prompt='';
     if(k===mv.length){ const nx=line.ch.lines[line.idx+1];
       msgs.push({k:'done',h:'End of this line: '+line.title,x:'Tap 🎯 to practise it from memory.'+(nx?' Or tap "Next line" to learn the next one: '+nx.title+'.':' That was the last line in this opening.')}); }
     else if((k%2===0?'w':'b')===you){ msgs.push({k:'think',h:'🤔 Think',x:mv[k].think}); prompt='Your move next. Can you find it? Play it on the board, or tap ▶.'; }
-    else prompt='Tap ▶ to see the reply.';
+    else prompt=fwd?sideName(you==='w'?'b':'w')+' is replying...':'Tap ▶ to see the reply.';
     setMsgs(msgs,prompt);
   }
   const atEnd=k===mv.length, nx=line.ch.lines[line.idx+1];
   $('lPrev').disabled=k===0; $('lFirst').disabled=k===0; $('lNext').disabled=atEnd&&!nx;
+  // you just moved: the other side replies by itself
+  if(fwd&&!atEnd&&(k-1)%2===(you==='w'?0:1)){
+    later(()=>learnGo(ply+1,true),1100);
+  }
   $('lNext').textContent=atEnd&&nx?'Next line ▶':'▶';
   renderMoves(k,true);
 }
