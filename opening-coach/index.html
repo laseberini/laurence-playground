@@ -251,7 +251,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.4';
+const VERSION = 'v1.5';
 
 /*BOOK-START*/
 const BOOK = [
@@ -1648,7 +1648,7 @@ function learnGo(k,anim){
     const msgs=[{k:who===you?'good':'opp',h:(who===you?'You: ':sideName(who)+': ')+plyLabel(k-1,mv[k-1].san),x:mv[k-1].c}];
     let prompt='';
     if(k===mv.length){ const nx=line.ch.lines[line.idx+1];
-      msgs.push({k:'done',h:'End of this line: '+line.name,x:'Tap 🎯 to practise it from memory.'+(nx?' Or tap "Next line" to learn the next one: '+nx.name+'.':' That was the last line in this opening.')}); }
+      msgs.push({k:'done',h:'End of this line: '+line.title,x:'Tap 🎯 to practise it from memory.'+(nx?' Or tap "Next line" to learn the next one: '+nx.title+'.':' That was the last line in this opening.')}); }
     else if((k%2===0?'w':'b')===you){ msgs.push({k:'think',h:'🤔 Think',x:mv[k].think}); prompt='Your move next. Can you find it? Play it on the board, or tap ▶.'; }
     else prompt='Tap ▶ to see the reply.';
     setMsgs(msgs,prompt);
@@ -1752,19 +1752,21 @@ function finish(){
   const perfect=pr.mistakes===0, r=score(line,perfect);
   if(perfect) sndWin();
   const when=r.box?('Next review in '+GAPS[r.box]+(GAPS[r.box]===1?' day.':' days.')):'It will come back soon until you know it.';
-  const nextLn=mode==='review'?pr.queue[0]:pickLine(line.ch.lines);
-  pr.msgs.push({k:'done',h:(perfect?'🎉 Perfect! ':'Line finished: ')+line.name,
+  // next line in order; a line you've never done opens in Learn first
+  const nextLn=mode==='review'?pr.queue[0]:(line.ch.lines[line.idx+1]||line.ch.lines.find(l=>!rec(l)&&l!==line)||null);
+  const learnFirst=mode!=='review'&&nextLn&&!rec(nextLn);
+  pr.msgs.push({k:'done',h:(perfect?'🎉 Perfect! ':'Line finished: ')+line.title,
     x:(perfect?'Not a single slip. ':'You slipped on '+pr.mistakes+(pr.mistakes===1?' move. ':' moves. '))+when
-      +(nextLn?' Next up: '+nextLn.name+'.':'')});
+      +(nextLn?' Next up: '+nextLn.title+(learnFirst?' (new, so you\'ll learn it first).':'.'):'')});
   setMsgs(pr.msgs);
   renderMoves(ply);
-  const hasNext=mode==='review'?pr.queue.length>0:true;
+  const hasNext=!!nextLn;
   $('ctrls').innerHTML=`<button class="btn ghost" id="fAgain">↺ Again</button><button class="btn ghost" id="fLearn">📖 Learn</button>`
-    +(hasNext?`<button class="btn" id="fNext">Next line ▶</button>`:`<button class="btn" id="fHome">Finished ✓</button>`);
+    +(hasNext?`<button class="btn" id="fNext">${learnFirst?'Learn next ▶':'Next line ▶'}</button>`:`<button class="btn" id="fHome">Finished ✓</button>`);
   $('fAgain').onclick=()=>startPractice(line,mode==='review'?'review':'chapter',pr.queue);
   $('fLearn').onclick=()=>startLearn(line);
-  if(hasNext) $('fNext').onclick=()=>{ if(mode==='review') startPractice(pr.queue[0],'review',pr.queue.slice(1)); else startPractice(nextLn,'chapter'); };
-  else $('fHome').onclick=()=>{ renderHome(); show('home'); };
+  if(hasNext) $('fNext').onclick=()=>{ if(mode==='review') startPractice(pr.queue[0],'review',pr.queue.slice(1)); else if(learnFirst) startLearn(nextLn); else startPractice(nextLn,'chapter'); };
+  else $('fHome').onclick=()=>{ if(mode==='review'){ renderHome(); show('home'); } else { renderLines(); show('chapter'); } };
 }
 
 // ================= how to read moves =================
