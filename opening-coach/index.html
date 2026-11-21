@@ -151,6 +151,9 @@
   .sheet h3{font-size:18px;margin-bottom:6px}
   .sheet p{font-size:14px;color:var(--muted);margin-bottom:12px}
   .sheet .btn{width:100%;margin-bottom:8px}
+  .sheet .card{max-height:88vh;overflow:auto}
+  .howto p{color:var(--ink);font-size:15px;margin-bottom:10px}
+  .linkbtn{color:var(--accent);font-weight:600;font-size:14px;padding:8px 0}
   textarea{width:100%;font:12px/1.4 ui-monospace,Menlo,monospace;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px;height:80px;margin-bottom:8px}
 
   #update{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 14px);
@@ -175,6 +178,7 @@
     <button class="btn" id="reviewBtn">Review</button>
   </div>
   <div class="tabs"><button id="tabW" class="on">I play White</button><button id="tabB">I play Black</button></div>
+  <button class="linkbtn" data-notation>❓ How to read moves like 3...Bc5</button>
   <div id="chapList"></div>
   <p class="foot">Opening Coach <button id="ver"></button> · Your progress stays on this phone.</p>
 </section>
@@ -194,6 +198,7 @@
   <div class="bhead">
     <button class="iconbtn" id="pBack" aria-label="Back">‹</button>
     <div class="grow"><div class="t" id="pTitle"></div><div class="m" id="pMode"></div></div>
+    <button class="iconbtn" data-notation aria-label="How to read moves">❓</button>
   </div>
   <div class="play">
     <div class="bwrap" id="bwrap">
@@ -210,6 +215,25 @@
   </div>
 </section>
 
+<!-- HOW TO READ MOVES -->
+<div class="sheet" id="notation"><div class="card">
+  <h3>How to read chess moves</h3>
+  <div class="howto">
+    <p><b>3...Bc5</b> means: on move 3, Black moves a <b>B</b>ishop to the square <b>c5</b>.</p>
+    <p><b>The number</b> is the move number. Each move has a White turn and a Black turn.<br>
+       <b>3.</b> (one dot) is White's move. <b>3...</b> (three dots) is Black's move.</p>
+    <p><b>The letter</b> is the piece: <b>K</b> king, <b>Q</b> queen, <b>R</b> rook, <b>B</b> bishop, <b>N</b> knight.
+       No letter means a pawn: <b>e4</b> is a pawn going to e4.</p>
+    <p><b>The square</b>: letter a–h is the column, number 1–8 is the row. They're printed along the edge of the board.
+       Row 1 is White's side.</p>
+    <p><b>x</b> = takes. <b>Bxc6</b>: the bishop takes on c6. <b>exd5</b>: the e-pawn takes on d5.<br>
+       <b>+</b> = check. <b>#</b> = checkmate.<br>
+       <b>O-O</b> = castle on the king's side. <b>O-O-O</b> = castle on the queen's side.</p>
+    <p>A line name like <b>Two Knights (3...Nf6)</b> tells you the move that starts it: here Black plays a knight to f6 on move 3.</p>
+  </div>
+  <button class="btn" id="closeNotation">Got it</button>
+</div></div>
+
 <!-- SETTINGS -->
 <div class="sheet" id="sheet"><div class="card">
   <h3>Settings</h3>
@@ -225,7 +249,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.2';
+const VERSION = 'v1.3';
 
 /*BOOK-START*/
 const BOOK = [
@@ -1650,8 +1674,8 @@ function startPractice(ln,how,queue){
   $('pTitle').textContent=mode==='review'?'Review':ln.ch.name;
   $('pMode').textContent=(mode==='review'?'🔁 '+ln.ch.name+' · '+ln.name+' · '+(pr.queue.length+1)+' left':'🎯 '+lineTag(ln));
   $('learnPick').style.display='none';
-  $('ctrls').innerHTML=`<button class="btn ghost" id="pHint">💡 Hint</button><button class="btn ghost" id="pShow">👀 Show</button><button class="btn ghost" id="pRestart">↺ Restart</button>`;
-  $('pHint').onclick=hint; $('pShow').onclick=()=>{ pr.hint=1; hint(); }; $('pRestart').onclick=()=>startPractice(line,how,pr.queue);
+  $('ctrls').innerHTML=`<button class="btn ghost" id="pHint">🤔 Nudge</button><button class="btn ghost" id="pShow">👀 Show</button><button class="btn ghost" id="pRestart">↺ Restart</button>`;
+  $('pHint').onclick=hint; $('pShow').onclick=()=>{ pr.hint=Math.max(pr.hint,2); hint(); }; $('pRestart').onclick=()=>startPractice(line,how,pr.queue);
   B.pos=startPos(); B.last=null;
   B.canMove=()=>(mode==='practice'||mode==='review')&&!pr.busy&&!pr.done&&B.pos.turn===line.ch.side;
   B.onMove=practiceMove;
@@ -1660,9 +1684,8 @@ function startPractice(ln,how,queue){
   pr.msgs=[{k:'info',h:'New line: '+line.name,x:'You play '+sideName(you)+'. '+(you==='w'?'Make your first move.':'White moves first. Find the right answer to what they play.')}];
   announce('🎯 New line',ln);
   if(you==='b'){ pr.busy=true; setMsgs(pr.msgs); later(opponentMove,2000); }
-  else { pr.msgs.push(thinkMsg()); setMsgs(pr.msgs,'Your move.'); }
+  else setMsgs(pr.msgs,'Your move. Stuck? Tap 🤔 Nudge.');
 }
-function thinkMsg(){ const t=line.moves[ply].think; return t?{k:'think',h:'🤔 Think',x:t}:{k:'think',h:'🤔 Your move',x:''}; }
 function applyPly(){
   const mv=line.moves[ply];
   B.pos=makeMove(mv.pos,mv.m); B.last=mv.m; B.arrow=null; B.hint=-1; B.wrong=-1;
@@ -1675,8 +1698,7 @@ function opponentMove(){
   pr.msgs.push({k:'opp',h:sideName(opp)+' plays '+plyLabel(ply-1,mv.san),x:mv.c});
   pr.busy=false;
   if(ply>=line.moves.length) return finish();
-  pr.msgs.push(thinkMsg());
-  setMsgs(pr.msgs,'Your move.');
+  setMsgs(pr.msgs,'Your move. Stuck? Tap 🤔 Nudge.');
 }
 function practiceMove(m){
   const want=line.moves[ply];
@@ -1701,17 +1723,21 @@ function practiceMove(m){
   },650);
 }
 const PNAME={P:'pawn',N:'knight',B:'bishop',R:'rook',Q:'queen',K:'king'};
+// Nudge, step by step: 1) a thinking clue (free), 2) which piece (counts as a slip), 3) the exact move.
 function hint(){
   if(pr.busy||pr.done||B.pos.turn!==line.ch.side) return;
   const want=line.moves[ply];
-  if(!pr.slipped){ pr.mistakes++; pr.slipped=true; }
-  pr.hint++;
+  pr.hint=Math.min(3,pr.hint+1);
+  if(pr.hint>=2&&!pr.slipped){ pr.mistakes++; pr.slipped=true; }
+  const think={k:'think',h:'🤔 Think',x:want.think||'What is the most useful move here?'};
   if(pr.hint===1){
+    setMsgs(pr.msgs.concat([think]),'Still stuck? Tap 🤔 Nudge again to see which piece to move.');
+  } else if(pr.hint===2){
     B.hint=want.m.from; drawBoard();
-    setMsgs(pr.msgs.concat([{k:'info',h:'💡 Hint',x:want.m.castle?'Time to get your king safe.':'Move your '+PNAME[want.m.p.toUpperCase()]+'.'}]),'Tap 💡 again to see the exact move.');
+    setMsgs(pr.msgs.concat([think,{k:'info',h:'💡 Piece',x:want.m.castle?'Time to get your king safe.':'Move your '+PNAME[want.m.p.toUpperCase()]+' (the one with the green box).'}]),'Tap 🤔 Nudge once more to see the exact move.');
   } else {
     B.hint=-1; B.arrow={from:want.m.from,to:want.m.to}; drawBoard();
-    setMsgs(pr.msgs.concat([{k:'info',h:'👀 The move is '+want.san,x:'Play it on the board.'}]));
+    setMsgs(pr.msgs.concat([{k:'info',h:'👀 The move is '+want.san,x:'Play it on the board (follow the arrow).'}]));
   }
 }
 function finish(){
@@ -1733,6 +1759,11 @@ function finish(){
   if(hasNext) $('fNext').onclick=()=>{ if(mode==='review') startPractice(pr.queue[0],'review',pr.queue.slice(1)); else startPractice(nextLn,'chapter'); };
   else $('fHome').onclick=()=>{ renderHome(); show('home'); };
 }
+
+// ================= how to read moves =================
+document.querySelectorAll('[data-notation]').forEach(b=>b.onclick=()=>$('notation').classList.add('show'));
+$('closeNotation').onclick=()=>$('notation').classList.remove('show');
+$('notation').onclick=e=>{ if(e.target.id==='notation') $('notation').classList.remove('show'); };
 
 // ================= settings & backup =================
 function openSheet(){ $('soundBtn').textContent=data.sound?'🔊 Sound: on':'🔇 Sound: off'; $('bkText').value=''; $('sheet').classList.add('show'); }
