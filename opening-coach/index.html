@@ -111,6 +111,13 @@
   .pc.anim{transition:transform .22s ease}
   .dragpc{position:fixed;z-index:50;pointer-events:none;transform:translate(-50%,-60%) scale(1.15)}
   .arrows{position:absolute;inset:0;pointer-events:none;z-index:3}
+  .banner{position:absolute;left:8%;right:8%;top:50%;transform:translateY(-50%);z-index:5;text-align:center;
+          background:var(--card);color:var(--ink);border-radius:16px;padding:16px 14px;box-shadow:0 8px 30px rgba(0,0,0,.35);
+          opacity:0;pointer-events:none;transition:opacity .25s}
+  .banner.show{opacity:1;pointer-events:auto}
+  .banner .k{font-size:12px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--accent)}
+  .banner .n{font-size:20px;font-weight:750;margin:4px 0 2px}
+  .banner .s{font-size:13px;color:var(--muted)}
   .bwrap.shake{animation:shake .35s}
   @keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
 
@@ -126,7 +133,7 @@
   .msg.done{border-color:var(--warn)}
   .prompt{font-size:14px;font-weight:650;color:var(--accent)}
   .ctrls{display:flex;gap:8px}
-  .ctrls .btn{flex:1;padding:12px 8px}
+  .ctrls .btn{flex:1;padding:12px 8px;white-space:nowrap}
   .moves{font-size:14px;color:var(--muted);line-height:1.9}
   .moves span{padding:2px 5px;border-radius:6px;cursor:pointer;white-space:nowrap}
   .moves span.cur{background:var(--accent);color:var(--accent-ink)}
@@ -188,6 +195,7 @@
     <div class="bwrap" id="bwrap">
       <div class="board" id="board"></div>
       <svg class="arrows" id="arrows" viewBox="0 0 800 800"></svg>
+      <div class="banner" id="banner"><div class="k" id="bnK"></div><div class="n" id="bnN"></div><div class="s" id="bnS"></div></div>
     </div>
     <div class="panel">
       <div id="learnPick"><select id="lineSel"></select></div>
@@ -213,7 +221,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.0';
+const VERSION = 'v1.1';
 
 /*BOOK-START*/
 const BOOK = [
@@ -1263,25 +1271,35 @@ function renderMoves(upto,showAll){
   }
   $('moves').innerHTML=h||'<span style="cursor:default">Moves appear here.</span>';
 }
+// a big card over the board, so it's obvious a new line has started
+let bannerT=null;
+function announce(kind,ln){
+  $('bnK').textContent=kind; $('bnN').textContent=ln.name;
+  $('bnS').textContent=ln.ch.name+' · line '+(ln.idx+1)+' of '+ln.ch.lines.length;
+  $('banner').classList.add('show'); clearTimeout(bannerT);
+  bannerT=setTimeout(()=>$('banner').classList.remove('show'),1800);
+}
+$('banner').onclick=()=>$('banner').classList.remove('show');
+const lineTag=ln=>'Line '+(ln.idx+1)+' of '+ln.ch.lines.length+': '+ln.name;
 function boardFor(lineObj){ B.flip=lineObj.ch.side==='b'; B.sel=-1; B.targets=[]; B.hint=-1; B.wrong=-1; B.arrow=null; }
 
 // ---------- learn: step through a line with explanations ----------
 function startLearn(ln){
   stopTimers(); mode='learn'; line=ln; lastLine=ln; ply=0; boardFor(ln);
-  $('pTitle').textContent=ln.ch.name; $('pMode').textContent='📖 Learn · tap ▶ or play the move yourself';
+  $('pTitle').textContent=ln.ch.name; $('pMode').textContent='📖 '+lineTag(ln);
   $('learnPick').style.display='';
   $('lineSel').innerHTML=ln.ch.lines.map(l=>`<option value="${l.idx}"${l===ln?' selected':''}>${esc(l.name)}</option>`).join('');
   $('ctrls').innerHTML=`<button class="btn ghost" id="lFirst">⏮</button><button class="btn ghost" id="lPrev">◀</button>
     <button class="btn" id="lNext">▶</button><button class="btn ghost" id="lPrac">🎯</button>`;
   $('lFirst').onclick=()=>learnGo(0); $('lPrev').onclick=()=>learnGo(ply-1);
-  $('lNext').onclick=()=>learnGo(ply+1,true); $('lPrac').onclick=()=>startPractice(line,'chapter');
+  $('lNext').onclick=()=>{ if(ply<line.moves.length) learnGo(ply+1,true); else { const nx=line.ch.lines[line.idx+1]; if(nx) startLearn(nx); } }; $('lPrac').onclick=()=>startPractice(line,'chapter');
   B.canMove=()=>mode==='learn'&&ply<line.moves.length;
   B.onMove=m=>{
     const want=line.moves[ply].m;
     if(m.from===want.from&&m.to===want.to) learnGo(ply+1,true);
     else { sndBad(); wrap.classList.remove('shake'); void wrap.offsetWidth; wrap.classList.add('shake'); drawBoard(); }
   };
-  show('play'); sizeBoard(); learnGo(0);
+  show('play'); sizeBoard(); learnGo(0); announce('📖 Learning',ln);
 }
 $('lineSel').onchange=e=>startLearn(line.ch.lines[+e.target.value]);
 function learnGo(k,anim){
@@ -1292,16 +1310,19 @@ function learnGo(k,anim){
   if(fwd) sndMove(!!mv[k-1].m.cap);
   drawBoard(fwd?mv[k-1].m:null);
   const you=line.ch.side;
-  if(k===0) setMsgs([{k:'info',h:line.name,x:line.ch.intro}], 'You play '+sideName(you)+'. Tap ▶ to see the first move.');
+  if(k===0) setMsgs([{k:'info',h:'New line: '+line.name,x:line.ch.intro}], 'You play '+sideName(you)+'. Tap ▶ to see the first move.');
   else{
     const who=(k-1)%2===0?'w':'b';
     const msgs=[{k:who===you?'good':'opp',h:(who===you?'You: ':sideName(who)+': ')+plyLabel(k-1,mv[k-1].san),x:mv[k-1].c}];
     let prompt='';
-    if(k===mv.length){ msgs.push({k:'done',h:'End of this line',x:'Now try it from memory: tap 🎯 to practise.'}); }
+    if(k===mv.length){ const nx=line.ch.lines[line.idx+1];
+      msgs.push({k:'done',h:'End of this line: '+line.name,x:'Tap 🎯 to practise it from memory.'+(nx?' Or tap "Next line" to learn the next one: '+nx.name+'.':' That was the last line in this opening.')}); }
     else prompt=(k%2===0?'w':'b')===you?'Your move next. Can you find it? Play it on the board, or tap ▶.':'Tap ▶ to see the reply.';
     setMsgs(msgs,prompt);
   }
-  $('lPrev').disabled=k===0; $('lFirst').disabled=k===0; $('lNext').disabled=k===mv.length;
+  const atEnd=k===mv.length, nx=line.ch.lines[line.idx+1];
+  $('lPrev').disabled=k===0; $('lFirst').disabled=k===0; $('lNext').disabled=atEnd&&!nx;
+  $('lNext').textContent=atEnd&&nx?'Next line ▶':'▶';
   renderMoves(k,true);
 }
 $('moves').addEventListener('click',e=>{ const s=e.target.closest('[data-k]'); if(s&&mode==='learn') learnGo(+s.dataset.k+1); });
@@ -1325,7 +1346,7 @@ function startPractice(ln,how,queue){
   stopTimers(); mode=how==='review'?'review':'practice'; line=ln; lastLine=ln; ply=0; boardFor(ln);
   pr={queue:queue||[],mistakes:0,slipped:false,hint:0,busy:false,msgs:[],done:false};
   $('pTitle').textContent=mode==='review'?'Review':ln.ch.name;
-  $('pMode').textContent=mode==='review'?ln.ch.name+' · '+(pr.queue.length+1)+' left':'🎯 Practise · play your moves from memory';
+  $('pMode').textContent=(mode==='review'?'🔁 '+ln.ch.name+' · '+ln.name+' · '+(pr.queue.length+1)+' left':'🎯 '+lineTag(ln));
   $('learnPick').style.display='none';
   $('ctrls').innerHTML=`<button class="btn ghost" id="pHint">💡 Hint</button><button class="btn ghost" id="pShow">👀 Show</button><button class="btn ghost" id="pRestart">↺ Restart</button>`;
   $('pHint').onclick=hint; $('pShow').onclick=()=>{ pr.hint=1; hint(); }; $('pRestart').onclick=()=>startPractice(line,how,pr.queue);
@@ -1334,8 +1355,9 @@ function startPractice(ln,how,queue){
   B.onMove=practiceMove;
   show('play'); sizeBoard(); drawBoard(); renderMoves(0);
   const you=line.ch.side;
-  pr.msgs=[{k:'info',h:'You play '+sideName(you),x:you==='w'?'Make your first move.':'White moves first. Find the right answer to whatever they play.'}];
-  if(you==='b'){ pr.busy=true; setMsgs(pr.msgs); later(opponentMove,600); }
+  pr.msgs=[{k:'info',h:'New line: '+line.name,x:'You play '+sideName(you)+'. '+(you==='w'?'Make your first move.':'White moves first. Find the right answer to what they play.')}];
+  announce('🎯 New line',ln);
+  if(you==='b'){ pr.busy=true; setMsgs(pr.msgs); later(opponentMove,2000); }
   else setMsgs(pr.msgs,'Your move.');
 }
 function applyPly(){
@@ -1393,16 +1415,18 @@ function finish(){
   const perfect=pr.mistakes===0, r=score(line,perfect);
   if(perfect) sndWin();
   const when=r.box?('Next review in '+GAPS[r.box]+(GAPS[r.box]===1?' day.':' days.')):'It will come back soon until you know it.';
-  pr.msgs.push({k:'done',h:(perfect?'🎉 Perfect! ':'Line done. ')+line.name,
-    x:(perfect?'Not a single slip. ':'You slipped on '+pr.mistakes+(pr.mistakes===1?' move. ':' moves. '))+when});
+  const nextLn=mode==='review'?pr.queue[0]:pickLine(line.ch.lines);
+  pr.msgs.push({k:'done',h:(perfect?'🎉 Perfect! ':'Line finished: ')+line.name,
+    x:(perfect?'Not a single slip. ':'You slipped on '+pr.mistakes+(pr.mistakes===1?' move. ':' moves. '))+when
+      +(nextLn?' Next up: '+nextLn.name+'.':'')});
   setMsgs(pr.msgs);
   renderMoves(ply);
   const hasNext=mode==='review'?pr.queue.length>0:true;
   $('ctrls').innerHTML=`<button class="btn ghost" id="fAgain">↺ Again</button><button class="btn ghost" id="fLearn">📖 Learn</button>`
-    +(hasNext?`<button class="btn" id="fNext">Next ▶</button>`:`<button class="btn" id="fHome">Finished ✓</button>`);
+    +(hasNext?`<button class="btn" id="fNext">Next line ▶</button>`:`<button class="btn" id="fHome">Finished ✓</button>`);
   $('fAgain').onclick=()=>startPractice(line,mode==='review'?'review':'chapter',pr.queue);
   $('fLearn').onclick=()=>startLearn(line);
-  if(hasNext) $('fNext').onclick=()=>{ if(mode==='review') startPractice(pr.queue[0],'review',pr.queue.slice(1)); else startPractice(pickLine(line.ch.lines),'chapter'); };
+  if(hasNext) $('fNext').onclick=()=>{ if(mode==='review') startPractice(pr.queue[0],'review',pr.queue.slice(1)); else startPractice(nextLn,'chapter'); };
   else $('fHome').onclick=()=>{ renderHome(); show('home'); };
 }
 
