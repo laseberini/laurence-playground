@@ -76,9 +76,10 @@
   .intro{margin:10px 0 14px;font-size:15px}
   .actions{display:flex;gap:10px;margin-bottom:18px}
   .actions .btn{flex:1}
-  .line{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
-  .line .lb{display:flex;gap:8px;margin-top:10px}
-  .line .lb button{flex:1;min-height:46px;border-radius:10px;font-size:16px;font-weight:650;border:1px solid var(--line);background:var(--bg)}
+  .line{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 10px 10px 12px;margin-bottom:8px}
+  .line .when{font-size:13px;color:var(--ink);opacity:.8}
+  .line .lb{display:flex;flex-direction:column;gap:6px;flex:none}
+  .line .lb button{min-height:34px;padding:0 10px;border-radius:9px;font-size:13px;font-weight:650;border:1px solid var(--line);background:var(--bg);white-space:nowrap;text-align:left}
   .line .lb button.pr{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
   .line .name{font-weight:600;font-size:15px}
   .line .st{font-size:12px;color:var(--muted)}
@@ -190,6 +191,7 @@
   <p class="intro" id="chIntro"></p>
   <div class="actions"><button class="btn ghost" id="chLearn">📖 Learn</button><button class="btn" id="chPractise">🎯 Practise</button></div>
   <h2 style="margin-top:0">Lines</h2>
+  <p class="sub" style="margin:-4px 0 10px">Each line starts with a different move by the other player.</p>
   <div id="lineList"></div>
 </section>
 
@@ -229,7 +231,7 @@
     <p><b>x</b> = takes. <b>Bxc6</b>: the bishop takes on c6. <b>exd5</b>: the e-pawn takes on d5.<br>
        <b>+</b> = check. <b>#</b> = checkmate.<br>
        <b>O-O</b> = castle on the king's side. <b>O-O-O</b> = castle on the queen's side.</p>
-    <p>A line name like <b>Two Knights (3...Nf6)</b> tells you the move that starts it: here Black plays a knight to f6 on move 3.</p>
+    <p>Each opening has several <b>lines</b>, one for each way the other player can answer. "Two Knights: <b>When Black plays 3...Nf6</b>" means this line starts when Black moves a knight to f6 on move 3.</p>
   </div>
   <button class="btn" id="closeNotation">Got it</button>
 </div></div>
@@ -249,7 +251,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.3';
+const VERSION = 'v1.4';
 
 /*BOOK-START*/
 const BOOK = [
@@ -337,7 +339,7 @@ lines:[
 {id:'sicilian', side:'w', group:'You play White: 1.e4', icon:'⚔️', name:'vs Sicilian (Alapin)', blurb:'Answer 1...c5 with 2.c3',
 intro:'Sicilian players often know a lot of theory. 2.c3 (the Alapin) skips most of it. The idea is simple: play d4 next and get two strong pawns in the centre.',
 lines:[
-{name:'2...d5', pgn:`e4 {Take the centre.}
+{name:'Queen comes out (2...d5)', key:'2...d5', pgn:`e4 {Take the centre.}
  c5 {The Sicilian: Black fights for d4 from the side.}
  c3 {The Alapin. Prepare d4 so you get two pawns in the centre.}
  d5 {Black hits your centre straight away.}
@@ -350,7 +352,7 @@ lines:[
  Be2 {Break the pin and get ready to castle.}
  e6 {Black opens their other bishop.}
  O-O {Castle. Next: Be3, c4 or dxc5 to open lines.}`},
-{name:'2...Nf6', pgn:`e4 c5 c3
+{name:'Knight hits e4 (2...Nf6)', key:'2...Nf6', pgn:`e4 c5 c3
  Nf6 {Black attacks e4.}
  e5 {Push it with tempo and gain space.}
  Nd5 {Black's knight goes to the centre.}
@@ -363,7 +365,7 @@ lines:[
  Bc4 {Attack the d5 knight.}
  Nb6 {It moves back.}
  Bb3 {Keep the bishop on its strong diagonal.}`},
-{name:'2...Nc6', pgn:`e4 c5 c3
+{name:'Knight first (2...Nc6)', key:'2...Nc6', pgn:`e4 c5 c3
  Nc6 {Black develops.}
  d4 {Go for the centre.}
  d5 {Black hits back.}
@@ -376,7 +378,7 @@ lines:[
  cxd4 {Take back. Now c3 is free for your knight.}
  e6 {Black opens their bishop.}
  Nc3 {Develop and kick the queen.}`},
-{name:'2...e6', pgn:`e4 c5 c3
+{name:'French style (2...e6)', key:'2...e6', pgn:`e4 c5 c3
  e6 {Black prepares ...d5.}
  d4 {Take the centre.}
  d5 {Black hits e4.}
@@ -389,7 +391,7 @@ lines:[
  dxc5 {Take, so Black has a lonely pawn on d5 to defend.}
  Bxc5 {Black takes back.}
  O-O {Castle. Aim at the weak d5 pawn.}`},
-{name:'2...d6', pgn:`e4 c5 c3
+{name:'Quiet start (2...d6)', key:'2...d6', pgn:`e4 c5 c3
  d6 {A quiet move.}
  d4 {Take the centre.}
  Nf6 {Black attacks e4.}
@@ -416,12 +418,12 @@ lines:[
  a3 {Plan b4 to gain space on the queenside. Don't play Bd3: then ...cxd4 cxd4 Nxd4 wins a pawn.}
  c4 {Black locks the queenside.}
  Nbd2 {Develop. Next: Be2, O-O, and g3/h4 to attack on the kingside.}`},
-{name:'5...Bd7', pgn:`e4 e6 d4 d5 e5 c5 c3 Nc6 Nf3
+{name:'Bishop first (5...Bd7)', key:'5...Bd7', pgn:`e4 e6 d4 d5 e5 c5 c3 Nc6 Nf3
  Bd7 {Black gets the bishop out first.}
  Be2 {Develop and get ready to castle.}
  Nge7 {Black's knight heads for f5 or g6.}
  O-O {Castle. Keep d4 safe, then push on the kingside.}`},
-{name:'4...Qb6', pgn:`e4 e6 d4 d5 e5 c5 c3
+{name:'Early queen (4...Qb6)', key:'4...Qb6', pgn:`e4 e6 d4 d5 e5 c5 c3
  Qb6 {Black brings the queen out early.}
  Nf3 {Develop and defend d4.}
  Bd7 {Black plans ...Bb5 to swap off the bad bishop.}
@@ -435,7 +437,7 @@ lines:[
 {id:'caro', side:'w', group:'You play White: 1.e4', icon:'🧱', name:'vs Caro-Kann (Advance)', blurb:'Answer 1...c6 with 3.e5',
 intro:'The Caro-Kann is very solid. Push to e5 to grab space, develop calmly (Nf3, Be2, O-O), and use your extra room.',
 lines:[
-{name:'3...Bf5', pgn:`e4 {Take the centre.}
+{name:'Main line (3...Bf5)', key:'3...Bf5', pgn:`e4 {Take the centre.}
  c6 {The Caro-Kann: Black prepares ...d5 and stays very solid.}
  d4 {Take the whole centre.}
  d5 {Black attacks e4.}
@@ -448,7 +450,7 @@ lines:[
  Be3 {Back up d4. This is the "Short" system.}
  Nd7 {Black develops.}
  O-O {Castle. Your space gives you the easier game.}`},
-{name:'3...c5', pgn:`e4 c6 d4 d5 e5
+{name:'Quick strike (3...c5)', key:'3...c5', pgn:`e4 c6 d4 d5 e5
  c5 {Black hits your centre at once.}
  dxc5 {Take! Black has used two moves to play ...c5 and must spend time to win it back.}
  e6 {Black prepares ...Bxc5.}
@@ -462,7 +464,7 @@ lines:[
 {id:'scandi', side:'w', group:'You play White: 1.e4', icon:'❄️', name:'vs Scandinavian', blurb:'Answer 1...d5',
 intro:'Take the pawn and use the fact that Black\'s queen comes out early: develop with tempo by attacking it.',
 lines:[
-{name:'3...Qa5', pgn:`e4 {Take the centre.}
+{name:'Queen to a5 (3...Qa5)', key:'3...Qa5', pgn:`e4 {Take the centre.}
  d5 {The Scandinavian: Black attacks e4 at once.}
  exd5 {Take.}
  Qxd5 {Black takes back with the queen.}
@@ -477,7 +479,7 @@ lines:[
  Bd2 {Unpin your knight. Now Nd5 tricks are possible.}
  e6 {Black opens their bishop.}
  Qe2 {Get ready to castle queenside, then attack.}`},
-{name:'3...Qd6', pgn:`e4 d5 exd5 Qxd5 Nc3
+{name:'Queen to d6 (3...Qd6)', key:'3...Qd6', pgn:`e4 d5 exd5 Qxd5 Nc3
  Qd6 {A modern square for the queen.}
  d4 {Take the centre.}
  Nf6 {Black develops.}
@@ -486,7 +488,7 @@ lines:[
  Be2 {Develop calmly.}
  Bg4 {Black pins your knight.}
  O-O {Castle. Next: h3, Re1, and use your centre.}`},
-{name:'3...Qd8', pgn:`e4 d5 exd5 Qxd5 Nc3
+{name:'Queen goes home (3...Qd8)', key:'3...Qd8', pgn:`e4 d5 exd5 Qxd5 Nc3
  Qd8 {The queen goes all the way home. Safe but slow.}
  d4 {Take the centre.}
  Nf6 {Black develops.}
@@ -495,7 +497,7 @@ lines:[
  h3 {Ask the bishop.}
  Bxf3 {Black swaps.}
  Qxf3 {Take back. You have the two bishops.}`},
-{name:'2...Nf6', pgn:`e4 d5 exd5
+{name:'Knight takes back (2...Nf6)', key:'2...Nf6', pgn:`e4 d5 exd5
  Nf6 {Black plans to take back with the knight.}
  d4 {Don't cling to the pawn. Take the centre.}
  Nxd5 {Black takes back.}
@@ -538,7 +540,7 @@ lines:[
 {id:'london', side:'w', group:'You play White: 1.d4', icon:'🏰', name:'London System', blurb:'A safe 1.d4 setup',
 intro:'Prefer 1.d4? The London is a "system": you play the same setup against almost anything. Bishop out to f4 first, then e3, Nf3, c3, Nbd2, Bd3. Easy to learn, hard to beat.',
 lines:[
-{name:'vs 1...d5', pgn:`d4 {Start with the queen's pawn.}
+{name:'Main line (1...d5)', key:'vs 1...d5', pgn:`d4 {Start with the queen's pawn.}
  d5 {Black copies you.}
  Bf4 {The key London move: get the bishop out before e3 shuts it in.}
  Nf6 {Black develops.}
@@ -553,7 +555,7 @@ lines:[
  Bg3 {Keep your bishop. If Black takes, your h-pawn takes back and your rook uses the h-file.}
  O-O {Black castles.}
  Bd3 {Aim at Black's king. Next: O-O or even Ne5 and attack.}`},
-{name:'vs early ...c5 and ...Qb6', pgn:`d4 d5 Bf4
+{name:'Early ...c5 and ...Qb6 (2...c5)', key:'vs early ...c5 and ...Qb6', pgn:`d4 d5 Bf4
  c5 {Black hits your centre right away.}
  e3 {Stay solid.}
  Nc6 {Black adds pressure.}
@@ -564,7 +566,7 @@ lines:[
  Qxb6 {Swap queens.}
  axb6 {Black takes back.}
  Nd2 {Develop. Next: e4 or Ngf3. Black's b-pawns are doubled.}`},
-{name:'vs King\'s Indian setup', pgn:`d4
+{name:'King\'s Indian setup (1...Nf6)', key:'vs King\'s Indian setup', pgn:`d4
  Nf6 {Black develops.}
  Bf4 {Same London move.}
  g6 {Black puts the bishop on g7.}
@@ -599,7 +601,7 @@ lines:[
  Ba7 {Now d4 or b4 can't kick your bishop.}
  h3 {White stops ...Bg4.}
  h6 {Same idea: stop Bg5 pinning your knight.}`},
-{name:'4.c3 & 5.d4 (6.e5)', pgn:`e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6
+{name:'Big centre, 6.e5 (5.d4, 6.e5)', key:'4.c3 & 5.d4 (6.e5)', pgn:`e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6
  d4 {White goes for the big centre.}
  exd4 {Take.}
  e5 {White kicks your knight.}
@@ -608,7 +610,7 @@ lines:[
  Ne4 {Jump into the centre.}
  cxd4 {White takes.}
  Bb6 {Keep your bishop. Next: castle. Your knight on e4 is great.}`},
-{name:'4.c3 & 5.d4 (6.cxd4)', pgn:`e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4
+{name:'Big centre, 6.cxd4 (5.d4, 6.cxd4)', key:'4.c3 & 5.d4 (6.cxd4)', pgn:`e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4
  cxd4 {White builds a big centre.}
  Bb4+ {Check! Your bishop gets out of the pawns' way.}
  Bd2 {White blocks.}
@@ -621,7 +623,7 @@ lines:[
  Nce7 {Protect d5.}
  O-O {White castles.}
  O-O {Castle. Equal game, and White's d4 pawn is lonely.}`},
-{name:'4.d3 & 5.Ng5', pgn:`e4 e5 Nf3 Nc6 Bc4 Bc5
+{name:'Knight attacks f7 (4.d3, 5.Ng5)', key:'4.d3 & 5.Ng5', pgn:`e4 e5 Nf3 Nc6 Bc4 Bc5
  d3 {A quiet move.}
  Nf6 {Develop.}
  Ng5 {White attacks f7 twice!}
@@ -644,7 +646,7 @@ lines:[
 {id:'b-ruy', side:'b', group:'You play Black vs 1.e4', icon:'🇪🇸', name:'vs Ruy Lopez', blurb:'1.e4 e5 2.Nf3 Nc6 3.Bb5 a6',
 intro:'The Ruy Lopez (3.Bb5) is the most classical opening. Ask the bishop a question with 3...a6, then develop, castle, and keep e5 solid.',
 lines:[
-{name:'Closed (5.O-O Be7)', pgn:`e4 e5 Nf3 Nc6
+{name:'Closed (5.O-O)', key:'Closed (5.O-O Be7)', pgn:`e4 e5 Nf3 Nc6
  Bb5 {The Ruy Lopez: White attacks the knight that defends e5.}
  a6 {Ask the bishop: take or retreat? (Bxc6 dxc6 Nxe5 doesn't win a pawn: ...Qd4 gets it back.)}
  Ba4 {White keeps the bishop.}
@@ -661,7 +663,7 @@ lines:[
  Na5 {Hit White's best bishop.}
  Bc2 {It hides.}
  c5 {Grab queenside space.}`},
-{name:'5.d3', pgn:`e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6
+{name:'Quiet 5.d3 (5.d3)', key:'5.d3', pgn:`e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6
  d3 {White defends e4 with a pawn.}
  b5 {Push the bishop away.}
  Bb3 {It retreats.}
@@ -670,7 +672,7 @@ lines:[
  d6 {Protect e5.}
  c3 {White makes room for the bishop.}
  O-O {Castle. Solid and equal.}`},
-{name:'Exchange: Nxe5 trap', pgn:`e4 e5 Nf3 Nc6 Bb5 a6
+{name:'Exchange: Nxe5 trap (4.Bxc6, 5.Nxe5)', key:'Exchange: Nxe5 trap', pgn:`e4 e5 Nf3 Nc6 Bb5 a6
  Bxc6 {White swaps the bishop for your knight.}
  dxc6 {Take toward the centre. This opens lines for your queen and bishop.}
  Nxe5 {White grabs a pawn...}
@@ -679,7 +681,7 @@ lines:[
  Qxe4+ {Win the pawn back with check.}
  Qe2 {White blocks.}
  Qxe2+ {Swap queens. Your two bishops make your endgame nice.}`},
-{name:'Exchange: 5.O-O', pgn:`e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6
+{name:'Exchange, then castles (4.Bxc6, 5.O-O)', key:'Exchange: 5.O-O', pgn:`e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6
  O-O {White castles. Now Nxe5 really is a threat.}
  f6 {Protect e5 with a pawn.}
  d4 {White opens the centre.}
@@ -697,7 +699,7 @@ lines:[
 {id:'b-scotch', side:'b', group:'You play Black vs 1.e4', icon:'🏴', name:'vs Scotch & Four Knights', blurb:'3.d4 or 3.Nc3',
 intro:'When White opens the centre early with 3.d4, take the pawn and develop fast. Against 3.Nc3 develop your knight too, and watch out for the fork trick.',
 lines:[
-{name:'Scotch: 5.Nxc6', pgn:`e4 e5 Nf3 Nc6
+{name:'Scotch: knights swap (3.d4, 5.Nxc6)', key:'Scotch: 5.Nxc6', pgn:`e4 e5 Nf3 Nc6
  d4 {The Scotch: White opens the centre at once.}
  exd4 {Take. You can't hold e5 easily.}
  Nxd4 {White takes back.}
@@ -710,7 +712,7 @@ lines:[
  Nd5 {Your knight finds a central square.}
  c4 {White kicks it.}
  Ba6 {Pin the c4 pawn to White's queen. It can't take your knight.}`},
-{name:'Scotch: 5.Nc3', pgn:`e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6
+{name:'Scotch: 5.Nc3 (3.d4, 5.Nc3)', key:'Scotch: 5.Nc3', pgn:`e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6
  Nc3 {White defends e4.}
  Bb4 {Pin the knight. Now e4 is weak.}
  Nxc6 {White swaps.}
@@ -723,7 +725,7 @@ lines:[
  O-O {Castle too.}
  Bg5 {White pins your knight.}
  c6 {Keep d5 solid. Equal.}`},
-{name:'Scotch Gambit (4.Bc4)', pgn:`e4 e5 Nf3 Nc6 d4 exd4
+{name:'Scotch Gambit (3.d4, 4.Bc4)', key:'Scotch Gambit (4.Bc4)', pgn:`e4 e5 Nf3 Nc6 d4 exd4
  Bc4 {White offers a pawn for fast development.}
  Nf6 {Develop and hit e4.}
  e5 {White kicks the knight.}
@@ -732,7 +734,7 @@ lines:[
  Ne4 {Jump into the centre.}
  Nxd4 {White wins the pawn back.}
  Bd7 {Unpin. Good game for you.}`},
-{name:'Four Knights (4.Bb5)', pgn:`e4 e5 Nf3 Nc6
+{name:'Four Knights (3.Nc3, 4.Bb5)', key:'Four Knights (4.Bb5)', pgn:`e4 e5 Nf3 Nc6
  Nc3 {The Four Knights: White develops calmly.}
  Nf6 {Develop too.}
  Bb5 {White attacks your knight.}
@@ -745,7 +747,7 @@ lines:[
  Bxc3 {Swap first.}
  bxc3 {White takes back.}
  Qe7 {Unpin and stay solid.}`},
-{name:'Fork trick (4.Bc4)', pgn:`e4 e5 Nf3 Nc6 Nc3 Nf6
+{name:'Fork trick (3.Nc3, 4.Bc4)', key:'Fork trick (4.Bc4)', pgn:`e4 e5 Nf3 Nc6 Nc3 Nf6
  Bc4 {Natural but allows a trick.}
  Nxe4 {The fork trick! If Nxe4, then ...d5 forks bishop and knight.}
  Nxe4 {White takes.}
@@ -770,7 +772,7 @@ lines:[
  Bg7 {Bishop to the long diagonal.}
  Nbc3 {White develops.}
  d6 {Solid. Next: castle. White's queen will get kicked around.}`},
-{name:'Scholar\'s: 5.g4 trap', pgn:`e4 e5 Qh5 Nc6 Bc4 g6 Qf3 Nf6
+{name:'Scholar\'s: g4 trap (2.Qh5, 5.g4)', key:'Scholar\'s: 5.g4 trap', pgn:`e4 e5 Qh5 Nc6 Bc4 g6 Qf3 Nf6
  g4 {White wants g5 to kick your knight and mate on f7.}
  Nd4 {Hit the queen and c2! Counter-attack.}
  Qd1 {The queen runs back.}
@@ -869,7 +871,7 @@ lines:[
  Nbd7 {Develop.}
  Qc2 {White aims at h7.}
  O-O {Castle. Next: ...Re8 and ...Nf8 to defend h7.}`},
-{name:'3.Nf3 & 5.Bf4', pgn:`d4 d5 c4 e6
+{name:'Knight first (3.Nf3, 5.Bf4)', key:'3.Nf3 & 5.Bf4', pgn:`d4 d5 c4 e6
  Nf3 {White develops.}
  Nf6 {Develop.}
  Nc3 {White adds pressure on d5.}
@@ -896,7 +898,7 @@ lines:[
  Bd6 {Challenge White's best bishop.}
  Bg3 {White keeps it.}
  O-O {Castle. Equal and comfortable.}`},
-{name:'London (4.Nf3) ...Qb6', pgn:`d4 d5 Bf4 Nf6 e3 c5
+{name:'London with ...Qb6 (4.Nf3)', key:'London (4.Nf3) ...Qb6', pgn:`d4 d5 Bf4 Nf6 e3 c5
  Nf3 {White develops.}
  Nc6 {Pressure on d4.}
  c3 {White makes a pyramid.}
@@ -1362,7 +1364,11 @@ function parsePgn(t){
 const ALL=[], said={};   // said: comments by side + moves so far, shared across chapters
 BOOK.forEach(ch=>{
   ch.lines.forEach((ln,i)=>{
-    ln.id=ch.id+'|'+ln.name; ln.ch=ch; ln.idx=i;
+    ln.id=ch.id+'|'+(ln.key||ln.name); ln.ch=ch; ln.idx=i;   // key keeps saved progress when a line is renamed
+    // "Giuoco Piano (3...Bc5)" -> title "Giuoco Piano", when "When Black plays 3...Bc5"
+    const mm=ln.name.match(/^(.*?)\s*\(([^)]*)\)$/);
+    ln.title=mm?mm[1]:ln.name;
+    ln.when=mm?'When '+(ch.side==='w'?'Black':'White')+' plays '+mm[2]:'';
     let pos=startPos(), key=ch.side, sofar=[];
     ln.moves=parsePgn(ln.pgn).map(mv=>{
       const think=THINK[ch.id+'|'+sofar.join(' ')]||THINK[ch.side+'|'+sofar.join(' ')]||'';
@@ -1554,8 +1560,9 @@ function lineStatus(ln){
   const d=Math.ceil((r.due-Date.now())/DAY); return 'Review in '+d+(d===1?' day':' days');
 }
 function renderLines(){
-  $('lineList').innerHTML=curCh.lines.map(ln=>`<div class="line"><div class="name">${esc(ln.name)}</div>
-    <div class="st">${pips(ln)} &nbsp;${lineStatus(ln)}</div>
+  $('lineList').innerHTML=curCh.lines.map(ln=>`<div class="line"><div class="grow"><div class="name">${esc(ln.title)}</div>
+    ${ln.when?`<div class="when">${esc(ln.when)}</div>`:''}
+    <div class="st">${pips(ln)} &nbsp;${lineStatus(ln)}</div></div>
     <div class="lb"><button data-learn="${ln.idx}">📖 Learn</button><button class="pr" data-prac="${ln.idx}">🎯 Practise</button></div></div>`).join('');
 }
 $('lineList').addEventListener('click',e=>{
@@ -1598,13 +1605,13 @@ function renderMoves(upto,showAll){
 // a big card over the board, so it's obvious a new line has started
 let bannerT=null;
 function announce(kind,ln){
-  $('bnK').textContent=kind; $('bnN').textContent=ln.name;
-  $('bnS').textContent=ln.ch.name+' · line '+(ln.idx+1)+' of '+ln.ch.lines.length;
+  $('bnK').textContent=kind; $('bnN').textContent=ln.title;
+  $('bnS').textContent=(ln.when?ln.when+' · ':'')+'line '+(ln.idx+1)+' of '+ln.ch.lines.length;
   $('banner').classList.add('show'); clearTimeout(bannerT);
   bannerT=setTimeout(()=>$('banner').classList.remove('show'),1800);
 }
 $('banner').onclick=()=>$('banner').classList.remove('show');
-const lineTag=ln=>'Line '+(ln.idx+1)+' of '+ln.ch.lines.length+': '+ln.name;
+const lineTag=ln=>'Line '+(ln.idx+1)+' of '+ln.ch.lines.length+': '+ln.title;
 function boardFor(lineObj){ B.flip=lineObj.ch.side==='b'; B.sel=-1; B.targets=[]; B.hint=-1; B.wrong=-1; B.arrow=null; }
 
 // ---------- learn: step through a line with explanations ----------
@@ -1612,7 +1619,7 @@ function startLearn(ln){
   stopTimers(); mode='learn'; line=ln; lastLine=ln; ply=0; boardFor(ln);
   $('pTitle').textContent=ln.ch.name; $('pMode').textContent='📖 '+lineTag(ln);
   $('learnPick').style.display='';
-  $('lineSel').innerHTML=ln.ch.lines.map(l=>`<option value="${l.idx}"${l===ln?' selected':''}>${esc(l.name)}</option>`).join('');
+  $('lineSel').innerHTML=ln.ch.lines.map(l=>`<option value="${l.idx}"${l===ln?' selected':''}>${esc(l.title+(l.when?' · '+l.when:''))}</option>`).join('');
   $('ctrls').innerHTML=`<button class="btn ghost" id="lFirst">⏮</button><button class="btn ghost" id="lPrev">◀</button>
     <button class="btn" id="lNext">▶</button><button class="btn ghost" id="lPrac">🎯</button>`;
   $('lFirst').onclick=()=>learnGo(0); $('lPrev').onclick=()=>learnGo(ply-1);
@@ -1634,7 +1641,7 @@ function learnGo(k,anim){
   if(fwd) sndMove(!!mv[k-1].m.cap);
   drawBoard(fwd?mv[k-1].m:null);
   const you=line.ch.side;
-  if(k===0) setMsgs([{k:'info',h:'New line: '+line.name,x:line.ch.intro}].concat(you==='w'?[{k:'think',h:'🤔 Think',x:mv[0].think}]:[]),
+  if(k===0) setMsgs([{k:'info',h:'New line: '+line.title,x:(line.when?line.when+'. ':'')+line.ch.intro}].concat(you==='w'?[{k:'think',h:'🤔 Think',x:mv[0].think}]:[]),
     'You play '+sideName(you)+'. '+(you==='w'?'Find your first move, or tap ▶.':'Tap ▶ to see White\'s first move.'));
   else{
     const who=(k-1)%2===0?'w':'b';
@@ -1681,7 +1688,7 @@ function startPractice(ln,how,queue){
   B.onMove=practiceMove;
   show('play'); sizeBoard(); drawBoard(); renderMoves(0);
   const you=line.ch.side;
-  pr.msgs=[{k:'info',h:'New line: '+line.name,x:'You play '+sideName(you)+'. '+(you==='w'?'Make your first move.':'White moves first. Find the right answer to what they play.')}];
+  pr.msgs=[{k:'info',h:'New line: '+line.title,x:(line.when?line.when+'. ':'')+'You play '+sideName(you)+'. '+(you==='w'?'Make your first move.':'White moves first. Find the right answer to what they play.')}];
   announce('🎯 New line',ln);
   if(you==='b'){ pr.busy=true; setMsgs(pr.msgs); later(opponentMove,2000); }
   else setMsgs(pr.msgs,'Your move. Stuck? Tap 🤔 Nudge.');
