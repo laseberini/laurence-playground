@@ -93,6 +93,21 @@ saves on the phone. Add it to your Home Screen to play full screen.
 
 **Live:** https://laseberini.github.io/laurence-playground/kings-quest/
 
+## ♞ Opening Coach — [`opening-coach/`](opening-coach/index.html)
+
+A chess coach that teaches openings: your own as White and Black, and how to
+answer what the other player throws at you. 14 openings, 57 lines, each move
+explained in plain words. Every line was checked with Stockfish.
+
+**Live:** https://laseberini.github.io/laurence-playground/opening-coach/
+
+- **Learn** — step through a line on the board with an explanation for every move.
+- **Practise** — you play your moves from memory; the coach plays the other side and
+  picks different replies. Wrong move? It shows the right one and why.
+- **Review** — lines come back on a schedule (1, 2, 4, 8, 16 days) until they stick.
+  Lines you get wrong come back straight away.
+- Progress stays on the phone; Settings has a backup code to copy or restore.
+
 ## 🧩 Picture Sudoku — [`picture-sudoku/`](picture-sudoku/index.html)
 
 Sudoku for kids, with pictures instead of numbers: animals, fruit, vehicles
