@@ -265,6 +265,15 @@
   <button class="btn" id="closeNotation">Got it</button>
 </div></div>
 
+<!-- SURPRISE CHOOSER -->
+<div class="sheet" id="surSheet"><div class="card">
+  <h3>🎲 Surprise</h3>
+  <p>The opponent picks a line, like in a real game. You find out which one at the end.</p>
+  <button class="btn ghost" id="surLearn">📖 Learn it <span style="font-weight:400;opacity:.75">&nbsp;with explanations</span></button>
+  <button class="btn" id="surTest">🎯 Test me <span style="font-weight:400;opacity:.8">&nbsp;from memory</span></button>
+  <button class="btn ghost" id="surCancel">Cancel</button>
+</div></div>
+
 <!-- SETTINGS -->
 <div class="sheet" id="sheet"><div class="card">
   <h3>Settings <span class="vtag" id="verSet"></span></h3>
@@ -280,7 +289,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.17';
+const VERSION = 'v1.18';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2420,6 +2429,13 @@ function placeBubble(){
   else { el.style.bottom=(100-yp+7)+'%'; el.className='bubble show down'+dim; }
 }
 // taps go straight through the bubble to the board; it fades while you hold a piece
+// after a See why has finished, a tap anywhere (except the top bar) goes back
+let whyDone=false, eatClick=false;
+document.addEventListener('pointerdown',e=>{
+  if(!whyDone||!$('play').classList.contains('show')||e.target.closest('.bhead')) return;
+  e.preventDefault(); e.stopPropagation(); eatClick=true; if(msgAct.back) msgAct.back();
+},true);
+document.addEventListener('click',e=>{ if(eatClick){ eatClick=false; e.preventDefault(); e.stopPropagation(); } },true);
 // the card on the board at the end of a See why
 function boardCard(text){ $('bcT').textContent=text; $('bcard').classList.toggle('show',!!text); }
 $('bcard').addEventListener('pointerdown',e=>e.stopPropagation());
@@ -2509,7 +2525,7 @@ function renderHome(){
   $('chapList').innerHTML=h;
 }
 $('chapList').addEventListener('click',e=>{
-  const s=e.target.closest('[data-sur]'); if(s) return startSurprise(ALL.filter(l=>l.ch.group===s.dataset.sur),true);
+  const s=e.target.closest('[data-sur]'); if(s) return askSurprise(ALL.filter(l=>l.ch.group===s.dataset.sur),true);
   const b=e.target.closest('[data-ch]'); if(b) openChapter(b.dataset.ch); });
 $('tabW').onclick=()=>{ data.tab='w'; save(); renderHome(); };
 $('tabB').onclick=()=>{ data.tab='b'; save(); renderHome(); };
@@ -2544,8 +2560,8 @@ $('lineList').addEventListener('click',e=>{
 $('chBack').onclick=()=>{ renderHome(); show('home'); };
 $('chLearn').onclick=()=>startLearn(curCh.lines.find(l=>!isLearned(l))||curCh.lines[0]);
 $('chPractise').onclick=()=>startPractice(pickLine(curCh.lines),'chapter');
-$('chSurprise').onclick=()=>startSurprise(curCh.lines,false);
-$('pBack').onclick=()=>{ stopTimers(); if(mode==='review'||(mode==='practice'&&pr&&pr.home)){ renderHome(); show('home'); } else { renderLines(); show('chapter'); } };
+$('chSurprise').onclick=()=>askSurprise(curCh.lines,false);
+$('pBack').onclick=()=>{ stopTimers(); whyDone=false; if(mode==='review'||(mode==='practice'&&pr&&pr.home)||(mode==='learn'&&lsur&&lsur.home)){ renderHome(); show('home'); } else { renderLines(); show('chapter'); } };
 
 // surprise: the opponent picks the line (weak and due ones more often), and its name stays hidden
 function pickSurprise(pool){
@@ -2556,6 +2572,13 @@ function pickSurprise(pool){
   return cand[cand.length-1];
 }
 function startSurprise(pool,home){ startPractice(pickSurprise(pool),'chapter',[],{pool,home}); }
+function startLearnSurprise(pool,home){ startLearn(pickSurprise(pool),{pool,home}); }
+let surAsk=null;
+function askSurprise(pool,home){ surAsk={pool,home}; $('surSheet').classList.add('show'); }
+$('surLearn').onclick=()=>{ $('surSheet').classList.remove('show'); startLearnSurprise(surAsk.pool,surAsk.home); };
+$('surTest').onclick=()=>{ $('surSheet').classList.remove('show'); startSurprise(surAsk.pool,surAsk.home); };
+$('surCancel').onclick=()=>$('surSheet').classList.remove('show');
+$('surSheet').onclick=e=>{ if(e.target.id==='surSheet') $('surSheet').classList.remove('show'); };
 
 // which line to practise next: due ones first (weakest first), then new ones, then whatever is due soonest
 let lastLine=null;
@@ -2597,18 +2620,20 @@ function announce(kind,ln){
 }
 $('banner').onclick=()=>$('banner').classList.remove('show');
 const lineTag=ln=>'Line '+(ln.idx+1)+' of '+ln.ch.lines.length+': '+ln.title;
-function boardFor(lineObj){ B.flip=lineObj.ch.side==='b'; B.sel=-1; B.targets=[]; B.hint=-1; B.wrong=-1; B.arrow=null; B.tried=null; B.tag=null; B.think=null; boardCard(''); }
+function boardFor(lineObj){ whyDone=false; B.flip=lineObj.ch.side==='b'; B.sel=-1; B.targets=[]; B.hint=-1; B.wrong=-1; B.arrow=null; B.tried=null; B.tag=null; B.think=null; boardCard(''); }
 
 // ---------- learn: step through a line with explanations ----------
-function startLearn(ln){
-  stopTimers(); mode='learn'; line=ln; lastLine=ln; ply=0; boardFor(ln);
-  $('pTitle').textContent=ln.ch.name; $('pMode').textContent='📖 '+lineTag(ln);
-  $('learnPick').style.display='';
+let lsur=null;   // surprise learn: {pool, home}
+function startLearn(ln,sur){
+  stopTimers(); mode='learn'; line=ln; lastLine=ln; ply=0; boardFor(ln); lsur=sur||null;
+  if(lsur) curCh=ln.ch;
+  $('pTitle').textContent=lsur?'🎲 Surprise':ln.ch.name; $('pMode').textContent=lsur?'📖 The opponent picks · line hidden until the end':'📖 '+lineTag(ln);
+  $('learnPick').style.display=lsur?'none':'';
   $('lineSel').innerHTML=ln.ch.lines.map(l=>`<option value="${l.idx}"${l===ln?' selected':''}>${esc(l.title+(l.when?' · '+l.when:''))}</option>`).join('');
   $('ctrls').innerHTML=`<button class="btn ghost" id="lFirst">⏮</button><button class="btn ghost" id="lPrev">◀</button>
     <button class="btn" id="lNext">▶</button><button class="btn ghost" id="lPrac">🎯</button>`;
   $('lFirst').onclick=()=>learnGo(0); $('lPrev').onclick=()=>learnGo(ply-1);
-  $('lNext').onclick=()=>{ if(ply<line.moves.length) learnGo(ply+1,true); else { const nx=line.ch.lines[line.idx+1]; if(nx) startLearn(nx); } }; $('lPrac').onclick=()=>startPractice(line,'chapter');
+  $('lNext').onclick=()=>{ if(ply<line.moves.length) learnGo(ply+1,true); else if(lsur) startLearnSurprise(lsur.pool,lsur.home); else { const nx=line.ch.lines[line.idx+1]; if(nx) startLearn(nx); } }; $('lPrac').onclick=()=>startPractice(line,'chapter');
   B.canMove=()=>mode==='learn'&&ply<line.moves.length&&B.pos.turn===line.ch.side&&!timers.length;
   B.onMove=m=>{
     const want=line.moves[ply].m;
@@ -2621,7 +2646,10 @@ function startLearn(ln){
     if(j.pv) msgAct.why=()=>replayWhy(before,j.pv,k0,line,showIt,j.loss);
     showIt();
   };
-  show('play'); sizeBoard(); learnGo(0); announce('📖 Learning',ln);
+  show('play'); sizeBoard(); learnGo(0);
+  if(lsur){ $('bnK').textContent='🎲 Surprise'; $('bnN').textContent='Mystery line'; $('bnS').textContent='The opponent picks';
+    $('banner').classList.add('show'); clearTimeout(bannerT); bannerT=setTimeout(()=>$('banner').classList.remove('show'),1800); }
+  else announce('📖 Learning',ln);
 }
 $('lineSel').onchange=e=>startLearn(line.ch.lines[+e.target.value]);
 function learnGo(k,anim){
@@ -2634,7 +2662,7 @@ function learnGo(k,anim){
   if(fwd) sndMove(!!mv[k-1].m.cap);
   drawBoard(fwd?mv[k-1].m:null);
   const you=line.ch.side;
-  if(k===0) setMsgs([{k:'info',h:'New line: '+line.title,x:line.about||line.ch.intro}].concat(you==='w'?[{k:'think',h:'🤔 Think',x:mv[0].think}]:[]),
+  if(k===0) setMsgs([lsur?{k:'info',h:'🎲 Mystery line',x:'The opponent picks the line, like a real game. Follow the explanations; you\'ll find out which line it was at the end.'}:{k:'info',h:'New line: '+line.title,x:line.about||line.ch.intro}].concat(you==='w'?[{k:'think',h:'🤔 Think',x:mv[0].think}]:[]),
     'You play '+sideName(you)+'. '+(you==='w'?'Find your first move, or tap ▶.':'Tap ▶ to see White\'s first move.'));
   else{
     const who=(k-1)%2===0?'w':'b', msgs=[];
@@ -2642,20 +2670,22 @@ function learnGo(k,anim){
     if(who!==you&&k>=2) msgs.push({k:'good',h:'You: '+plyLabel(k-2,mv[k-2].san),x:mv[k-2].c});
     msgs.push({k:who===you?'good':'opp',h:(who===you?'You: ':sideName(who)+': ')+plyLabel(k-1,mv[k-1].san),x:mv[k-1].c});
     let prompt='';
-    if(k===mv.length){ const nx=line.ch.lines[line.idx+1];
+    if(k===mv.length&&lsur){ $('pMode').textContent='It was: '+line.ch.name+' · '+line.title;
+      msgs.push({k:'done',h:'It was '+line.ch.name+': '+line.title,x:(line.about||'')+' Tap 🎯 to practise it, or 🎲 Next for another surprise.'}); }
+    else if(k===mv.length){ const nx=line.ch.lines[line.idx+1];
       msgs.push({k:'done',h:'End of this line: '+line.title,x:'Tap 🎯 to practise it from memory.'+(nx?' Or tap "Next line" to learn the next one: '+nx.title+'.':' That was the last line in this opening.')}); }
     else if((k%2===0?'w':'b')===you){ msgs.push({k:'think',h:'🤔 Think',x:mv[k].think}); prompt='Your move next. Can you find it? Play it on the board, or tap ▶.'; }
     else prompt=fwd?sideName(you==='w'?'b':'w')+' is replying...':'Tap ▶ to see the reply.';
     setMsgs(msgs,prompt);
   }
-  const atEnd=k===mv.length, nx=line.ch.lines[line.idx+1];
+  const atEnd=k===mv.length, nx=lsur?true:line.ch.lines[line.idx+1];
   $('lPrev').disabled=k===0; $('lFirst').disabled=k===0; $('lNext').disabled=atEnd&&!nx;
   // you just moved: the other side replies by itself
   if(fwd&&!atEnd&&(k-1)%2===(you==='w'?0:1)){
     later(()=>learnGo(ply+1,true),1100);
   }
-  $('lNext').textContent=atEnd&&nx?'Next line ▶':'▶';
-  renderMoves(k,true);
+  $('lNext').textContent=atEnd&&lsur?'🎲 Next':atEnd&&nx?'Next line ▶':'▶';
+  renderMoves(k,!lsur);   // a surprise doesn't show the moves still to come
 }
 $('moves').addEventListener('click',e=>{ const s=e.target.closest('[data-k]'); if(s&&mode==='learn') learnGo(+s.dataset.k+1); });
 document.addEventListener('keydown',e=>{
@@ -2797,8 +2827,8 @@ function replayWhy(before,pv,k,ln,onBack,loss){
     i++; if(i<pv.length) later(step,1200); else later(end,900);
   };
   const end=()=>{ const w='That\'s why: '+costWords(before,pv,ln.ch.side,loss)+'.';
-    boardCard(w); setMsgs([{k:'replay',h:w,x:txt.trim(),btn:['back','↺ Back to the position']}]); };
-  msgAct.back=()=>{ stopTimers(); boardCard(''); onBack(); };
+    boardCard(w); whyDone=true; setMsgs([{k:'replay',h:w,x:txt.trim(),btn:['back','↺ Back to the position']}]); };
+  msgAct.back=()=>{ stopTimers(); whyDone=false; boardCard(''); onBack(); };
   later(step,500);
 }
 // Nudge, step by step: 1) a thinking clue (free), 2) which piece (counts as a slip), 3) the exact move.
