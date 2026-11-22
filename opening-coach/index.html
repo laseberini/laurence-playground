@@ -227,7 +227,7 @@
   <button class="back" id="chBack">‹ All openings</button>
   <div class="row"><span id="chIco" style="font-size:30px"></span><div class="grow"><h1 id="chName" style="font-size:23px"></h1><p class="sub" id="chSide"></p></div></div>
   <p class="intro" id="chIntro"></p>
-  <div class="actions"><button class="btn ghost" id="chLearn">📖 Learn</button><button class="btn ghost" id="chPractise">🎯 Practise</button><button class="btn ghost" id="chSurprise">🎲 Surprise</button></div>
+  <div class="actions"><button class="btn ghost" id="chLearn">📖 Learn</button><button class="btn ghost" id="chPractise">🎯 Practise</button></div>
   <div class="card" id="chProg"></div>
 </section>
 
@@ -300,7 +300,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.21';
+const VERSION = 'v1.22';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2561,7 +2561,7 @@ function renderHome(){
   $('tabW').classList.toggle('on',data.tab==='w'); $('tabB').classList.toggle('on',data.tab==='b');
   let h='', group='';
   BOOK.filter(c=>c.side===data.tab).forEach(c=>{
-    if(c.group!==group){ group=c.group; h+=`<h2 class="grp"><span>${esc(group)}</span><button class="sur" data-sur="${esc(group)}">🎲 Surprise me</button></h2>`; }
+    if(c.group!==group){ group=c.group; h+=`<h2 class="grp"><span>${esc(group)}</span><button class="sur" data-sur="${esc(group)}">🎯 Practise all</button></h2>`; }
     const n=c.lines.filter(isLearned).length, d=c.lines.filter(isDue).length;
     h+=`<button class="chap" data-ch="${c.id}"><span class="ico">${c.icon}</span><span class="grow">
       <div class="name">${esc(c.name)}${d?`<span class="due">${d} due</span>`:''}</div>
@@ -2571,7 +2571,7 @@ function renderHome(){
   $('chapList').innerHTML=h;
 }
 $('chapList').addEventListener('click',e=>{
-  const s=e.target.closest('[data-sur]'); if(s) return askSurprise(ALL.filter(l=>l.ch.group===s.dataset.sur),true);
+  const s=e.target.closest('[data-sur]'); if(s) return startSurprise(ALL.filter(l=>l.ch.group===s.dataset.sur),true);
   const b=e.target.closest('[data-ch]'); if(b) openChapter(b.dataset.ch); });
 $('tabW').onclick=()=>{ data.tab='w'; save(); renderHome(); };
 $('tabB').onclick=()=>{ data.tab='b'; save(); renderHome(); };
@@ -2596,7 +2596,7 @@ function renderLines(){
   const n=curCh.lines.length, got=curCh.lines.filter(isLearned).length, due=curCh.lines.filter(isDue).length;
   $('chProg').innerHTML=`<div style="font-weight:700">${got} of ${n} lines learned${due?` <span class="due">${due} to review</span>`:''}</div>
     <div class="bar"><i style="width:${Math.round(mastery(curCh)*100)}%"></i></div>
-    <p class="sub" style="font-size:13px;margin-top:8px">Each time, the app picks a line for you: Learn and Practise tell you its name at the start, Surprise keeps it hidden.</p>`;
+    <p class="sub" style="font-size:13px;margin-top:8px">Each time, the app picks a line for you: Learn tells you the line's name at the start. Practise keeps it hidden until the end, like a real game.</p>`;
 }
 // learn: a line you don't know yet, picked at random
 function pickLearn(lines){
@@ -2606,8 +2606,7 @@ function pickLearn(lines){
 }
 $('chBack').onclick=goBack;
 $('chLearn').onclick=()=>startLearn(pickLearn(curCh.lines));
-$('chPractise').onclick=()=>startPractice(pickLine(curCh.lines),'chapter');
-$('chSurprise').onclick=()=>askSurprise(curCh.lines,false);
+$('chPractise').onclick=()=>startSurprise(curCh.lines,false);
 $('pBack').onclick=goBack;
 
 // surprise: the opponent picks the line (weak and due ones more often), and its name stays hidden
@@ -2761,8 +2760,8 @@ function startReview(){
 function startPractice(ln,how,queue,sur){
   stopTimers(); mode=how==='review'?'review':'practice'; line=ln; lastLine=ln; ply=0; boardFor(ln);
   pr={queue:queue||[],mistakes:0,slipped:false,hint:0,busy:false,msgs:[],done:false,sur:sur||null,home:!!(sur&&sur.home)};
-  $('pTitle').textContent=sur?'🎲 Surprise':mode==='review'?'Review':ln.ch.name;
-  $('pMode').textContent=sur?'The opponent picks · line hidden until the end':(mode==='review'?'🔁 '+ln.ch.name+' · '+ln.name+' · '+(pr.queue.length+1)+' left':'🎯 '+lineTag(ln));
+  $('pTitle').textContent=sur?(sur.home?'Practise all':ln.ch.name):mode==='review'?'Review':ln.ch.name;
+  $('pMode').textContent=sur?'🎯 Practise · line name hidden until the end':(mode==='review'?'🔁 '+ln.ch.name+' · '+ln.name+' · '+(pr.queue.length+1)+' left':'🎯 '+lineTag(ln));
   $('learnPick').style.display='none';
   $('ctrls').innerHTML=`<button class="btn ghost" id="pHint">🤔 Nudge</button><button class="btn ghost" id="pShow">👀 Show</button><button class="btn ghost" id="pRestart">↺ Restart</button>`;
   $('pHint').onclick=hint; $('pShow').onclick=()=>{ pr.hint=Math.max(pr.hint,2); hint(); }; $('pRestart').onclick=()=>startPractice(line,how,pr.queue,pr.sur);
@@ -2772,8 +2771,8 @@ function startPractice(ln,how,queue,sur){
   show('play'); sizeBoard(); drawBoard(); renderMoves(0);
   const you=line.ch.side;
   if(sur){
-    pr.msgs=[{k:'info',h:'🎲 Mystery line',x:'You play '+sideName(you)+'. The opponent picks the line, like a real game. You\'ll find out which one at the end.'}];
-    $('bnK').textContent='🎲 Surprise'; $('bnN').textContent='Mystery line'; $('bnS').textContent='Find the right answers';
+    pr.msgs=[{k:'info',h:'🎯 Which line will it be?',x:'You play '+sideName(you)+'. The opponent picks, like in a real game. You\'ll find out which line it was at the end.'}];
+    $('bnK').textContent='🎯 Practise'; $('bnN').textContent='Which line will it be?'; $('bnS').textContent='The opponent picks';
     $('banner').classList.add('show'); clearTimeout(bannerT); bannerT=setTimeout(()=>$('banner').classList.remove('show'),1800);
   } else {
     pr.msgs=[{k:'info',h:'New line: '+line.title,x:(line.when?line.when+'. ':'')+'You play '+sideName(you)+'. '+(you==='w'?'Make your first move.':'White moves first. Find the right answer to what they play.')}];
@@ -2920,7 +2919,7 @@ function finish(){
   renderMoves(ply);
   const hasNext=!!nextLn||!!sur;
   $('ctrls').innerHTML=`<button class="btn ghost" id="fAgain">↺ Again</button><button class="btn ghost" id="fLearn">📖 Learn</button>`
-    +(hasNext?`<button class="btn" id="fNext">${sur?'🎲 Next ▶':learnFirst?'Learn next ▶':'Next line ▶'}</button>`:`<button class="btn" id="fHome">Finished ✓</button>`);
+    +(hasNext?`<button class="btn" id="fNext">${sur?'Next ▶':learnFirst?'Learn next ▶':'Next line ▶'}</button>`:`<button class="btn" id="fHome">Finished ✓</button>`);
   $('fAgain').onclick=()=>startPractice(line,mode==='review'?'review':'chapter',pr.queue,sur);
   if(sur){ $('fNext').onclick=()=>startSurprise(sur.pool,sur.home); $('fLearn').onclick=()=>{ curCh=line.ch; startLearn(line); }; return; }
   $('fLearn').onclick=()=>startLearn(line);
