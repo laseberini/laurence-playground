@@ -176,6 +176,13 @@
   .msg.think .h{color:#7b61ff}
   .prompt{font-size:14px;font-weight:650;color:var(--accent)}
   .msg .why{margin-top:8px;min-height:38px;padding:8px 14px;font-size:14px}
+  .msg .why.sm{min-height:32px;padding:5px 11px;font-size:13px;margin-top:6px}
+  #exBody h3{margin-bottom:4px}
+  #exBody h4{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:14px 0 6px}
+  #exBody p,#exBody li{font-size:15px;color:var(--ink)}
+  #exBody ul{padding-left:18px;margin:0}
+  #exBody li{margin-bottom:5px}
+  #exBody .alt{color:var(--muted);font-size:13px}
   .msg.replay{border-color:var(--bad)} .msg.replay .h{color:var(--bad)}
   .ctrls{display:flex;gap:8px}
   .ctrls .btn{flex:1;padding:12px 8px;white-space:nowrap}
@@ -277,6 +284,12 @@
   <button class="btn" id="closeNotation">Got it</button>
 </div></div>
 
+<!-- EXPLAIN A MOVE -->
+<div class="sheet" id="explain"><div class="card">
+  <div id="exBody"></div>
+  <button class="btn" id="exClose">Got it</button>
+</div></div>
+
 <!-- SURPRISE CHOOSER -->
 <div class="sheet" id="surSheet"><div class="card">
   <h3>🎲 Surprise</h3>
@@ -301,7 +314,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.26';
+const VERSION = 'v1.27';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2540,7 +2553,7 @@ function leaveTo(d){
 }
 function goBack(){ if(history.state&&history.state.depth>0) history.back(); else leaveTo(curDepth>=2&&curCh?1:0); }
 window.addEventListener('popstate',e=>{
-  const open=['sheet','notation','surSheet'].filter(id=>$(id).classList.contains('show'));
+  const open=['sheet','notation','surSheet','explain'].filter(id=>$(id).classList.contains('show'));
   if(open.length){ open.forEach(id=>$(id).classList.remove('show')); return; }
   const d=(e.state&&e.state.depth)||0;
   if(d<curDepth) leaveTo(d);
@@ -2654,7 +2667,7 @@ function renderTop(){   // under the move notes: the Think box (when there is on
 function setMsgs(list,prompt){
   lastPrompt=prompt||''; renderTop();
   $('msgs').innerHTML=list.map(m=>`<div class="msg ${m.k}"><div class="h">${esc(m.h)}</div>${m.x?`<div class="x">${esc(m.x)}</div>`:''}`
-    +(m.btn?`<button class="btn ghost why" data-act="${m.btn[0]}">${esc(m.btn[1])}</button>`:'')+`</div>`).join('');
+    +(m.btn?`<button class="btn ghost why ${m.btn[2]||''}" data-act="${m.btn[0]}">${esc(m.btn[1])}</button>`:'')+`</div>`).join('');
 }
 $('msgs').addEventListener('click',e=>{ const b=e.target.closest('[data-act]'); if(b&&msgAct[b.dataset.act]) msgAct[b.dataset.act](); });
 const msgAct={};
@@ -2726,8 +2739,11 @@ function learnGo(k,anim){
   else{
     const who=(k-1)%2===0?'w':'b', msgs=[];
     // after their reply, keep your move's note above it
-    if(who!==you&&k>=2) msgs.push({k:'good',h:'You: '+plyLabel(k-2,mv[k-2].san),x:mv[k-2].c});
-    msgs.push({k:who===you?'good':'opp',h:(who===you?'You: ':sideName(who)+': ')+plyLabel(k-1,mv[k-1].san),x:mv[k-1].c});
+    const yourK=who===you?k-1:k-2;
+    if(yourK>=0) msgAct.explain=()=>openExplain(line,yourK);
+    const EX=['explain','💡 Explain','sm'];
+    if(who!==you&&k>=2) msgs.push({k:'good',h:'You: '+plyLabel(k-2,mv[k-2].san),x:mv[k-2].c,btn:EX});
+    msgs.push({k:who===you?'good':'opp',h:(who===you?'You: ':sideName(who)+': ')+plyLabel(k-1,mv[k-1].san),x:mv[k-1].c,btn:who===you?EX:null});
     let prompt='';
     if(k===mv.length&&lsur){ $('pMode').textContent='It was: '+line.ch.name+' · '+line.title;
       msgs.push({k:'done',h:'It was '+line.ch.name+': '+line.title,x:(line.about||'')+' Tap 🎯 to practise it, or 🎲 Next for another surprise.'}); }
@@ -2807,7 +2823,8 @@ function practiceMove(m){
   B.tried=null; B.tag=null; B.think=null;
   if(m.from===want.m.from&&m.to===want.m.to){
     applyPly(); sndGood(); B.tag={sq:want.m.to,text:'✓ Correct',level:'good'}; placeTag();
-    pr.msgs=[{k:'good',h:(pr.slipped?'That\'s it: ':'✓ Correct: ')+plyLabel(ply-1,want.san),x:want.c}];
+    const kk=ply-1; msgAct.explain=()=>openExplain(line,kk);
+    pr.msgs=[{k:'good',h:(pr.slipped?'That\'s it: ':'✓ Correct: ')+plyLabel(ply-1,want.san),x:want.c,btn:['explain','💡 Explain','sm']}];
     pr.slipped=false; pr.hint=0;
     if(ply>=line.moves.length) return finish();
     pr.busy=true; setMsgs(pr.msgs); later(opponentMove,750);
@@ -2933,6 +2950,99 @@ function finish(){
   if(hasNext) $('fNext').onclick=()=>{ if(mode==='review') startPractice(pr.queue[0],'review',pr.queue.slice(1)); else if(learnFirst) startLearn(nextLn); else startPractice(nextLn,'chapter'); };
   else $('fHome').onclick=goBack;
 }
+
+// ================= explain a move =================
+// What the move does (worked out from the position) and what else you could have played (from the Stockfish table).
+const PN={P:'pawn',N:'knight',B:'bishop',R:'rook',Q:'queen',K:'king'};
+const PVAL={P:1,N:3,B:3,R:5,Q:9,K:100};
+function hits(pos,sq){   // squares the piece on sq attacks, whoever stands there
+  const p=pos.b[sq], c=colorOf(p), U=p.toUpperCase(), r=sq>>3, f=sq&7, out=[], on=(a,b)=>a>=0&&a<8&&b>=0&&b<8;
+  if(U==='P'){ const d=c==='w'?1:-1; for(const df of [-1,1]) if(on(r+d,f+df)) out.push((r+d)*8+f+df); return out; }
+  if(U==='N'||U==='K'){ for(const [dr,df] of (U==='N'?KN:KG)) if(on(r+dr,f+df)) out.push((r+dr)*8+f+df); return out; }
+  const D=U==='R'?RD:U==='B'?BD:RD.concat(BD);
+  for(const [dr,df] of D){ let a=r+dr,b=f+df; while(on(a,b)){ out.push(a*8+b); if(pos.b[a*8+b]) break; a+=dr; b+=df; } }
+  return out;
+}
+function attackersOf(pos,s,by){ const out=[]; for(let q=0;q<64;q++){ const p=pos.b[q]; if(p&&colorOf(p)===by&&hits(pos,q).includes(s)) out.push(PVAL[p.toUpperCase()]); } return out; }
+// a quick count of the trade-offs on one square: does the attacker win something by capturing?
+function seeGain(v,att,def){
+  att=att.slice().sort((a,b)=>a-b); def=def.slice().sort((a,b)=>a-b);
+  const side=[att,def], i=[1,0], gain=[v]; let onSq=att[0], turn=1, d=0;
+  while(i[turn]<side[turn].length){ d++; gain[d]=onSq-gain[d-1]; onSq=side[turn][i[turn]++]; turn^=1; }
+  for(let j=d;j>0;j--) gain[j-1]=-Math.max(-gain[j-1],gain[j]);
+  return gain[0];
+}
+// really under pressure: the other side would win something by taking, or it's attacked more than defended
+function underPressure(pos,s,me){ const p=pos.b[s], them=me==='w'?'b':'w', a=attackersOf(pos,s,them), d=attackersOf(pos,s,me); if(!a.length) return false;
+  return seeGain(PVAL[p.toUpperCase()],a,d)>0||a.length>d.length; }
+function moveFacts(ln,k){
+  const mv=ln.moves[k], m=mv.m, before=mv.pos, after=makeMove(before,m), me=ln.ch.side, them=me==='w'?'b':'w';
+  const THEM=sideName(them)+"'s", U=m.p.toUpperCase(), facts=[];
+  if(m.castle) facts.push('Castles: your king tucks away safely and a rook comes toward the centre.');
+  if(m.cap){ const prev=k?ln.moves[k-1].m:null;
+    facts.push(prev&&prev.to===m.to&&prev.cap?'Takes back, so the material stays even.':'Takes '+THEM+' '+PN[m.cap.toUpperCase()]+' on '+sqName(m.ep?m.to+(me==='w'?-8:8):m.to)+'.'); }
+  if(inCheck(after)) facts.push('Gives check.');
+  if(U!=='P'&&!m.castle&&!m.cap&&underPressure(before,m.from,me)) facts.push('Moves your '+PN[U]+' out of danger.');
+  const movedBefore=ln.moves.slice(0,k).some(x=>x.m.to===m.from);
+  if((U==='N'||U==='B')&&startPos().b[m.from]===m.p&&!movedBefore) facts.push('Brings a new piece into the game.');
+  if(U==='P'&&[27,28,35,36].includes(m.to)&&!m.cap) facts.push('Grabs space in the centre.');
+  if(U==='P'&&!m.cap&&(m.from>>3)===(me==='w'?1:6)){ // a pawn opening a line for a bishop or queen
+    const opened=['B','Q'].some(t=>{ for(let s=0;s<64;s++){ const q=after.b[s]; if(q&&colorOf(q)===me&&q.toUpperCase()===t&&hits(after,s).includes(m.from)) return true; } return false; });
+    if(opened) facts.push('Opens a path for your '+(['B','Q'].find(t=>{ for(let s=0;s<64;s++){ const q=after.b[s]; if(q&&colorOf(q)===me&&q.toUpperCase()===t&&hits(after,s).includes(m.from)) return true; } })==='B'?'bishop':'queen')+'.');
+  }
+  // what it attacks now
+  const now=hits(after,m.to), was=m.castle?[]:hits(before,m.from);
+  const targets=now.filter(s=>after.b[s]&&colorOf(after.b[s])===them&&after.b[s].toUpperCase()!=='K'&&!(U!=='P'&&was.includes(s)));
+  const big=targets.filter(s=>PVAL[after.b[s].toUpperCase()]>=3);
+  if(big.length>=2) facts.push('Forks two pieces: '+big.map(s=>THEM+' '+PN[after.b[s].toUpperCase()]+' on '+sqName(s)).join(' and ')+'.');
+  else targets.forEach(s=>{ const t=after.b[s].toUpperCase(), loose=!attacked(after,s,them), weak=s===(them==='b'?53:13);
+    if(t==='P'&&!loose&&!weak) return;   // a safely guarded pawn isn't worth mentioning
+    facts.push('Attacks '+THEM+' '+PN[t]+' on '+sqName(s)+(loose?' (and it isn\'t protected)':weak?', the weak spot next to the king':'')+'.'); });
+  // what it protects
+  for(const s of now){ const q=after.b[s];
+    if(q&&colorOf(q)===me&&q.toUpperCase()!=='K'&&s!==m.to&&underPressure(before,s,me)&&!(U!=='P'&&was.includes(s)))
+      facts.push('Protects your '+PN[q.toUpperCase()]+' on '+sqName(s)+', which was under attack.'); }
+  // a pawn that takes a square away from an enemy piece (like h3 stopping ...Bg4)
+  if(U==='P'&&!m.cap){
+    const oldHits=hits(before,m.from), theirMoves=pseudo(Object.assign({},after,{turn:them,ep:-1}));
+    const sqs=new Set(), who=new Set();
+    hits(after,m.to).filter(q=>!oldHits.includes(q)&&!after.b[q]).forEach(q=>theirMoves.filter(x=>x.to===q&&'NB'.includes(x.p.toUpperCase())).forEach(x=>{
+      sqs.add(sqName(q)); who.add(PN[x.p.toUpperCase()]); }));
+    if(sqs.size) facts.push('Takes '+[...sqs].join(' and ')+' away from '+THEM+' '+[...who].join(' and ')+'.');
+  }
+  // pins
+  if('BRQ'.includes(U)){ const D=U==='R'?RD:U==='B'?BD:RD.concat(BD), r=m.to>>3, f=m.to&7;
+    for(const [dr,df] of D){ let a=r+dr,b=f+df, first=-1;
+      while(a>=0&&a<8&&b>=0&&b<8){ const q=after.b[a*8+b];
+        if(q){ if(first<0){ if(colorOf(q)!==them) break; first=a*8+b; }
+               else { if(colorOf(q)===them&&'KQ'.includes(q.toUpperCase())&&PVAL[after.b[first].toUpperCase()]>=3&&PVAL[after.b[first].toUpperCase()]<PVAL[q.toUpperCase()])
+                        facts.push('Pins '+THEM+' '+PN[after.b[first].toUpperCase()]+' to its '+(q.toUpperCase()==='K'?'king':'queen')+'.'); break; } }
+        a+=dr; b+=df; } } }
+  return [...new Set(facts)];
+}
+function pvText(pos,k,pv,max){
+  let out='', p=pos;
+  for(let i=0;i<Math.min(pv.length,max);i++){ const m=playUci(p,pv[i]); if(!m) break; const n=Math.floor((k+i)/2)+1;
+    out+=((k+i)%2===0?n+'. ':(i===0?n+'... ':''))+san(p,m)+' '; p=makeMove(p,m); }
+  return out.trim()+(pv.length>max?' ...':'');
+}
+function openExplain(ln,k){
+  const mv=ln.moves[k], pos=mv.pos, ref=refFor(ln,k);
+  const alts=Object.entries(ref).map(([u,e])=>{ const m=playUci(pos,u); return m?{u,m,san:san(pos,m),loss:e.loss,pv:e.pv}:null; }).filter(Boolean).sort((a,b)=>a.loss-b.loss);
+  const good=alts.filter(a=>a.loss<=20), worse=alts.filter(a=>a.loss>20).slice(0,3);
+  const facts=moveFacts(ln,k);
+  let h=`<h3>💡 Why ${esc(plyLabel(k,mv.san))}?</h3><p>${esc(mv.c)}</p>`;
+  if(facts.length) h+=`<h4>What it does</h4><ul>${facts.map(f=>`<li>${esc(f)}</li>`).join('')}</ul>`;
+  h+=`<h4>Other moves here</h4><ul>`;
+  h+=good.length?`<li><b>Also good:</b> ${good.slice(0,4).map(a=>esc(a.san)).join(', ')}. This line plays ${esc(mv.san)} because it fits the plan you're learning.</li>`
+                :`<li><b>${esc(mv.san)} is the clear best move here.</b> Nothing else comes close.</li>`;
+  worse.forEach(a=>{ const w=a.pv?costWords(pos,a.pv,ln.ch.side,a.loss):(a.loss<80?'it\'s slightly weaker':'it\'s weaker');
+    h+=`<li><b>${esc(a.san)}?</b> ${esc(cap1(w))}.${a.pv?`<div class="alt">${esc(pvText(pos,k,a.pv,6))}</div>`:''}</li>`; });
+  h+=`</ul>`;
+  $('exBody').innerHTML=h; openPop('explain');
+}
+$('exClose').onclick=()=>closePop('explain');
+$('explain').onclick=e=>{ if(e.target.id==='explain') closePop('explain'); };
 
 // ================= how to read moves =================
 document.querySelectorAll('[data-notation]').forEach(b=>b.onclick=()=>openPop('notation'));
