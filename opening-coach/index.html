@@ -301,7 +301,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.25';
+const VERSION = 'v1.26';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2704,6 +2704,8 @@ function startLearn(ln,sur){
     showIt();
   };
   show('play'); sizeBoard(); learnGo(0);
+  // playing Black: White's first move comes by itself once the banner has gone
+  if(ln.ch.side==='b'){ lastPrompt='White is about to move...'; renderTop(); later(()=>{ if(mode==='learn'&&line===ln&&ply===0) learnGo(1,true); },1700); }
   if(lsur){ $('bnK').textContent='🎲 Surprise'; $('bnN').textContent='Mystery line'; $('bnS').textContent='The opponent picks';
     $('banner').classList.add('show'); clearTimeout(bannerT); bannerT=setTimeout(()=>$('banner').classList.remove('show'),1800); }
   else announce('📖 Learning',ln);
