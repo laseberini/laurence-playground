@@ -62,6 +62,9 @@
   .tabs button{flex:1;padding:10px;border-radius:9px;font-weight:650;color:var(--muted)}
   .tabs button.on{background:var(--accent);color:var(--accent-ink)}
   h2{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:20px 0 8px}
+  h2.grp{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .sur{text-transform:none;letter-spacing:0;font-size:13px;font-weight:650;color:var(--accent);border:1px solid var(--line);
+       background:var(--card);border-radius:10px;padding:6px 10px;white-space:nowrap}
   .chap{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
         background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:8px}
   .chap:active{opacity:.75}
@@ -117,6 +120,10 @@
   .pc.anim{transition:transform .22s ease}
   .dragpc{position:fixed;z-index:50;pointer-events:none;transform:translate(-50%,-60%) scale(1.15)}
   .arrows{position:absolute;inset:0;pointer-events:none;z-index:3}
+  .tag{position:absolute;z-index:4;padding:3px 8px;border-radius:8px;font-size:12px;font-weight:700;color:#fff;
+       white-space:nowrap;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,.3);display:none}
+  .tag.show{display:block}
+  .tag.good{background:#2e8b57} .tag.weak{background:#c98a12} .tag.bad{background:#d64541}
   .banner{position:absolute;left:8%;right:8%;top:50%;transform:translateY(-50%);z-index:5;text-align:center;
           background:var(--card);color:var(--ink);border-radius:16px;padding:16px 14px;box-shadow:0 8px 30px rgba(0,0,0,.35);
           opacity:0;pointer-events:none;transition:opacity .25s}
@@ -194,7 +201,7 @@
   <button class="back" id="chBack">‹ All openings</button>
   <div class="row"><span id="chIco" style="font-size:30px"></span><div class="grow"><h1 id="chName" style="font-size:23px"></h1><p class="sub" id="chSide"></p></div></div>
   <p class="intro" id="chIntro"></p>
-  <div class="actions"><button class="btn ghost" id="chLearn">📖 Learn</button><button class="btn" id="chPractise">🎯 Practise</button></div>
+  <div class="actions"><button class="btn ghost" id="chLearn">📖 Learn</button><button class="btn" id="chPractise">🎯 Practise</button><button class="btn ghost" id="chSurprise">🎲 Surprise</button></div>
   <h2 style="margin-top:0">Lines</h2>
   <p class="sub" style="margin:-4px 0 10px">Each line starts with a different move by the other player.</p>
   <div id="lineList"></div>
@@ -211,6 +218,7 @@
     <div class="bwrap" id="bwrap">
       <div class="board" id="board"></div>
       <svg class="arrows" id="arrows" viewBox="0 0 800 800"></svg>
+      <div class="tag" id="tag"></div>
       <div class="banner" id="banner"><div class="k" id="bnK"></div><div class="n" id="bnN"></div><div class="s" id="bnS"></div></div>
     </div>
     <div class="panel">
@@ -256,7 +264,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.14';
+const VERSION = 'v1.15';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2339,7 +2347,9 @@ const sndWin=()=>beep([523,659,784,1047],.12,'sine',.07);
 const $=id=>document.getElementById(id);
 const GLYPH={K:'♚',Q:'♛',R:'♜',B:'♝',N:'♞',P:'♟'};
 const boardEl=$('board'), wrap=$('bwrap'), arrowsEl=$('arrows');
-const B={pos:startPos(),flip:false,last:null,sel:-1,targets:[],hint:-1,wrong:-1,arrow:null,canMove:()=>false,onMove:null};
+const B={pos:startPos(),flip:false,last:null,sel:-1,targets:[],hint:-1,wrong:-1,arrow:null,tried:null,tag:null,canMove:()=>false,onMove:null};
+// arrow colours: green = right / just as good, yellow = weaker, red = mistake
+const ARROW={good:'var(--arrow)',weak:'rgba(224,169,27,.92)',bad:'rgba(214,60,55,.9)'};
 const sqEls=[];
 for(let i=0;i<64;i++){ const d=document.createElement('div'); d.className='sq'; boardEl.appendChild(d); sqEls.push(d); }
 // display slot i (0 = top-left) -> board square
@@ -2371,14 +2381,24 @@ function drawBoard(anim){
       pc.style.transform=`translate(${(a[0]-b[0])*k}px,${(a[1]-b[1])*k}px)`;
       requestAnimationFrame(()=>requestAnimationFrame(()=>{ pc.classList.add('anim'); pc.style.transform=''; })); }
   }
-  let svg='';
-  if(B.arrow){
-    const [x1,y1]=sqCenter(B.arrow.from), [x2,y2]=sqCenter(B.arrow.to);
+  const arrow=(a,col)=>{
+    const [x1,y1]=sqCenter(a.from), [x2,y2]=sqCenter(a.to);
     const dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy), ux=dx/L, uy=dy/L, hx=x2-ux*42, hy=y2-uy*42;
-    svg=`<line x1="${x1+ux*18}" y1="${y1+uy*18}" x2="${hx}" y2="${hy}" stroke="var(--arrow)" stroke-width="22" stroke-linecap="round"/>
-      <polygon points="${x2-ux*8},${y2-uy*8} ${hx-uy*34},${hy+ux*34} ${hx+uy*34},${hy-ux*34}" fill="var(--arrow)"/>`;
-  }
-  arrowsEl.innerHTML=svg;
+    return `<line x1="${x1+ux*18}" y1="${y1+uy*18}" x2="${hx}" y2="${hy}" stroke="${col}" stroke-width="22" stroke-linecap="round"/>
+      <polygon points="${x2-ux*8},${y2-uy*8} ${hx-uy*34},${hy+ux*34} ${hx+uy*34},${hy-ux*34}" fill="${col}"/>`;
+  };
+  arrowsEl.innerHTML=(B.tried?arrow(B.tried,ARROW[B.tried.level]):'')+(B.arrow?arrow(B.arrow,ARROW.good):'');
+  placeTag();
+}
+// the little reason label next to the square you tried
+function placeTag(){
+  const el=$('tag');
+  if(!B.tag){ el.className='tag'; return; }
+  const [x,y]=sqCenter(B.tag.sq);
+  el.textContent=B.tag.text; el.className='tag show '+B.tag.level;
+  el.style.left=Math.max(14,Math.min(86,x/8))+'%';
+  if(y<150){ el.style.top=(y/8+6)+'%'; el.style.transform='translate(-50%,0)'; }
+  else { el.style.top=(y/8-6)+'%'; el.style.transform='translate(-50%,-100%)'; }
 }
 function squareAt(x,y){
   const r=boardEl.getBoundingClientRect();
@@ -2442,7 +2462,7 @@ function renderHome(){
   $('tabW').classList.toggle('on',data.tab==='w'); $('tabB').classList.toggle('on',data.tab==='b');
   let h='', group='';
   BOOK.filter(c=>c.side===data.tab).forEach(c=>{
-    if(c.group!==group){ group=c.group; h+=`<h2>${esc(group)}</h2>`; }
+    if(c.group!==group){ group=c.group; h+=`<h2 class="grp"><span>${esc(group)}</span><button class="sur" data-sur="${esc(group)}">🎲 Surprise me</button></h2>`; }
     const n=c.lines.filter(isLearned).length, d=c.lines.filter(isDue).length;
     h+=`<button class="chap" data-ch="${c.id}"><span class="ico">${c.icon}</span><span class="grow">
       <div class="name">${esc(c.name)}${d?`<span class="due">${d} due</span>`:''}</div>
@@ -2451,7 +2471,9 @@ function renderHome(){
   });
   $('chapList').innerHTML=h;
 }
-$('chapList').addEventListener('click',e=>{ const b=e.target.closest('[data-ch]'); if(b) openChapter(b.dataset.ch); });
+$('chapList').addEventListener('click',e=>{
+  const s=e.target.closest('[data-sur]'); if(s) return startSurprise(ALL.filter(l=>l.ch.group===s.dataset.sur),true);
+  const b=e.target.closest('[data-ch]'); if(b) openChapter(b.dataset.ch); });
 $('tabW').onclick=()=>{ data.tab='w'; save(); renderHome(); };
 $('tabB').onclick=()=>{ data.tab='b'; save(); renderHome(); };
 $('reviewBtn').onclick=()=>startReview();
@@ -2485,7 +2507,18 @@ $('lineList').addEventListener('click',e=>{
 $('chBack').onclick=()=>{ renderHome(); show('home'); };
 $('chLearn').onclick=()=>startLearn(curCh.lines.find(l=>!isLearned(l))||curCh.lines[0]);
 $('chPractise').onclick=()=>startPractice(pickLine(curCh.lines),'chapter');
-$('pBack').onclick=()=>{ stopTimers(); if(mode==='review'){ renderHome(); show('home'); } else { renderLines(); show('chapter'); } };
+$('chSurprise').onclick=()=>startSurprise(curCh.lines,false);
+$('pBack').onclick=()=>{ stopTimers(); if(mode==='review'||(mode==='practice'&&pr&&pr.home)){ renderHome(); show('home'); } else { renderLines(); show('chapter'); } };
+
+// surprise: the opponent picks the line (weak and due ones more often), and its name stays hidden
+function pickSurprise(pool){
+  const now=Date.now(), w=l=>{ const r=rec(l); if(!r) return 2; return (r.due<=now?6:1)+(5-r.box); };
+  let cand=pool.filter(l=>l!==lastLine); if(!cand.length) cand=pool;
+  let t=Math.random()*cand.reduce((a,l)=>a+w(l),0);
+  for(const l of cand){ t-=w(l); if(t<=0) return l; }
+  return cand[cand.length-1];
+}
+function startSurprise(pool,home){ startPractice(pickSurprise(pool),'chapter',[],{pool,home}); }
 
 // which line to practise next: due ones first (weakest first), then new ones, then whatever is due soonest
 let lastLine=null;
@@ -2527,7 +2560,7 @@ function announce(kind,ln){
 }
 $('banner').onclick=()=>$('banner').classList.remove('show');
 const lineTag=ln=>'Line '+(ln.idx+1)+' of '+ln.ch.lines.length+': '+ln.title;
-function boardFor(lineObj){ B.flip=lineObj.ch.side==='b'; B.sel=-1; B.targets=[]; B.hint=-1; B.wrong=-1; B.arrow=null; }
+function boardFor(lineObj){ B.flip=lineObj.ch.side==='b'; B.sel=-1; B.targets=[]; B.hint=-1; B.wrong=-1; B.arrow=null; B.tried=null; B.tag=null; }
 
 // ---------- learn: step through a line with explanations ----------
 function startLearn(ln){
@@ -2542,13 +2575,14 @@ function startLearn(ln){
   B.canMove=()=>mode==='learn'&&ply<line.moves.length&&B.pos.turn===line.ch.side&&!timers.length;
   B.onMove=m=>{
     const want=line.moves[ply].m;
-    if(m.from===want.from&&m.to===want.to) return learnGo(ply+1,true);
+    if(m.from===want.from&&m.to===want.to){ learnGo(ply+1,true); B.tag={sq:want.to,text:'✓ Correct',level:'good'}; placeTag(); return; }
     const before=B.pos, k0=ply, j=judgeMove(before,m,k0,line);
     if(!j.ok) sndBad();
-    const restore=()=>{ learnGo(k0); B.arrow={from:want.from,to:want.to}; drawBoard();
-      setMsgs([j.msg],'Play '+line.moves[k0].san+' (follow the arrow), or tap ▶.'); };
-    if(j.pv) msgAct.why=()=>replayWhy(before,j.pv,k0,line,restore,j.loss);
-    restore();
+    const showIt=()=>{ learnGo(k0); B.tried={from:m.from,to:m.to,level:j.level}; B.tag={sq:m.to,text:j.short,level:j.level};
+      if(j.ok) B.arrow={from:want.from,to:want.to}; drawBoard();
+      setMsgs([j.msg],j.ok?'Play '+line.moves[k0].san+' (green arrow), or tap ▶.':'Try again, or tap ▶ to see the move.'); };
+    if(j.pv) msgAct.why=()=>replayWhy(before,j.pv,k0,line,showIt,j.loss);
+    showIt();
   };
   show('play'); sizeBoard(); learnGo(0); announce('📖 Learning',ln);
 }
@@ -2556,7 +2590,7 @@ $('lineSel').onchange=e=>startLearn(line.ch.lines[+e.target.value]);
 function learnGo(k,anim){
   stopTimers();
   k=Math.max(0,Math.min(line.moves.length,k)); const fwd=anim&&k===ply+1; ply=k;
-  const mv=line.moves; B.sel=-1; B.targets=[]; B.arrow=null;
+  const mv=line.moves; B.sel=-1; B.targets=[]; B.arrow=null; B.tried=null; B.tag=null;
   B.pos=k<mv.length?mv[k].pos:makeMove(mv[k-1].pos,mv[k-1].m);
   B.last=k?mv[k-1].m:null;
   if(fwd) sndMove(!!mv[k-1].m.cap);
@@ -2602,31 +2636,37 @@ function startReview(){
   }
   startPractice(q[0],'review',q.slice(1));
 }
-function startPractice(ln,how,queue){
+function startPractice(ln,how,queue,sur){
   stopTimers(); mode=how==='review'?'review':'practice'; line=ln; lastLine=ln; ply=0; boardFor(ln);
-  pr={queue:queue||[],mistakes:0,slipped:false,hint:0,busy:false,msgs:[],done:false};
-  $('pTitle').textContent=mode==='review'?'Review':ln.ch.name;
-  $('pMode').textContent=(mode==='review'?'🔁 '+ln.ch.name+' · '+ln.name+' · '+(pr.queue.length+1)+' left':'🎯 '+lineTag(ln));
+  pr={queue:queue||[],mistakes:0,slipped:false,hint:0,busy:false,msgs:[],done:false,sur:sur||null,home:!!(sur&&sur.home)};
+  $('pTitle').textContent=sur?'🎲 Surprise':mode==='review'?'Review':ln.ch.name;
+  $('pMode').textContent=sur?'The opponent picks · line hidden until the end':(mode==='review'?'🔁 '+ln.ch.name+' · '+ln.name+' · '+(pr.queue.length+1)+' left':'🎯 '+lineTag(ln));
   $('learnPick').style.display='none';
   $('ctrls').innerHTML=`<button class="btn ghost" id="pHint">🤔 Nudge</button><button class="btn ghost" id="pShow">👀 Show</button><button class="btn ghost" id="pRestart">↺ Restart</button>`;
-  $('pHint').onclick=hint; $('pShow').onclick=()=>{ pr.hint=Math.max(pr.hint,2); hint(); }; $('pRestart').onclick=()=>startPractice(line,how,pr.queue);
+  $('pHint').onclick=hint; $('pShow').onclick=()=>{ pr.hint=Math.max(pr.hint,2); hint(); }; $('pRestart').onclick=()=>startPractice(line,how,pr.queue,pr.sur);
   B.pos=startPos(); B.last=null;
   B.canMove=()=>(mode==='practice'||mode==='review')&&!pr.busy&&!pr.done&&B.pos.turn===line.ch.side;
   B.onMove=practiceMove;
   show('play'); sizeBoard(); drawBoard(); renderMoves(0);
   const you=line.ch.side;
-  pr.msgs=[{k:'info',h:'New line: '+line.title,x:(line.when?line.when+'. ':'')+'You play '+sideName(you)+'. '+(you==='w'?'Make your first move.':'White moves first. Find the right answer to what they play.')}];
-  announce('🎯 New line',ln);
+  if(sur){
+    pr.msgs=[{k:'info',h:'🎲 Mystery line',x:'You play '+sideName(you)+'. The opponent picks the line, like a real game. You\'ll find out which one at the end.'}];
+    $('bnK').textContent='🎲 Surprise'; $('bnN').textContent='Mystery line'; $('bnS').textContent='Find the right answers';
+    $('banner').classList.add('show'); clearTimeout(bannerT); bannerT=setTimeout(()=>$('banner').classList.remove('show'),1800);
+  } else {
+    pr.msgs=[{k:'info',h:'New line: '+line.title,x:(line.when?line.when+'. ':'')+'You play '+sideName(you)+'. '+(you==='w'?'Make your first move.':'White moves first. Find the right answer to what they play.')}];
+    announce('🎯 New line',ln);
+  }
   if(you==='b'){ pr.busy=true; setMsgs(pr.msgs); later(opponentMove,2000); }
   else setMsgs(pr.msgs,'Your move. Stuck? Tap 🤔 Nudge.');
 }
 function applyPly(){
   const mv=line.moves[ply];
-  B.pos=makeMove(mv.pos,mv.m); B.last=mv.m; B.arrow=null; B.hint=-1; B.wrong=-1;
+  B.pos=makeMove(mv.pos,mv.m); B.last=mv.m; B.arrow=null; B.hint=-1; B.wrong=-1; B.tried=null; B.tag=null;
   sndMove(!!mv.m.cap); drawBoard(mv.m); ply++; renderMoves(ply);
 }
 function opponentMove(){
-  const mv=line.moves[ply], opp=line.ch.side==='w'?'b':'w';
+  const mv=line.moves[ply], opp=line.ch.side==='w'?'b':'w'; B.tag=null;
   applyPly();
   pr.msgs=pr.msgs.filter(m=>m.k==='good').slice(-1);  // keep your last move's note, drop old ones
   pr.msgs.push({k:'opp',h:sideName(opp)+' plays '+plyLabel(ply-1,mv.san),x:mv.c});
@@ -2636,25 +2676,27 @@ function opponentMove(){
 }
 function practiceMove(m){
   const want=line.moves[ply];
+  B.tried=null; B.tag=null;
   if(m.from===want.m.from&&m.to===want.m.to){
-    applyPly(); sndGood();
+    applyPly(); sndGood(); B.tag={sq:want.m.to,text:'✓ Correct',level:'good'}; placeTag();
     pr.msgs=[{k:'good',h:(pr.slipped?'That\'s it: ':'✓ Correct: ')+plyLabel(ply-1,want.san),x:want.c}];
     pr.slipped=false; pr.hint=0;
     if(ply>=line.moves.length) return finish();
     pr.busy=true; setMsgs(pr.msgs); later(opponentMove,750);
     return;
   }
-  // wrong: show it for a moment, then take it back and point to the right move
+  // not the line's move: draw it as a coloured arrow with a reason, and let you try again
   const before=B.pos, j=judgeMove(before,m,ply,line), k0=ply;
   if(!j.ok&&!pr.slipped){ pr.mistakes++; pr.slipped=true; }
-  pr.busy=true; if(!j.ok) sndBad();
-  B.pos=makeMove(before,m); B.wrong=j.ok?-1:m.to; drawBoard(m);
-  const restore=()=>{
-    B.pos=before; B.wrong=-1; B.last=k0?line.moves[k0-1].m:null; B.arrow={from:want.m.from,to:want.m.to}; B.hint=-1; drawBoard();
-    pr.msgs=[j.msg]; setMsgs(pr.msgs,'Play '+want.san+' (follow the arrow).'); pr.busy=false;
+  if(!j.ok) sndBad();
+  const showIt=()=>{
+    B.pos=before; B.wrong=-1; B.last=k0?line.moves[k0-1].m:null; B.hint=-1;
+    B.tried={from:m.from,to:m.to,level:j.level}; B.tag={sq:m.to,text:j.short,level:j.level};
+    B.arrow=j.ok?{from:want.m.from,to:want.m.to}:null; drawBoard();
+    pr.msgs=[j.msg]; setMsgs(pr.msgs,j.ok?'Play '+want.san+' (green arrow).':'Try again, or tap 👀 Show.'); pr.busy=false;
   };
-  if(j.pv) msgAct.why=()=>replayWhy(before,j.pv,k0,line,restore,j.loss);
-  later(restore,650);
+  if(j.pv) msgAct.why=()=>replayWhy(before,j.pv,k0,line,showIt,j.loss);
+  showIt();
 }
 const PNAME={P:'pawn',N:'knight',B:'bishop',R:'rook',Q:'queen',K:'king'};
 
@@ -2690,19 +2732,24 @@ function costWords(start,pv,side,loss){
 const TRAPS={'w|e4 e5 Nf3 Nc6 Bc4 Nd4':{f3e5:{h:'walks into a trap',
   x:'Black plays Qg5!, hitting your knight and your g2 pawn at once. Most players then grab f7... and get checkmated.',
   pv:'f3e5 d8g5 e5f7 g5g2 h1f1 g2e4 c4e2 d4f3'}}};
+const SHORT={'you get checkmated':'Gets you mated','you lose your queen':'Loses your queen','you lose a rook':'Loses a rook',
+  'you lose a piece and a pawn':'Loses a piece','you lose a piece':'Loses a piece','you lose two pawns (or a rook for a piece)':'Loses material',
+  'you lose a pawn':'Loses a pawn','your position is a bit worse':'A bit weaker','your position gets worse':'Weaker','your position gets a lot worse':'Much worse'};
+const cap1=t=>t.charAt(0).toUpperCase()+t.slice(1);
 function judgeMove(before,m,k,ln){
   const info=refFor(ln,k)[uciOf(m)], tried=san(before,m), want=ln.moves[k];
   const trap=(TRAPS[ln.ch.side+'|'+ln.moves.slice(0,k).map(x=>x.san).join(' ')]||{})[uciOf(m)];
-  if(trap) return {ok:false,pv:trap.pv.split(' '),loss:9999,msg:{k:'bad',h:'✗ '+tried+' '+trap.h,x:trap.x+' The move here is '+want.san+'.',btn:['why','▶ See why']}};
-  if(info&&info.loss<=20) return {ok:true,msg:{k:'info',h:'👍 '+tried+' is a good move too',x:'But this line plays '+want.san+'. '+want.c}};
-  if(info&&info.pv&&info.loss>=80) return {ok:false,pv:info.pv,loss:info.loss,msg:{k:'bad',h:'✗ '+tried+' is a mistake',x:'After it, '+costWords(before,info.pv,ln.ch.side,info.loss)+'. The move here is '+want.san+'. '+want.c,btn:['why','▶ See why']}};
-  if(info&&info.pv) return {ok:false,pv:info.pv,loss:info.loss,msg:{k:'bad',h:'✗ '+tried+' isn\'t the move here',x:'It\'s not a blunder, just weaker: '+costWords(before,info.pv,ln.ch.side,info.loss)+'. The move is '+want.san+'. '+want.c,btn:['why','▶ See what happens']}};
-  return {ok:false,msg:{k:'bad',h:'✗ '+tried+' isn\'t the move here',x:(info?'It\'s playable, just not as good. ':'')+'The move is '+want.san+'. '+want.c}};
+  if(trap) return {ok:false,level:'bad',short:'Walks into a trap',pv:trap.pv.split(' '),loss:9999,msg:{k:'bad',h:'✗ '+tried+' '+trap.h,x:trap.x,btn:['why','▶ See why']}};
+  if(info&&info.loss<=20) return {ok:true,level:'good',short:'👍 Good too',msg:{k:'info',h:'👍 '+tried+' is a good move too',x:'But this line plays '+want.san+'. '+want.c}};
+  if(info&&info.pv){ const w=costWords(before,info.pv,ln.ch.side,info.loss), bad=info.loss>=80;
+    return {ok:false,level:bad?'bad':'weak',short:SHORT[w]||cap1(w),pv:info.pv,loss:info.loss,
+      msg:{k:'bad',h:bad?'✗ '+tried+' is a mistake':'⚠ '+tried+' is weaker',x:bad?cap1(w)+'.':'Not a blunder, but '+w+'.',btn:['why',bad?'▶ See why':'▶ See what happens']}}; }
+  return {ok:false,level:'weak',short:info?'Not the best':'Not the move',msg:{k:'bad',h:'⚠ '+tried+' isn\'t the move here',x:info?'It\'s playable, just not as good.':'There\'s a better move.'}};
 }
 // play the punishing line on the board, then come back
 function replayWhy(before,pv,k,ln,onBack,loss){
   stopTimers(); if(mode!=='learn') pr.busy=true;
-  B.pos=before; B.arrow=null; B.hint=-1; B.wrong=-1; B.last=null; drawBoard();
+  B.pos=before; B.arrow=null; B.tried=null; B.tag=null; B.hint=-1; B.wrong=-1; B.last=null; drawBoard();
   let pos=before, i=0, txt='';
   const step=()=>{
     const m=playUci(pos,pv[i]); if(!m) return end();
@@ -2718,7 +2765,7 @@ function replayWhy(before,pv,k,ln,onBack,loss){
 // Nudge, step by step: 1) a thinking clue (free), 2) which piece (counts as a slip), 3) the exact move.
 function hint(){
   if(pr.busy||pr.done||B.pos.turn!==line.ch.side) return;
-  const want=line.moves[ply];
+  const want=line.moves[ply]; B.tried=null; B.tag=null; drawBoard();
   pr.hint=Math.min(3,pr.hint+1);
   if(pr.hint>=2&&!pr.slipped){ pr.mistakes++; pr.slipped=true; }
   const think={k:'think',h:'🤔 Think',x:want.think||'What is the most useful move here?'};
@@ -2738,17 +2785,20 @@ function finish(){
   if(perfect) sndWin();
   const when=r.box?('Next review in '+GAPS[r.box]+(GAPS[r.box]===1?' day.':' days.')):'It will come back soon until you know it.';
   // next line in order; a line you've never done opens in Learn first
-  const nextLn=mode==='review'?pr.queue[0]:(line.ch.lines[line.idx+1]||line.ch.lines.find(l=>!rec(l)&&l!==line)||null);
+  const sur=pr.sur;
+  const nextLn=sur?null:mode==='review'?pr.queue[0]:(line.ch.lines[line.idx+1]||line.ch.lines.find(l=>!rec(l)&&l!==line)||null);
   const learnFirst=mode!=='review'&&nextLn&&!rec(nextLn);
-  pr.msgs.push({k:'done',h:(perfect?'🎉 Perfect! ':'Line finished: ')+line.title,
+  if(sur){ $('pMode').textContent='It was: '+line.ch.name+' · '+line.title; }
+  pr.msgs.push({k:'done',h:(perfect?'🎉 Perfect! ':'Line finished. ')+(sur?'It was '+line.ch.name+': '+line.title:line.title),
     x:(perfect?'Not a single slip. ':'You slipped on '+pr.mistakes+(pr.mistakes===1?' move. ':' moves. '))+when
       +(nextLn?' Next up: '+nextLn.title+(learnFirst?' (new, so you\'ll learn it first).':'.'):'')});
   setMsgs(pr.msgs);
   renderMoves(ply);
-  const hasNext=!!nextLn;
+  const hasNext=!!nextLn||!!sur;
   $('ctrls').innerHTML=`<button class="btn ghost" id="fAgain">↺ Again</button><button class="btn ghost" id="fLearn">📖 Learn</button>`
-    +(hasNext?`<button class="btn" id="fNext">${learnFirst?'Learn next ▶':'Next line ▶'}</button>`:`<button class="btn" id="fHome">Finished ✓</button>`);
-  $('fAgain').onclick=()=>startPractice(line,mode==='review'?'review':'chapter',pr.queue);
+    +(hasNext?`<button class="btn" id="fNext">${sur?'🎲 Next ▶':learnFirst?'Learn next ▶':'Next line ▶'}</button>`:`<button class="btn" id="fHome">Finished ✓</button>`);
+  $('fAgain').onclick=()=>startPractice(line,mode==='review'?'review':'chapter',pr.queue,sur);
+  if(sur){ $('fNext').onclick=()=>startSurprise(sur.pool,sur.home); $('fLearn').onclick=()=>{ curCh=line.ch; startLearn(line); }; return; }
   $('fLearn').onclick=()=>startLearn(line);
   if(hasNext) $('fNext').onclick=()=>{ if(mode==='review') startPractice(pr.queue[0],'review',pr.queue.slice(1)); else if(learnFirst) startLearn(nextLn); else startPractice(nextLn,'chapter'); };
   else $('fHome').onclick=()=>{ if(mode==='review'){ renderHome(); show('home'); } else { renderLines(); show('chapter'); } };
