@@ -183,6 +183,10 @@
   #exBody ul{padding-left:18px;margin:0}
   #exBody li{margin-bottom:5px}
   #exBody .alt{color:var(--muted);font-size:13px}
+  #exBody textarea{height:64px;font:15px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:4px 0 8px}
+  #exBody .askrow{display:flex;gap:8px}
+  #exBody .askrow .btn{flex:1;margin:0}
+  #exBody .asknote{font-size:12px;color:var(--muted);margin-top:6px}
   .msg.replay{border-color:var(--bad)} .msg.replay .h{color:var(--bad)}
   .ctrls{display:flex;gap:8px}
   .ctrls .btn{flex:1;padding:12px 8px;white-space:nowrap}
@@ -314,7 +318,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.28';
+const VERSION = 'v1.29';
 
 /*BOOK-START*/
 const BOOK = [
@@ -3039,7 +3043,48 @@ function openExplain(ln,k){
   worse.forEach(a=>{ const w=a.pv?costWords(pos,a.pv,ln.ch.side,a.loss):(a.loss<80?'it\'s slightly weaker':'it\'s weaker');
     h+=`<li><b>${esc(a.san)}?</b> ${esc(cap1(w))}.${a.pv?`<div class="alt">${esc(pvText(pos,k,a.pv,6))}</div>`:''}</li>`; });
   h+=`</ul>`;
+  h+=`<h4>Ask Claude</h4>
+    <textarea id="askQ" placeholder="Your question, e.g. Why not take the pawn on e5?"></textarea>
+    <div class="askrow"><button class="btn" id="askGo">Ask Claude ↗</button><button class="btn ghost" id="askCopy">📋 Copy</button></div>
+    <div class="asknote" id="askNote">Opens your phone's share menu: pick the Claude app. Your question goes with the position and the coach's notes.</div>`;
   $('exBody').innerHTML=h; openPop('explain');
+  $('askGo').onclick=()=>askClaude(ln,k,true);
+  $('askCopy').onclick=()=>askClaude(ln,k,false);
+}
+// ---------- hand a question over to the Claude app ----------
+function toFEN(pos){
+  let f='';
+  for(let r=7;r>=0;r--){ let e=0; for(let c=0;c<8;c++){ const p=pos.b[r*8+c]; if(!p){ e++; continue; } if(e){ f+=e; e=0; } f+=p; } if(e) f+=e; if(r) f+='/'; }
+  return f+' '+pos.turn+' '+(pos.castle||'-')+' '+(pos.ep>=0?sqName(pos.ep):'-')+' 0 1';
+}
+function movesText(ln,upto){ return ln.moves.slice(0,upto).map((x,i)=>(i%2===0?(i/2+1)+'. ':'')+x.san).join(' '); }
+function claudePrompt(ln,k,q){
+  const mv=ln.moves[k], pos=mv.pos, ref=refFor(ln,k);
+  const hidden=mode!=='learn'&&pr&&pr.sur&&!pr.done;   // don't give away a hidden practice line
+  const alts=Object.entries(ref).map(([u,e])=>{ const m=playUci(pos,u); return m?{san:san(pos,m),loss:e.loss,pv:e.pv}:null; }).filter(Boolean).sort((a,b)=>a.loss-b.loss);
+  const good=alts.filter(a=>a.loss<=20).map(a=>a.san), worse=alts.filter(a=>a.loss>20).slice(0,3);
+  const L=[];
+  L.push("I'm a chess player rated about 900, learning openings with a coaching app. Please answer my question in plain, simple words and keep it short.");
+  L.push('');
+  L.push('Opening: '+ln.ch.name+(hidden?'':' – '+ln.title)+'. I play '+sideName(ln.ch.side)+'.');
+  L.push('Moves so far: '+(k?movesText(ln,k):'(start of the game)'));
+  L.push('Position before the move (FEN): '+toFEN(pos));
+  L.push('The move: '+plyLabel(k,mv.san)+'. Coach says: "'+mv.c+'"');
+  const facts=moveFacts(ln,k); if(facts.length) L.push('What it does: '+facts.join(' '));
+  L.push('Stockfish: '+(good.length?'also good here: '+good.slice(0,4).join(', ')+'.':mv.san+' is clearly the best move here.'));
+  worse.forEach(a=>L.push('  '+a.san+' is weaker (about '+(a.loss/100).toFixed(1)+' pawns worse)'+(a.pv?', e.g. '+pvText(pos,k,a.pv,6):'')+'.'));
+  L.push('');
+  L.push('My question: '+(q||'Can you explain this move in more detail? Why is it the best move here?'));
+  return L.join('\n');
+}
+function askClaude(ln,k,share){
+  const text=claudePrompt(ln,k,($('askQ').value||'').trim()), note=$('askNote');
+  const copy=()=>{ try{ return navigator.clipboard.writeText(text).then(()=>{ note.textContent='✅ Copied. Open the Claude app, paste it into a new chat and send.'; },()=>fallback()); }catch(e){ fallback(); } };
+  const fallback=()=>{ $('askQ').value=text; $('askQ').select(); note.textContent='Select all of the text in the box and copy it, then paste it into Claude.'; };
+  if(share&&navigator.share){
+    navigator.share({title:'Chess question',text}).then(()=>{ note.textContent='Sent. Check the Claude app for the answer.'; })
+      .catch(err=>{ if(err&&err.name==='AbortError') return; copy(); });
+  } else copy();
 }
 $('exClose').onclick=()=>closePop('explain');
 $('explain').onclick=e=>{ if(e.target.id==='explain') closePop('explain'); };
