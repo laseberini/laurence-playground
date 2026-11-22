@@ -342,7 +342,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.36';
+const VERSION = 'v1.37';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2840,8 +2840,8 @@ function startPractice(ln,how,queue,sur){
   $('pTitle').textContent=mode==='review'?'Review':ln.ch.name;
   $('pMode').textContent=hide?'Line name hidden until the end':sur?lineTag(ln):(mode==='review'?'Review · '+ln.ch.name+' · '+(pr.queue.length+1)+' left':lineTag(ln));
   $('learnPick').style.display='none';
-  $('ctrls').innerHTML=`<button class="btn ghost" id="pHint">🤔 Nudge</button><button class="btn ghost" id="pShow">👀 Show</button><button class="btn ghost" id="pRestart">↺ Restart</button>`;
-  $('pHint').onclick=hint; $('pShow').onclick=()=>{ pr.hint=Math.max(pr.hint,2); hint(); }; $('pRestart').onclick=()=>startPractice(line,how,pr.queue,pr.sur);
+  $('ctrls').innerHTML=`<button class="btn ghost" id="pShow">👀 Show</button><button class="btn ghost" id="pRestart">↺ Restart</button>`;
+  $('pShow').onclick=()=>{ pr.hint=Math.max(pr.hint,2); hint(); }; $('pRestart').onclick=()=>startPractice(line,how,pr.queue,pr.sur);
   B.pos=startPos(); B.last=null;
   B.canMove=()=>(mode==='practice'||mode==='review')&&!pr.busy&&!pr.done&&B.pos.turn===line.ch.side;
   B.onMove=practiceMove;
