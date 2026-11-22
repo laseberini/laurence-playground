@@ -80,8 +80,9 @@
   .back{font-size:15px;color:var(--accent);font-weight:600;padding:6px 0;margin-bottom:6px}
   .intro{margin:10px 0 14px;font-size:15px}
   .actions{display:flex;gap:10px;margin-bottom:18px}
-  .actions .btn{flex:1}
+  .actions .btn{flex:1;white-space:nowrap;padding:12px 4px;font-size:15px;gap:5px}
   .line{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 10px 10px 12px;margin-bottom:8px}
+  #chProg{margin-bottom:10px}
   .line{cursor:pointer} .line:active{opacity:.75}
   .line .when{font-size:13px;color:var(--ink);opacity:.8}
   .line .lb{display:flex;flex-direction:column;gap:6px;flex:none}
@@ -216,9 +217,7 @@
   <div class="row"><span id="chIco" style="font-size:30px"></span><div class="grow"><h1 id="chName" style="font-size:23px"></h1><p class="sub" id="chSide"></p></div></div>
   <p class="intro" id="chIntro"></p>
   <div class="actions"><button class="btn ghost" id="chLearn">📖 Learn</button><button class="btn" id="chPractise">🎯 Practise</button><button class="btn ghost" id="chSurprise">🎲 Surprise</button></div>
-  <h2 style="margin-top:0">Lines</h2>
-  <p class="sub" style="margin:-4px 0 10px">Each line starts with a different move by the other player.</p>
-  <div id="lineList"></div>
+  <div class="card" id="chProg"></div>
 </section>
 
 <!-- BOARD -->
@@ -289,7 +288,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.18';
+const VERSION = 'v1.19';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2545,20 +2544,21 @@ function lineStatus(ln){
   if(r.due<=Date.now()) return 'Review now';
   const d=Math.ceil((r.due-Date.now())/DAY); return 'Review in '+d+(d===1?' day':' days');
 }
+// the opening page shows progress only: the app picks the line each time
 function renderLines(){
-  $('lineList').innerHTML=curCh.lines.map(ln=>`<div class="line" data-row="${ln.idx}"><div class="grow"><div class="name">${esc(ln.title)}</div>
-    ${ln.when?`<div class="when">${esc(ln.when)}</div>`:''}
-    <div class="st">${pips(ln)} &nbsp;${lineStatus(ln)}</div></div>
-    <div class="lb"><button data-learn="${ln.idx}">📖 Learn</button><button class="pr" data-prac="${ln.idx}">🎯 Practise</button></div></div>`).join('');
+  const n=curCh.lines.length, got=curCh.lines.filter(isLearned).length, due=curCh.lines.filter(isDue).length;
+  $('chProg').innerHTML=`<div style="font-weight:700">${got} of ${n} lines learned${due?` <span class="due">${due} to review</span>`:''}</div>
+    <div class="bar"><i style="width:${Math.round(mastery(curCh)*100)}%"></i></div>
+    <p class="sub" style="font-size:13px;margin-top:8px">Each time, the app picks a line for you: Learn and Practise tell you its name at the start, Surprise keeps it hidden.</p>`;
 }
-$('lineList').addEventListener('click',e=>{
-  const l=e.target.closest('[data-learn]'), p=e.target.closest('[data-prac]'), row=e.target.closest('[data-row]');
-  if(p) return startPractice(curCh.lines[+p.dataset.prac],'chapter');
-  if(l) return startLearn(curCh.lines[+l.dataset.learn]);
-  if(row) startLearn(curCh.lines[+row.dataset.row]);   // tapping the line itself opens Learn
-});
+// learn: a line you don't know yet, picked at random
+function pickLearn(lines){
+  let pool=lines.filter(l=>!isLearned(l)&&l!==lastLine);
+  if(!pool.length) pool=lines.filter(l=>!isLearned(l));
+  return pool.length?pool[Math.floor(Math.random()*pool.length)]:pickLine(lines);
+}
 $('chBack').onclick=()=>{ renderHome(); show('home'); };
-$('chLearn').onclick=()=>startLearn(curCh.lines.find(l=>!isLearned(l))||curCh.lines[0]);
+$('chLearn').onclick=()=>startLearn(pickLearn(curCh.lines));
 $('chPractise').onclick=()=>startPractice(pickLine(curCh.lines),'chapter');
 $('chSurprise').onclick=()=>askSurprise(curCh.lines,false);
 $('pBack').onclick=()=>{ stopTimers(); whyDone=false; if(mode==='review'||(mode==='practice'&&pr&&pr.home)||(mode==='learn'&&lsur&&lsur.home)){ renderHome(); show('home'); } else { renderLines(); show('chapter'); } };
@@ -2633,7 +2633,7 @@ function startLearn(ln,sur){
   $('ctrls').innerHTML=`<button class="btn ghost" id="lFirst">⏮</button><button class="btn ghost" id="lPrev">◀</button>
     <button class="btn" id="lNext">▶</button><button class="btn ghost" id="lPrac">🎯</button>`;
   $('lFirst').onclick=()=>learnGo(0); $('lPrev').onclick=()=>learnGo(ply-1);
-  $('lNext').onclick=()=>{ if(ply<line.moves.length) learnGo(ply+1,true); else if(lsur) startLearnSurprise(lsur.pool,lsur.home); else { const nx=line.ch.lines[line.idx+1]; if(nx) startLearn(nx); } }; $('lPrac').onclick=()=>startPractice(line,'chapter');
+  $('lNext').onclick=()=>{ if(ply<line.moves.length) learnGo(ply+1,true); else if(lsur) startLearnSurprise(lsur.pool,lsur.home); else if(line.ch.lines.length>1) startLearn(pickLearn(line.ch.lines)); }; $('lPrac').onclick=()=>startPractice(line,'chapter');
   B.canMove=()=>mode==='learn'&&ply<line.moves.length&&B.pos.turn===line.ch.side&&!timers.length;
   B.onMove=m=>{
     const want=line.moves[ply].m;
@@ -2672,13 +2672,13 @@ function learnGo(k,anim){
     let prompt='';
     if(k===mv.length&&lsur){ $('pMode').textContent='It was: '+line.ch.name+' · '+line.title;
       msgs.push({k:'done',h:'It was '+line.ch.name+': '+line.title,x:(line.about||'')+' Tap 🎯 to practise it, or 🎲 Next for another surprise.'}); }
-    else if(k===mv.length){ const nx=line.ch.lines[line.idx+1];
-      msgs.push({k:'done',h:'End of this line: '+line.title,x:'Tap 🎯 to practise it from memory.'+(nx?' Or tap "Next line" to learn the next one: '+nx.title+'.':' That was the last line in this opening.')}); }
+    else if(k===mv.length){
+      msgs.push({k:'done',h:'End of this line: '+line.title,x:'Tap 🎯 to practise it from memory'+(line.ch.lines.length>1?', or "Next line" for another one.':'.')}); }
     else if((k%2===0?'w':'b')===you){ msgs.push({k:'think',h:'🤔 Think',x:mv[k].think}); prompt='Your move next. Can you find it? Play it on the board, or tap ▶.'; }
     else prompt=fwd?sideName(you==='w'?'b':'w')+' is replying...':'Tap ▶ to see the reply.';
     setMsgs(msgs,prompt);
   }
-  const atEnd=k===mv.length, nx=lsur?true:line.ch.lines[line.idx+1];
+  const atEnd=k===mv.length, nx=lsur||line.ch.lines.length>1;
   $('lPrev').disabled=k===0; $('lFirst').disabled=k===0; $('lNext').disabled=atEnd&&!nx;
   // you just moved: the other side replies by itself
   if(fwd&&!atEnd&&(k-1)%2===(you==='w'?0:1)){
@@ -2856,7 +2856,7 @@ function finish(){
   const when=r.box?('Next review in '+GAPS[r.box]+(GAPS[r.box]===1?' day.':' days.')):'It will come back soon until you know it.';
   // next line in order; a line you've never done opens in Learn first
   const sur=pr.sur;
-  const nextLn=sur?null:mode==='review'?pr.queue[0]:(line.ch.lines[line.idx+1]||line.ch.lines.find(l=>!rec(l)&&l!==line)||null);
+  const nextLn=sur?null:mode==='review'?pr.queue[0]:(line.ch.lines.length>1?pickLine(line.ch.lines):null);
   const learnFirst=mode!=='review'&&nextLn&&!rec(nextLn);
   if(sur){ $('pMode').textContent='It was: '+line.ch.name+' · '+line.title; }
   pr.msgs.push({k:'done',h:(perfect?'🎉 Perfect! ':'Line finished. ')+(sur?'It was '+line.ch.name+': '+line.title:line.title),
