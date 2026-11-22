@@ -344,7 +344,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.38';
+const VERSION = 'v1.39';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2844,8 +2844,7 @@ function startPractice(ln,how,queue,sur){
   $('pTitle').textContent=mode==='review'?'Review':ln.ch.name;
   $('pMode').textContent=hide?'Line name hidden until the end':sur?lineTag(ln):(mode==='review'?'Review · '+ln.ch.name+' · '+(pr.queue.length+1)+' left':lineTag(ln));
   $('learnPick').style.display='none';
-  $('ctrls').innerHTML=`<button class="btn ghost" id="pShow">👀 Show</button><button class="btn ghost" id="pRestart">↺ Restart</button>`;
-  $('pShow').onclick=()=>{ pr.hint=Math.max(pr.hint,2); hint(); }; $('pRestart').onclick=()=>startPractice(line,how,pr.queue,pr.sur);
+  pr.how=how; playCtrls();
   B.pos=startPos(); B.last=null;
   B.canMove=()=>(mode==='practice'||mode==='review')&&!pr.busy&&!pr.done&&B.pos.turn===line.ch.side;
   B.onMove=practiceMove;
@@ -2861,6 +2860,24 @@ function startPractice(ln,how,queue,sur){
   }
   if(you==='b'){ pr.busy=true; setMsgs(pr.msgs); later(opponentMove,2000); }
   else { setMsgs(pr.msgs,'Your move.'); showThink(); }
+}
+function playCtrls(){
+  $('ctrls').innerHTML=`<button class="btn ghost" id="pBackMove">◀ Back</button><button class="btn ghost" id="pShow">👀 Show</button><button class="btn ghost" id="pRestart">↺ Restart</button>`;
+  $('pBackMove').onclick=takeBack;
+  $('pShow').onclick=()=>{ pr.hint=Math.max(pr.hint,2); hint(); };
+  $('pRestart').onclick=()=>startPractice(line,pr.how,pr.queue,pr.sur);
+}
+// take back to your previous turn (slips already made still count)
+function takeBack(){
+  const stu=i=>(i%2===0)===(line.ch.side==='w');
+  let t=ply-1; while(t>=0&&!stu(t)) t--;
+  if(t<0) return;
+  stopTimers(); whyDone=false; boardCard('');
+  if(pr.done){ pr.done=false; playCtrls(); }
+  ply=t; pr.busy=false; pr.slipped=false; pr.hint=0;
+  B.pos=line.moves[t].pos; B.last=t?line.moves[t-1].m:null; B.arrow=null; B.tried=null; B.tag=null; B.hint=-1; B.wrong=-1; B.sel=-1; B.targets=[];
+  drawBoard(); renderMoves(t);
+  pr.msgs=[{k:'info',h:'↩ Took back',x:'Have another go.'}]; setMsgs(pr.msgs,'Your move.'); showThink();
 }
 function applyPly(){
   const mv=line.moves[ply];
@@ -2987,7 +3004,7 @@ function hint(){
 }
 function finish(){
   pr.done=true; pr.busy=false;
-  const perfect=pr.mistakes===0, r=score(line,perfect);
+  const perfect=pr.mistakes===0, r=pr.scored||score(line,perfect); pr.scored=r;
   if(perfect) sndWin();
   const when=r.box?('Next review in '+GAPS[r.box]+(GAPS[r.box]===1?' day.':' days.')):'It will come back soon until you know it.';
   // next line in order; a line you've never done opens in Learn first
