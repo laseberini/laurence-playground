@@ -172,7 +172,15 @@
 
   .panel{display:flex;flex-direction:column;gap:10px}
   .thinkbox{background:#6b4fe0;color:#fff;border-radius:12px;padding:9px 12px;font-size:15px;line-height:1.4;margin-top:10px}
-  .thinkbox b{display:block;font-size:14px;margin-bottom:2px}
+  .thinkbox .th{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+  .thinkbox .th b{font-size:14px}
+  .tgl.sm{gap:6px;font-size:12px;font-weight:600}
+  .tgl.sm .sw{width:36px;height:22px;border-radius:11px}
+  .tgl.sm .sw::after{width:16px;height:16px}
+  .tgl.sm input:checked+.sw::after{left:17px}
+  .thinkbox .tgl input:checked+.sw{background:rgba(255,255,255,.35)}
+  .thinkoff{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding:7px 12px;border:1px dashed var(--line);
+            border-radius:12px;color:var(--muted);font-size:14px;font-weight:600}
   #topbar .prompt{margin-top:10px}
   .msgs{display:flex;flex-direction:column;gap:8px}
   .msg{border-left:4px solid var(--line);padding:2px 0 2px 10px}
@@ -278,9 +286,8 @@
     </div>
     <div class="panel">
       <div id="learnPick"><select id="lineSel"></select></div>
-      <div class="card" style="min-height:110px"><div class="msgs" id="msgs"></div><div id="topbar"></div></div>
       <div class="ctrls" id="ctrls"></div>
-      <label class="tgl"><input type="checkbox" id="thinkTgl"><span class="sw"></span>🤔 Think tips</label>
+      <div class="card" style="min-height:110px"><div class="msgs" id="msgs"></div><div id="topbar"></div></div>
       <div class="card moves" id="moves"></div>
     </div>
   </div>
@@ -335,7 +342,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.35';
+const VERSION = 'v1.36';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2689,10 +2696,15 @@ const later=(fn,ms)=>timers.push(setTimeout(fn,ms));
 function stopTimers(){ timers.forEach(clearTimeout); timers=[]; }
 // the Think box and "what to do now", shown under the move notes
 let lastPrompt='';
-function renderTop(){   // under the move notes: the Think box (when there is one), then what to do now
-  $('topbar').innerHTML=(B.think&&B.think.text?'<div class="thinkbox"><b>🤔 Think</b>'+esc(B.think.text)+'</div>':'')
-    +(lastPrompt?'<div class="prompt">'+esc(lastPrompt)+'</div>':'');
+function renderTop(){   // under the move notes: the Think box (with its on/off switch), then what to do now
+  const sw=on=>`<label class="tgl sm"><input type="checkbox" class="tgl-in"${on?' checked':''}><span class="sw"></span></label>`;
+  const yourTurn=mode!=='learn'&&pr&&!pr.done&&line&&ply<line.moves.length&&B.pos.turn===line.ch.side;
+  let h='';
+  if(B.think&&B.think.text) h+=`<div class="thinkbox"><div class="th"><b>🤔 Think</b>${sw(true)}</div>${esc(B.think.text)}</div>`;
+  else if(yourTurn&&!thinkOn()) h+=`<div class="thinkoff"><span>🤔 Think tips off</span>${sw(false)}</div>`;
+  $('topbar').innerHTML=h+(lastPrompt?'<div class="prompt">'+esc(lastPrompt)+'</div>':'');
 }
+$('topbar').addEventListener('change',e=>{ if(e.target.classList.contains('tgl-in')){ data.thinkOn=e.target.checked; save(); showThink(); } });
 function setMsgs(list,prompt){
   lastPrompt=prompt||''; renderTop();
   $('msgs').innerHTML=list.map(m=>`<div class="msg ${m.k}"><div class="h">${esc(m.h)}</div>${m.x?`<div class="x">${esc(m.x)}</div>`:''}`
@@ -2809,8 +2821,6 @@ function showThink(){
     ?{text:line.moves[ply].think,sq:ply?line.moves[ply-1].m.to:-1}:null;
   renderTop();
 }
-$('thinkTgl').checked=thinkOn();
-$('thinkTgl').addEventListener('change',e=>{ data.thinkOn=e.target.checked; save(); if(pr&&!pr.busy&&!pr.done) showThink(); });
 
 // ---------- practise: you play your side, the coach plays theirs ----------
 let pr=null;   // {queue, mistakes, slipped (this move), hint, busy, msgs}
@@ -2827,7 +2837,7 @@ function startPractice(ln,how,queue,sur){
   stopTimers(); mode=how==='review'?'review':'practice'; $('play').dataset.mode=''; line=ln; lastLine=ln; ply=0; boardFor(ln);
   const hide=!!(sur&&!sur.show);
   pr={queue:queue||[],mistakes:0,slipped:false,hint:0,busy:false,msgs:[],done:false,sur:sur||null,hide,home:!!(sur&&sur.home)};
-  $('pTitle').textContent=sur?(sur.home?'Play all':ln.ch.name):mode==='review'?'Review':ln.ch.name;
+  $('pTitle').textContent=mode==='review'?'Review':ln.ch.name;
   $('pMode').textContent=hide?'Line name hidden until the end':sur?lineTag(ln):(mode==='review'?'Review · '+ln.ch.name+' · '+(pr.queue.length+1)+' left':lineTag(ln));
   $('learnPick').style.display='none';
   $('ctrls').innerHTML=`<button class="btn ghost" id="pHint">🤔 Nudge</button><button class="btn ghost" id="pShow">👀 Show</button><button class="btn ghost" id="pRestart">↺ Restart</button>`;
@@ -2842,11 +2852,11 @@ function startPractice(ln,how,queue,sur){
     $('bnK').textContent='▶ New game'; $('bnN').textContent='Which line will it be?'; $('bnS').textContent='The opponent picks';
     $('banner').classList.add('show'); clearTimeout(bannerT); bannerT=setTimeout(()=>$('banner').classList.remove('show'),1800);
   } else {
-    pr.msgs=[{k:'info',h:'▶ '+line.title+(line.when?' · '+line.when:''),x:(line.about?line.about+' ':'')+'You play '+sideName(you)+'.'}];
+    pr.msgs=[{k:'info',h:line.when||'About this line',x:line.about||''}];
     announce('▶ New game',ln);
   }
   if(you==='b'){ pr.busy=true; setMsgs(pr.msgs); later(opponentMove,2000); }
-  else { setMsgs(pr.msgs,'Your move. Stuck? Tap 🤔 Nudge.'); showThink(); }
+  else { setMsgs(pr.msgs,'Your move.'); showThink(); }
 }
 function applyPly(){
   const mv=line.moves[ply];
@@ -2860,7 +2870,7 @@ function opponentMove(){
   pr.msgs.push({k:'opp',h:sideName(opp)+' plays '+plyLabel(ply-1,mv.san),x:mv.c});
   pr.busy=false;
   if(ply>=line.moves.length) return finish();
-  setMsgs(pr.msgs,'Your move. Stuck? Tap 🤔 Nudge.'); showThink();
+  setMsgs(pr.msgs,'Your move.'); showThink();
 }
 function practiceMove(m){
   const want=line.moves[ply];
