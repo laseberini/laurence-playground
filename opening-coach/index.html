@@ -156,12 +156,10 @@
   @keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
 
   .panel{display:flex;flex-direction:column;gap:10px}
-  .topbar{min-height:46px;margin-bottom:8px;padding:8px 12px;border-radius:12px;font-size:14px;font-weight:650;line-height:1.35;
-          background:var(--card);border:1px solid var(--line);color:var(--accent);display:flex;align-items:center;max-width:520px}
-  .topbar.think{background:#6b4fe0;border-color:#6b4fe0;color:#fff;font-weight:500}
-  .topbar.think b{font-weight:750;margin-right:5px;white-space:nowrap}
-  @media (min-width:820px){ .topbar{max-width:none} }
-  .msgs{display:flex;flex-direction:column;gap:8px;min-height:96px}
+  .thinkbox{background:#6b4fe0;color:#fff;border-radius:12px;padding:9px 12px;font-size:15px;line-height:1.4;margin-top:10px}
+  .thinkbox b{display:block;font-size:14px;margin-bottom:2px}
+  #topbar .prompt{margin-top:10px}
+  .msgs{display:flex;flex-direction:column;gap:8px}
   .msg{border-left:4px solid var(--line);padding:2px 0 2px 10px}
   .msg .h{font-weight:700;font-size:15px}
   .msg .x{font-size:15px}
@@ -238,7 +236,6 @@
     <div class="grow"><div class="t" id="pTitle"></div><div class="m" id="pMode"></div></div>
     <button class="iconbtn" data-notation aria-label="How to read moves">❓</button>
   </div>
-  <div class="topbar" id="topbar"></div>
   <div class="play">
     <div class="bwrap" id="bwrap">
       <div class="board" id="board"></div>
@@ -250,7 +247,7 @@
     </div>
     <div class="panel">
       <div id="learnPick"><select id="lineSel"></select></div>
-      <div class="card"><div class="msgs" id="msgs"></div></div>
+      <div class="card" style="min-height:110px"><div class="msgs" id="msgs"></div><div id="topbar"></div></div>
       <div class="ctrls" id="ctrls"></div>
       <div class="card moves" id="moves"></div>
     </div>
@@ -300,7 +297,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.22';
+const VERSION = 'v1.23';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2640,12 +2637,11 @@ function pickLine(lines){
 let mode='learn', line=null, ply=0, timers=[];
 const later=(fn,ms)=>timers.push(setTimeout(fn,ms));
 function stopTimers(){ timers.forEach(clearTimeout); timers=[]; }
-// the bar above the board: the Think nudge when there is one, otherwise what to do now
+// the Think box and "what to do now", shown under the move notes
 let lastPrompt='';
-function renderTop(){
-  const el=$('topbar');
-  if(B.think&&B.think.text){ el.className='topbar think'; el.innerHTML='<b>🤔 Think</b> '+esc(B.think.text); }
-  else { el.className='topbar'; el.textContent=lastPrompt||''; }
+function renderTop(){   // under the move notes: the Think box (when there is one), then what to do now
+  $('topbar').innerHTML=(B.think&&B.think.text?'<div class="thinkbox"><b>🤔 Think</b>'+esc(B.think.text)+'</div>':'')
+    +(lastPrompt?'<div class="prompt">'+esc(lastPrompt)+'</div>':'');
 }
 function setMsgs(list,prompt){
   lastPrompt=prompt||''; renderTop();
