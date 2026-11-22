@@ -318,7 +318,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.29';
+const VERSION = 'v1.30';
 
 /*BOOK-START*/
 const BOOK = [
@@ -3064,7 +3064,9 @@ function claudePrompt(ln,k,q){
   const alts=Object.entries(ref).map(([u,e])=>{ const m=playUci(pos,u); return m?{san:san(pos,m),loss:e.loss,pv:e.pv}:null; }).filter(Boolean).sort((a,b)=>a.loss-b.loss);
   const good=alts.filter(a=>a.loss<=20).map(a=>a.san), worse=alts.filter(a=>a.loss>20).slice(0,3);
   const L=[];
-  L.push("I'm a chess player rated about 900, learning openings with a coaching app. Please answer my question in plain, simple words and keep it short.");
+  // each paste may land in the same chat, so say clearly that this is a fresh position
+  L.push('=== NEW POSITION. Forget any earlier positions in this chat and answer only about this one. ===');
+  L.push("I'm a chess player rated about 900, learning openings with a coaching app. Please answer in plain, simple words and keep it short.");
   L.push('');
   L.push('Opening: '+ln.ch.name+(hidden?'':' – '+ln.title)+'. I play '+sideName(ln.ch.side)+'.');
   L.push('Moves so far: '+(k?movesText(ln,k):'(start of the game)'));
