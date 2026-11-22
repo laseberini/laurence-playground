@@ -79,6 +79,7 @@
   .actions{display:flex;gap:10px;margin-bottom:18px}
   .actions .btn{flex:1}
   .line{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 10px 10px 12px;margin-bottom:8px}
+  .line{cursor:pointer} .line:active{opacity:.75}
   .line .when{font-size:13px;color:var(--ink);opacity:.8}
   .line .lb{display:flex;flex-direction:column;gap:6px;flex:none}
   .line .lb button{min-height:34px;padding:0 10px;border-radius:9px;font-size:13px;font-weight:650;border:1px solid var(--line);background:var(--bg);white-space:nowrap;text-align:left}
@@ -255,7 +256,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.13';
+const VERSION = 'v1.14';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2470,15 +2471,16 @@ function lineStatus(ln){
   const d=Math.ceil((r.due-Date.now())/DAY); return 'Review in '+d+(d===1?' day':' days');
 }
 function renderLines(){
-  $('lineList').innerHTML=curCh.lines.map(ln=>`<div class="line"><div class="grow"><div class="name">${esc(ln.title)}</div>
+  $('lineList').innerHTML=curCh.lines.map(ln=>`<div class="line" data-row="${ln.idx}"><div class="grow"><div class="name">${esc(ln.title)}</div>
     ${ln.when?`<div class="when">${esc(ln.when)}</div>`:''}
     <div class="st">${pips(ln)} &nbsp;${lineStatus(ln)}</div></div>
     <div class="lb"><button data-learn="${ln.idx}">📖 Learn</button><button class="pr" data-prac="${ln.idx}">🎯 Practise</button></div></div>`).join('');
 }
 $('lineList').addEventListener('click',e=>{
-  const l=e.target.closest('[data-learn]'), p=e.target.closest('[data-prac]');
-  if(l) startLearn(curCh.lines[+l.dataset.learn]);
-  if(p) startPractice(curCh.lines[+p.dataset.prac],'chapter');
+  const l=e.target.closest('[data-learn]'), p=e.target.closest('[data-prac]'), row=e.target.closest('[data-row]');
+  if(p) return startPractice(curCh.lines[+p.dataset.prac],'chapter');
+  if(l) return startLearn(curCh.lines[+l.dataset.learn]);
+  if(row) startLearn(curCh.lines[+row.dataset.row]);   // tapping the line itself opens Learn
 });
 $('chBack').onclick=()=>{ renderHome(); show('home'); };
 $('chLearn').onclick=()=>startLearn(curCh.lines.find(l=>!isLearned(l))||curCh.lines[0]);
