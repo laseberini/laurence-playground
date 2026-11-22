@@ -82,7 +82,11 @@
   .actions{display:flex;gap:10px;margin-bottom:18px}
   .actions .btn{flex:1;white-space:nowrap;padding:12px 4px;font-size:15px;gap:5px}
   .line{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 10px 10px 12px;margin-bottom:8px}
-  #chProg{margin-bottom:10px}
+  .actions .btn.big{flex-direction:column;align-items:stretch;justify-content:flex-start;gap:6px;padding:12px;white-space:normal;text-align:left}
+  .big .bl{font-size:16px;font-weight:700}
+  .big .bar{margin-top:0}
+  .big .bc{font-size:12px;font-weight:600;color:var(--muted)}
+  .big .due{margin-left:0;margin-top:2px;align-self:flex-start}
   .line{cursor:pointer} .line:active{opacity:.75}
   .line .when{font-size:13px;color:var(--ink);opacity:.8}
   .line .lb{display:flex;flex-direction:column;gap:6px;flex:none}
@@ -225,8 +229,8 @@
   <button class="back" id="chBack">‹ All openings</button>
   <div class="row"><span id="chIco" style="font-size:30px"></span><div class="grow"><h1 id="chName" style="font-size:23px"></h1><p class="sub" id="chSide"></p></div></div>
   <p class="intro" id="chIntro"></p>
-  <div class="actions"><button class="btn ghost" id="chLearn">📖 Learn</button><button class="btn ghost" id="chPractise">🎯 Practise</button></div>
-  <div class="card" id="chProg"></div>
+  <div class="actions"><button class="btn ghost big" id="chLearn"></button><button class="btn ghost big" id="chPractise"></button></div>
+
 </section>
 
 <!-- BOARD -->
@@ -297,7 +301,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.23';
+const VERSION = 'v1.24';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2342,11 +2346,12 @@ const byId=Object.fromEntries(BOOK.map(c=>[c.id,c]));
 // ================= saved progress =================
 const KEY='opening-coach';
 const DAY=864e5, GAPS=[0,1,2,4,8,16];   // days until the next review, per box
-let data={lines:{},sound:true,tab:'w'};
-function load(){ try{ const d=JSON.parse(localStorage.getItem(KEY)||'null'); if(d&&d.lines) data=Object.assign(data,d); }catch(e){} }
+let data={lines:{},seen:{},sound:true,tab:'w'};   // seen: lines stepped through to the end in Learn
+function load(){ try{ const d=JSON.parse(localStorage.getItem(KEY)||'null'); if(d&&d.lines) data=Object.assign(data,d); }catch(e){} if(!data.seen) data.seen={}; }
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(data)); }catch(e){} }
 load();
 const rec=ln=>data.lines[ln.id]||null;
+const isSeen=ln=>!!(data.seen&&data.seen[ln.id]);
 const isLearned=ln=>{ const r=rec(ln); return !!(r&&r.box>0); };
 const isDue=ln=>{ const r=rec(ln); return !!(r&&r.due<=Date.now()); };
 function score(ln,perfect){
@@ -2590,14 +2595,17 @@ function lineStatus(ln){
 }
 // the opening page shows progress only: the app picks the line each time
 function renderLines(){
-  const n=curCh.lines.length, got=curCh.lines.filter(isLearned).length, due=curCh.lines.filter(isDue).length;
-  $('chProg').innerHTML=`<div style="font-weight:700">${got} of ${n} lines learned${due?` <span class="due">${due} to review</span>`:''}</div>
-    <div class="bar"><i style="width:${Math.round(mastery(curCh)*100)}%"></i></div>
-    <p class="sub" style="font-size:13px;margin-top:8px">Each time, the app picks a line for you: Learn tells you the line's name at the start. Practise keeps it hidden until the end, like a real game.</p>`;
+  const n=curCh.lines.length, seen=curCh.lines.filter(isSeen).length, got=curCh.lines.filter(isLearned).length, due=curCh.lines.filter(isDue).length;
+  const pc=x=>Math.round(x/n*100);
+  $('chLearn').innerHTML=`<span class="bl">📖 Learn</span><span class="bar"><i style="width:${pc(seen)}%"></i></span><span class="bc">${seen} of ${n} seen</span>`;
+  $('chPractise').innerHTML=`<span class="bl">🎯 Practise</span><span class="bar"><i style="width:${pc(got)}%"></i></span><span class="bc">${got} of ${n} learned</span>`
+    +(due?`<span class="due">${due} to review</span>`:'');
 }
 // learn: a line you don't know yet, picked at random
 function pickLearn(lines){
-  let pool=lines.filter(l=>!isLearned(l)&&l!==lastLine);
+  let pool=lines.filter(l=>!isSeen(l)&&l!==lastLine);
+  if(!pool.length) pool=lines.filter(l=>!isSeen(l));
+  if(!pool.length) pool=lines.filter(l=>!isLearned(l)&&l!==lastLine);
   if(!pool.length) pool=lines.filter(l=>!isLearned(l));
   return pool.length?pool[Math.floor(Math.random()*pool.length)]:pickLine(lines);
 }
@@ -2728,6 +2736,7 @@ function learnGo(k,anim){
     setMsgs(msgs,prompt);
   }
   const atEnd=k===mv.length, nx=lsur||line.ch.lines.length>1;
+  if(atEnd&&!isSeen(line)){ data.seen[line.id]=1; save(); }
   $('lPrev').disabled=k===0; $('lFirst').disabled=k===0; $('lNext').disabled=atEnd&&!nx;
   // you just moved: the other side replies by itself
   if(fwd&&!atEnd&&(k-1)%2===(you==='w'?0:1)){
@@ -2945,7 +2954,7 @@ $('restoreBtn').onclick=()=>{
     const t=$('bkText').value.trim().replace(/^OC1:/,'');
     const d=JSON.parse(decodeURIComponent(escape(atob(t))));
     if(!d||!d.lines) throw 0;
-    data=Object.assign({lines:{},sound:true,tab:'w'},d); save(); renderHome();
+    data=Object.assign({lines:{},seen:{},sound:true,tab:'w'},d); save(); renderHome();
     closePop('sheet'); alert('Progress restored.');
   }catch(e){ alert('That code didn\'t work. Copy the whole code and try again.'); }
 };
