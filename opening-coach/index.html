@@ -123,6 +123,8 @@
   .tag{position:absolute;z-index:4;padding:3px 8px;border-radius:8px;font-size:12px;font-weight:700;color:#fff;
        white-space:nowrap;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,.3);display:none}
   .tag.show{display:block}
+  .tag.why{pointer-events:auto;cursor:pointer;font-size:13px;padding:5px 6px 5px 9px}
+  .tag .tw{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:6px;background:rgba(255,255,255,.25)}
   .tag.good{background:#2e8b57} .tag.weak{background:#c98a12} .tag.bad{background:#d64541}
   .banner{position:absolute;left:8%;right:8%;top:50%;transform:translateY(-50%);z-index:5;text-align:center;
           background:var(--card);color:var(--ink);border-radius:16px;padding:16px 14px;box-shadow:0 8px 30px rgba(0,0,0,.35);
@@ -264,7 +266,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.15';
+const VERSION = 'v1.16';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2391,11 +2393,14 @@ function drawBoard(anim){
   placeTag();
 }
 // the little reason label next to the square you tried
+$('tag').addEventListener('pointerdown',e=>e.stopPropagation());
+$('tag').addEventListener('click',()=>{ if(B.tag&&B.tag.why&&msgAct.why) msgAct.why(); });
 function placeTag(){
   const el=$('tag');
   if(!B.tag){ el.className='tag'; return; }
   const [x,y]=sqCenter(B.tag.sq);
-  el.textContent=B.tag.text; el.className='tag show '+B.tag.level;
+  el.innerHTML=esc(B.tag.text)+(B.tag.why?'<span class="tw">▶ Why?</span>':'');
+  el.className='tag show '+B.tag.level+(B.tag.why?' why':'');
   el.style.left=Math.max(14,Math.min(86,x/8))+'%';
   if(y<150){ el.style.top=(y/8+6)+'%'; el.style.transform='translate(-50%,0)'; }
   else { el.style.top=(y/8-6)+'%'; el.style.transform='translate(-50%,-100%)'; }
@@ -2578,7 +2583,7 @@ function startLearn(ln){
     if(m.from===want.from&&m.to===want.to){ learnGo(ply+1,true); B.tag={sq:want.to,text:'✓ Correct',level:'good'}; placeTag(); return; }
     const before=B.pos, k0=ply, j=judgeMove(before,m,k0,line);
     if(!j.ok) sndBad();
-    const showIt=()=>{ learnGo(k0); B.tried={from:m.from,to:m.to,level:j.level}; B.tag={sq:m.to,text:j.short,level:j.level};
+    const showIt=()=>{ learnGo(k0); B.tried={from:m.from,to:m.to,level:j.level}; B.tag={sq:m.to,text:j.short,level:j.level,why:!!j.pv};
       if(j.ok) B.arrow={from:want.from,to:want.to}; drawBoard();
       setMsgs([j.msg],j.ok?'Play '+line.moves[k0].san+' (green arrow), or tap ▶.':'Try again, or tap ▶ to see the move.'); };
     if(j.pv) msgAct.why=()=>replayWhy(before,j.pv,k0,line,showIt,j.loss);
@@ -2691,7 +2696,7 @@ function practiceMove(m){
   if(!j.ok) sndBad();
   const showIt=()=>{
     B.pos=before; B.wrong=-1; B.last=k0?line.moves[k0-1].m:null; B.hint=-1;
-    B.tried={from:m.from,to:m.to,level:j.level}; B.tag={sq:m.to,text:j.short,level:j.level};
+    B.tried={from:m.from,to:m.to,level:j.level}; B.tag={sq:m.to,text:j.short,level:j.level,why:!!j.pv};
     B.arrow=j.ok?{from:want.m.from,to:want.m.to}:null; drawBoard();
     pr.msgs=[j.msg]; setMsgs(pr.msgs,j.ok?'Play '+want.san+' (green arrow).':'Try again, or tap 👀 Show.'); pr.busy=false;
   };
