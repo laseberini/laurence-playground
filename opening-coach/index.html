@@ -102,8 +102,9 @@
   .mini{padding:8px 10px;border-radius:10px;border:1px solid var(--line);font-size:13px;font-weight:600;background:var(--bg)}
 
   /* board screen */
-  .bhead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-  .bhead .t{font-weight:700;font-size:17px;line-height:1.2}
+  .bhead{display:flex;align-items:center;gap:10px;margin:-6px 0 6px}
+  .bhead .t{font-weight:700;font-size:16px;line-height:1.2}
+  .bhead .iconbtn{width:36px;height:36px;font-size:17px}
   .bhead .m{font-size:13px;color:var(--muted)}
   /* each mode has its own colour: blue to learn, orange to practise */
   .modepill{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.6px;color:#fff;border-radius:7px;padding:2px 7px;margin-right:7px;vertical-align:2px}
@@ -113,7 +114,7 @@
   #play[data-mode=practice] .board{box-shadow:0 0 0 4px #d97706,0 2px 10px rgba(0,0,0,.18)}
   #play[data-mode] .bwrap{padding:4px}
   #play:not([data-mode=learn]):not([data-mode=practice]) .modepill{display:none}
-  .play{display:grid;grid-template-columns:1fr;gap:12px}
+  .play{display:grid;grid-template-columns:1fr;gap:8px}
   @media (min-width:820px){ .play{grid-template-columns:minmax(0,520px) 1fr;align-items:start} }
   .bwrap{position:relative;width:100%;max-width:520px;margin:0 auto;touch-action:none;user-select:none;-webkit-user-select:none}
   .board{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:repeat(8,minmax(0,1fr));aspect-ratio:1/1;border-radius:8px;overflow:hidden;
@@ -170,8 +171,9 @@
   .bwrap.shake{animation:shake .35s}
   @keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
 
-  .panel{display:flex;flex-direction:column;gap:10px}
-  .thinkbox{background:#6b4fe0;color:#fff;border-radius:12px;padding:9px 12px;font-size:15px;line-height:1.4;margin-top:10px}
+  .panel{display:flex;flex-direction:column;gap:8px}
+  .panel>.card{padding:10px 12px}
+  .thinkbox{background:#6b4fe0;color:#fff;border-radius:12px;padding:7px 11px;font-size:14.5px;line-height:1.35;margin-top:8px}
   .thinkbox .th{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
   .thinkbox .th b{font-size:14px}
   .tgl.sm{gap:6px;font-size:12px;font-weight:600}
@@ -181,11 +183,11 @@
   .thinkbox .tgl input:checked+.sw{background:rgba(255,255,255,.35)}
   .thinkoff{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding:7px 12px;border:1px dashed var(--line);
             border-radius:12px;color:var(--muted);font-size:14px;font-weight:600}
-  #topbar .prompt{margin-top:10px}
-  .msgs{display:flex;flex-direction:column;gap:8px}
-  .msg{border-left:4px solid var(--line);padding:2px 0 2px 10px}
-  .msg .h{font-weight:700;font-size:15px}
-  .msg .x{font-size:15px}
+  #topbar .prompt{margin-top:8px}
+  .msgs{display:flex;flex-direction:column;gap:6px}
+  .msg{border-left:4px solid var(--line);padding:1px 0 1px 10px}
+  .msg .h{font-weight:700;font-size:14.5px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .msg .x{font-size:14.5px;line-height:1.35}
   .msg.good{border-color:var(--good)} .msg.good .h{color:var(--good)}
   .msg.bad{border-color:var(--bad)} .msg.bad .h{color:var(--bad)}
   .msg.opp{border-color:var(--muted)}
@@ -195,7 +197,7 @@
   .msg.think .h{color:#7b61ff}
   .prompt{font-size:14px;font-weight:650;color:var(--accent)}
   .msg .why{margin-top:8px;min-height:38px;padding:8px 14px;font-size:14px}
-  .msg .why.sm{min-height:32px;padding:5px 11px;font-size:13px;margin-top:6px}
+  .msg .why.sm{min-height:28px;padding:3px 10px;font-size:13px;margin:0;flex:none}
   #exBody h3{margin-bottom:4px}
   #exBody h4{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:14px 0 6px}
   #exBody p,#exBody li{font-size:15px;color:var(--ink)}
@@ -213,7 +215,7 @@
   .tgl .sw{width:44px;height:26px;border-radius:13px;background:var(--line);position:relative;transition:background .15s;flex:none}
   .tgl .sw::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .15s}
   .tgl input:checked+.sw{background:#6b4fe0} .tgl input:checked+.sw::after{left:21px}
-  .ctrls .btn{flex:1;padding:12px 8px;white-space:nowrap}
+  .ctrls .btn{flex:1;padding:8px;min-height:40px;white-space:nowrap}
   .moves{font-size:14px;color:var(--muted);line-height:1.9}
   .moves span{padding:2px 5px;border-radius:6px;cursor:pointer;white-space:nowrap}
   .moves span.cur{background:var(--accent);color:var(--accent-ink)}
@@ -287,7 +289,7 @@
     <div class="panel">
       <div id="learnPick"><select id="lineSel"></select></div>
       <div class="ctrls" id="ctrls"></div>
-      <div class="card" style="min-height:110px"><div class="msgs" id="msgs"></div><div id="topbar"></div></div>
+      <div class="card" style="min-height:90px"><div class="msgs" id="msgs"></div><div id="topbar"></div></div>
       <div class="card moves" id="moves"></div>
     </div>
   </div>
@@ -342,7 +344,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.37';
+const VERSION = 'v1.38';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2702,13 +2704,15 @@ function renderTop(){   // under the move notes: the Think box (with its on/off 
   let h='';
   if(B.think&&B.think.text) h+=`<div class="thinkbox"><div class="th"><b>🤔 Think</b>${sw(true)}</div>${esc(B.think.text)}</div>`;
   else if(yourTurn&&!thinkOn()) h+=`<div class="thinkoff"><span>🤔 Think tips off</span>${sw(false)}</div>`;
-  $('topbar').innerHTML=h+(lastPrompt?'<div class="prompt">'+esc(lastPrompt)+'</div>':'');
+  const p=lastPrompt&&!(B.think&&B.think.text&&lastPrompt==='Your move.')?lastPrompt:'';
+  $('topbar').innerHTML=h+(p?'<div class="prompt">'+esc(p)+'</div>':'');
 }
 $('topbar').addEventListener('change',e=>{ if(e.target.classList.contains('tgl-in')){ data.thinkOn=e.target.checked; save(); showThink(); } });
 function setMsgs(list,prompt){
   lastPrompt=prompt||''; renderTop();
-  $('msgs').innerHTML=list.map(m=>`<div class="msg ${m.k}"><div class="h">${esc(m.h)}</div>${m.x?`<div class="x">${esc(m.x)}</div>`:''}`
-    +(m.btn?`<button class="btn ghost why ${m.btn[2]||''}" data-act="${m.btn[0]}">${esc(m.btn[1])}</button>`:'')+`</div>`).join('');
+  const bt=m=>`<button class="btn ghost why ${m.btn[2]||''}" data-act="${m.btn[0]}">${esc(m.btn[1])}</button>`;
+  $('msgs').innerHTML=list.map(m=>{ const inl=m.btn&&m.btn[2]==='sm';
+    return `<div class="msg ${m.k}"><div class="h"><span>${esc(m.h)}</span>${inl?bt(m):''}</div>${m.x?`<div class="x">${esc(m.x)}</div>`:''}`+(m.btn&&!inl?bt(m):'')+`</div>`; }).join('');
 }
 $('msgs').addEventListener('click',e=>{ const b=e.target.closest('[data-act]'); if(b&&msgAct[b.dataset.act]) msgAct[b.dataset.act](); });
 const msgAct={};
