@@ -112,6 +112,7 @@
   #play[data-mode=learn] .board{box-shadow:0 0 0 4px #2563eb,0 2px 10px rgba(0,0,0,.18)}
   #play[data-mode=practice] .board{box-shadow:0 0 0 4px #d97706,0 2px 10px rgba(0,0,0,.18)}
   #play[data-mode] .bwrap{padding:4px}
+  #play:not([data-mode=learn]):not([data-mode=practice]) .modepill{display:none}
   .play{display:grid;grid-template-columns:1fr;gap:12px}
   @media (min-width:820px){ .play{grid-template-columns:minmax(0,520px) 1fr;align-items:start} }
   .bwrap{position:relative;width:100%;max-width:520px;margin:0 auto;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -199,6 +200,11 @@
   #exBody .asknote{font-size:12px;color:var(--muted);margin-top:6px}
   .msg.replay{border-color:var(--bad)} .msg.replay .h{color:var(--bad)}
   .ctrls{display:flex;gap:8px}
+  .tgl{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;cursor:pointer;padding:2px 2px}
+  .tgl input{display:none}
+  .tgl .sw{width:44px;height:26px;border-radius:13px;background:var(--line);position:relative;transition:background .15s;flex:none}
+  .tgl .sw::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .15s}
+  .tgl input:checked+.sw{background:#6b4fe0} .tgl input:checked+.sw::after{left:21px}
   .ctrls .btn{flex:1;padding:12px 8px;white-space:nowrap}
   .moves{font-size:14px;color:var(--muted);line-height:1.9}
   .moves span{padding:2px 5px;border-radius:6px;cursor:pointer;white-space:nowrap}
@@ -251,7 +257,6 @@
   <div class="row"><span id="chIco" style="font-size:30px"></span><div class="grow"><h1 id="chName" style="font-size:23px"></h1><p class="sub" id="chSide"></p></div></div>
   <p class="intro" id="chIntro"></p>
   <div class="actions"><button class="btn big" id="chPlay"></button></div>
-  <button class="linkbtn" id="chBrowse">📖 Browse a line</button>
 
 </section>
 
@@ -275,6 +280,7 @@
       <div id="learnPick"><select id="lineSel"></select></div>
       <div class="card" style="min-height:110px"><div class="msgs" id="msgs"></div><div id="topbar"></div></div>
       <div class="ctrls" id="ctrls"></div>
+      <label class="tgl"><input type="checkbox" id="thinkTgl"><span class="sw"></span>🤔 Think tips</label>
       <div class="card moves" id="moves"></div>
     </div>
   </div>
@@ -329,7 +335,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.32';
+const VERSION = 'v1.33';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2374,7 +2380,7 @@ const byId=Object.fromEntries(BOOK.map(c=>[c.id,c]));
 // ================= saved progress =================
 const KEY='opening-coach';
 const DAY=864e5, GAPS=[0,1,2,4,8,16];   // days until the next review, per box
-let data={lines:{},seen:{},sound:true,tab:'w'};   // seen: lines stepped through to the end in Learn
+let data={lines:{},seen:{},sound:true,tab:'w',thinkOn:true};   // seen: lines stepped through to the end in Learn
 function load(){ try{ const d=JSON.parse(localStorage.getItem(KEY)||'null'); if(d&&d.lines) data=Object.assign(data,d); }catch(e){} if(!data.seen) data.seen={}; }
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(data)); }catch(e){} }
 load();
@@ -2637,10 +2643,7 @@ function pickPlay(pool){
   if(fresh.length) return fresh[Math.floor(Math.random()*fresh.length)];
   return pickSurprise(pool);
 }
-function startPlay(pool,home){
-  const ln=pickPlay(pool);
-  if(!known(ln)) startLearn(ln,null,{pool,home}); else startPractice(ln,'chapter',[],{pool,home});
-}
+function startPlay(pool,home){ startPractice(pickPlay(pool),'chapter',[],{pool,home}); }
 // learn: a line you don't know yet, picked at random
 function pickLearn(lines){
   let pool=lines.filter(l=>!isSeen(l)&&l!==lastLine);
@@ -2651,7 +2654,6 @@ function pickLearn(lines){
 }
 $('chBack').onclick=goBack;
 $('chPlay').onclick=()=>startPlay(curCh.lines,false);
-$('chBrowse').onclick=()=>startLearn(curCh.lines[0]);
 $('pBack').onclick=goBack;
 
 // surprise: the opponent picks the line (weak and due ones more often), and its name stays hidden
@@ -2800,6 +2802,16 @@ document.addEventListener('keydown',e=>{
   if(e.key==='ArrowRight') learnGo(ply+1,true); if(e.key==='ArrowLeft') learnGo(ply-1);
 });
 
+// ---------- Think tips: shown on each of your moves unless switched off ----------
+const thinkOn=()=>data.thinkOn!==false;
+function showThink(){
+  B.think=thinkOn()&&mode!=='learn'&&line&&ply<line.moves.length&&B.pos.turn===line.ch.side
+    ?{text:line.moves[ply].think,sq:ply?line.moves[ply-1].m.to:-1}:null;
+  renderTop();
+}
+$('thinkTgl').checked=thinkOn();
+$('thinkTgl').addEventListener('change',e=>{ data.thinkOn=e.target.checked; save(); if(pr&&!pr.busy&&!pr.done) showThink(); });
+
 // ---------- practise: you play your side, the coach plays theirs ----------
 let pr=null;   // {queue, mistakes, slipped (this move), hint, busy, msgs}
 function startReview(){
@@ -2812,7 +2824,7 @@ function startReview(){
   startPractice(q[0],'review',q.slice(1));
 }
 function startPractice(ln,how,queue,sur){
-  stopTimers(); mode=how==='review'?'review':'practice'; $('play').dataset.mode='practice'; line=ln; lastLine=ln; ply=0; boardFor(ln);
+  stopTimers(); mode=how==='review'?'review':'practice'; $('play').dataset.mode=''; line=ln; lastLine=ln; ply=0; boardFor(ln);
   const hide=!!(sur&&!sur.show);
   pr={queue:queue||[],mistakes:0,slipped:false,hint:0,busy:false,msgs:[],done:false,sur:sur||null,hide,home:!!(sur&&sur.home)};
   $('pTitle').textContent=sur?(sur.home?'Play all':ln.ch.name):mode==='review'?'Review':ln.ch.name;
@@ -2826,15 +2838,15 @@ function startPractice(ln,how,queue,sur){
   show('play'); sizeBoard(); drawBoard(); renderMoves(0);
   const you=line.ch.side;
   if(hide){
-    pr.msgs=[{k:'info',h:'🎯 Which line will it be?',x:'You play '+sideName(you)+'. The opponent picks, like in a real game. You\'ll find out which line it was at the end.'}];
-    $('bnK').textContent='🎯 Practise'; $('bnN').textContent='Which line will it be?'; $('bnS').textContent='The opponent picks';
+    pr.msgs=[{k:'info',h:'▶ Which line will it be?',x:'You play '+sideName(you)+'. The opponent picks, like in a real game. You\'ll find out which line it was at the end.'}];
+    $('bnK').textContent='▶ New game'; $('bnN').textContent='Which line will it be?'; $('bnS').textContent='The opponent picks';
     $('banner').classList.add('show'); clearTimeout(bannerT); bannerT=setTimeout(()=>$('banner').classList.remove('show'),1800);
   } else {
     pr.msgs=[{k:'info',h:'New line: '+line.title,x:(line.when?line.when+'. ':'')+'You play '+sideName(you)+'. '+(you==='w'?'Make your first move.':'White moves first. Find the right answer to what they play.')}];
     announce('🎯 New line',ln);
   }
   if(you==='b'){ pr.busy=true; setMsgs(pr.msgs); later(opponentMove,2000); }
-  else setMsgs(pr.msgs,'Your move. Stuck? Tap 🤔 Nudge.');
+  else { setMsgs(pr.msgs,'Your move. Stuck? Tap 🤔 Nudge.'); showThink(); }
 }
 function applyPly(){
   const mv=line.moves[ply];
@@ -2848,7 +2860,7 @@ function opponentMove(){
   pr.msgs.push({k:'opp',h:sideName(opp)+' plays '+plyLabel(ply-1,mv.san),x:mv.c});
   pr.busy=false;
   if(ply>=line.moves.length) return finish();
-  setMsgs(pr.msgs,'Your move. Stuck? Tap 🤔 Nudge.');
+  setMsgs(pr.msgs,'Your move. Stuck? Tap 🤔 Nudge.'); showThink();
 }
 function practiceMove(m){
   const want=line.moves[ply];
@@ -2869,7 +2881,7 @@ function practiceMove(m){
   const showIt=()=>{
     B.pos=before; B.wrong=-1; B.last=k0?line.moves[k0-1].m:null; B.hint=-1;
     B.tried={from:m.from,to:m.to,level:j.level}; B.tag={sq:m.to,text:j.short,level:j.level,why:!!j.pv&&!j.watched};
-    B.arrow=j.ok?{from:want.m.from,to:want.m.to}:null; drawBoard();
+    B.arrow=j.ok?{from:want.m.from,to:want.m.to}:null; drawBoard(); if(!j.ok) B.think=thinkOn()?{text:want.think,sq:-1}:null;
     pr.msgs=[j.watched?Object.assign({},j.msg,{btn:null}):j.msg]; setMsgs(pr.msgs,j.ok?'Play '+want.san+' (green arrow).':'Try again, or tap 👀 Show.'); pr.busy=false;
   };
   if(j.pv) msgAct.why=()=>{ j.watched=true; replayWhy(before,j.pv,k0,line,showIt,j.loss); };
@@ -2944,6 +2956,7 @@ function replayWhy(before,pv,k,ln,onBack,loss){
 function hint(){
   if(pr.busy||pr.done||B.pos.turn!==line.ch.side) return;
   const want=line.moves[ply]; B.tried=null; B.tag=null; drawBoard();
+  if(pr.hint===0&&thinkOn()) pr.hint=1;   // the Think tip is already on screen
   pr.hint=Math.min(3,pr.hint+1);
   if(pr.hint>=2&&!pr.slipped){ pr.mistakes++; pr.slipped=true; }
   const think={k:'think',h:'🤔 Think',x:want.think||'What is the most useful move here?'};
@@ -2974,11 +2987,10 @@ function finish(){
   setMsgs(pr.msgs);
   renderMoves(ply);
   const hasNext=!!nextLn||!!sur;
-  $('ctrls').innerHTML=`<button class="btn ghost" id="fAgain">↺ Again</button><button class="btn ghost" id="fLearn">📖 Learn</button>`
+  $('ctrls').innerHTML=`<button class="btn ghost" id="fAgain">↺ Again</button>`
     +(hasNext?`<button class="btn" id="fNext">${sur?'Next ▶':learnFirst?'Learn next ▶':'Next line ▶'}</button>`:`<button class="btn" id="fHome">Finished ✓</button>`);
   $('fAgain').onclick=()=>startPractice(line,mode==='review'?'review':'chapter',pr.queue,sur);
-  if(sur){ $('fNext').onclick=()=>startPlay(sur.pool,sur.home); $('fLearn').onclick=()=>{ curCh=line.ch; startLearn(line); }; return; }
-  $('fLearn').onclick=()=>startLearn(line);
+  if(sur){ $('fNext').onclick=()=>startPlay(sur.pool,sur.home); return; }
   if(hasNext) $('fNext').onclick=()=>{ if(mode==='review') startPractice(pr.queue[0],'review',pr.queue.slice(1)); else if(learnFirst) startLearn(nextLn); else startPractice(nextLn,'chapter'); };
   else $('fHome').onclick=goBack;
 }
