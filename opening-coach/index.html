@@ -335,7 +335,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.34';
+const VERSION = 'v1.35';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2608,7 +2608,7 @@ function renderHome(){
 }
 $('chapList').addEventListener('click',e=>{
   const s=e.target.closest('[data-sur]'); if(s) return startPlay(ALL.filter(l=>l.ch.group===s.dataset.sur),true);
-  const b=e.target.closest('[data-ch]'); if(b) openChapter(b.dataset.ch); });
+  const b=e.target.closest('[data-ch]'); if(b){ curCh=byId[b.dataset.ch]; startPlay(curCh.lines,true); } });   // tap an opening: straight into a game
 $('tabW').onclick=()=>{ data.tab='w'; save(); renderHome(); };
 $('tabB').onclick=()=>{ data.tab='b'; save(); renderHome(); };
 $('reviewBtn').onclick=()=>startReview();
