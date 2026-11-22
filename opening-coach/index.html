@@ -253,13 +253,13 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.10';
+const VERSION = 'v1.11';
 
 /*BOOK-START*/
 const BOOK = [
 /* ================= WHITE ================= */
 {id:'italian', side:'w', group:'You play White: 1.e4', icon:'🇮🇹', name:'Italian Game', blurb:'Your answer to 1...e5',
-intro:'Get your pieces out fast, castle, and aim a bishop at the weak square next to Black\'s king. Plus a few traps Black players fall into.',
+intro:'Your plan when Black copies your first pawn move. Get your pieces out fast, castle, and aim a bishop at the square next to Black\'s king, which only the king protects. You\'ll also learn traps that players at your level often fall into.',
 lines:[
 {name:'Giuoco Piano (3...Bc5)', pgn:`e4 {Take the centre and open paths for your queen and bishop.}
  e5 {Black takes their share of the centre.}
@@ -381,7 +381,7 @@ lines:[
 ]},
 
 {id:'sicilian', side:'w', group:'You play White: 1.e4', icon:'⚔️', name:'vs Sicilian (Alapin)', blurb:'Answer 1...c5 with 2.c3',
-intro:'Skip Black\'s tricky theory with a simple plan: prepare, then put two pawns side by side in the centre.',
+intro:'Black answers with a side pawn, and Sicilian fans often know lots of tricky theory. Skip it with a simple plan: one small pawn move to prepare, then put two pawns side by side in the centre.',
 lines:[
 {name:'Queen comes out (2...d5)', key:'2...d5', pgn:`e4 {Take the centre.}
  c5 {The Sicilian: Black fights for d4 from the side.}
@@ -479,7 +479,7 @@ lines:[
 ]},
 
 {id:'french', side:'w', group:'You play White: 1.e4', icon:'🥖', name:'vs French (Advance)', blurb:'Answer 1...e6 with 3.e5',
-intro:'Push your centre pawn forward to grab space and lock in one of Black\'s bishops. Then keep your pawn chain well protected.',
+intro:'Black builds a wall of pawns and attacks your centre pawn. Push it one square further to grab space, which also locks in one of Black\'s bishops. Then keep the back of your pawn chain well protected.',
 lines:[
 {name:'Main line (5...Qb6)', pgn:`e4 {Take the centre.}
  e6 {The French: Black prepares ...d5.}
@@ -527,7 +527,7 @@ lines:[
 ]},
 
 {id:'caro', side:'w', group:'You play White: 1.e4', icon:'🧱', name:'vs Caro-Kann (Advance)', blurb:'Answer 1...c6 with 3.e5',
-intro:'A very solid defence. Grab space with your centre pawn, then calmly get your pieces out and castle.',
+intro:'A very solid defence that rarely falls for quick tricks. Push your centre pawn forward to grab space, then calmly get your pieces out and castle. Your extra room makes the game easier.',
 lines:[
 {name:'Main line (3...Bf5)', key:'3...Bf5', pgn:`e4 {Take the centre.}
  c6 {The Caro-Kann: Black prepares ...d5 and stays very solid.}
@@ -566,7 +566,7 @@ lines:[
 ]},
 
 {id:'scandi', side:'w', group:'You play White: 1.e4', icon:'❄️', name:'vs Scandinavian', blurb:'Answer 1...d5',
-intro:'Take the pawn. When Black\'s queen takes back, bring your pieces out while chasing her around.',
+intro:'Black attacks your centre pawn straight away, so take it. When Black\'s queen takes back, bring your pieces out while attacking her, so she keeps wasting moves running away.',
 lines:[
 {name:'Queen to a5 (3...Qa5)', key:'3...Qa5', pgn:`e4 {Take the centre.}
  d5 {The Scandinavian: Black attacks e4 at once.}
@@ -635,7 +635,7 @@ lines:[
 ]},
 
 {id:'pirc', side:'w', group:'You play White: 1.e4', icon:'🏹', name:'vs Pirc & Modern', blurb:'Answer 1...d6 or 1...g6',
-intro:'Black gives you the centre. Take it, line up your queen and bishop, and swap off the bishop guarding Black\'s king.',
+intro:'Black lets you have the centre and plans to attack it later. Take it, line up your queen and bishop, and swap off the bishop that guards Black\'s king. That often leaves the king open.',
 lines:[
 {name:'Pirc (1...d6)', pgn:`e4 {Take the centre.}
  d6 {The Pirc: Black lets you have the centre for now.}
@@ -672,7 +672,7 @@ lines:[
 ]},
 
 {id:'london', side:'w', group:'You play White: 1.d4', icon:'🏰', name:'London System', blurb:'A safe 1.d4 setup',
-intro:'One setup against almost anything: bishop out early, a solid triangle of pawns, then develop and castle.',
+intro:'One setup against almost anything. Get one bishop out early, build a solid triangle of pawns, then develop calmly and castle. Easy to learn, hard for Black to break.',
 lines:[
 {name:'Main line (1...d5)', key:'vs 1...d5', pgn:`d4 {Start with the queen's pawn.}
  d5 {Black copies you.}
@@ -733,7 +733,7 @@ lines:[
 
 /* ================= BLACK ================= */
 {id:'b-italian', side:'b', group:'You play Black vs 1.e4', icon:'🛡️', name:'vs Italian Game', blurb:'1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5',
-intro:'Copy White\'s idea: aim your bishop at their king. Then castle early to keep your own king safe.',
+intro:'Answer the king\'s pawn the same way and guard your centre pawn with a knight. White aims a bishop at the weak square next to your king, so copy the idea and aim yours at theirs. Then castle early.',
 lines:[
 {name:'Slow Italian (4.c3, 5.d3)', pgn:`e4 {White takes the centre.}
  e5 {Take your share of the centre and free your bishop and queen.}
@@ -824,7 +824,7 @@ lines:[
 ]},
 
 {id:'b-ruy', side:'b', group:'You play Black vs 1.e4', icon:'🇪🇸', name:'vs Ruy Lopez', blurb:'1.e4 e5 2.Nf3 Nc6 3.Bb5 a6',
-intro:'White\'s bishop attacks your knight. Ask it to decide with a pawn, then develop, castle, and keep your centre solid.',
+intro:'White\'s bishop attacks the knight that protects your centre pawn. Ask it with a pawn: take or go back? Then develop, castle, and keep your centre pawn solid.',
 lines:[
 {name:'Closed (5.O-O)', key:'Closed (5.O-O Be7)', pgn:`e4 e5 Nf3 Nc6
  Bb5 {The Ruy Lopez: White attacks the knight that defends e5.}
@@ -899,7 +899,7 @@ lines:[
 ]},
 
 {id:'b-scotch', side:'b', group:'You play Black vs 1.e4', icon:'🏴', name:'vs Scotch & Four Knights', blurb:'3.d4 or 3.Nc3',
-intro:'White opens the centre early. Take the pawn and get your pieces out fast. Watch for a neat trick to win a pawn back.',
+intro:'White opens the centre early by pushing a second pawn into the middle. Take it and get your pieces out fast. Against the calmer Four Knights, watch for a neat trick that wins a pawn back.',
 lines:[
 {name:'Scotch: knights swap (3.d4, 5.Nxc6)', key:'Scotch: 5.Nxc6', pgn:`e4 e5 Nf3 Nc6
  d4 {The Scotch: White opens the centre at once.}
@@ -987,7 +987,7 @@ lines:[
 ]},
 
 {id:'b-early', side:'b', group:'You play Black vs 1.e4', icon:'🚨', name:'vs Early attacks', blurb:'Scholar\'s mate, Vienna, King\'s Gambit…',
-intro:'How to block early queen attacks and quick gambits, chase the queen away, and get a good game.',
+intro:'Club players love early queen attacks and quick gambits. Learn to block the threats, chase the queen around, and come out with a good game.',
 lines:[
 {name:'Stop Scholar\'s mate (2.Qh5)', pgn:`e4 e5
  Qh5 {White's queen comes out early, eyeing f7 and e5.}
@@ -1085,7 +1085,7 @@ lines:[
 ]},
 
 {id:'b-qgd', side:'b', group:'You play Black vs 1.d4', icon:'👑', name:'Queen\'s Gambit Declined', blurb:'1.d4 d5 2.c4 e6',
-intro:'Say no to the offered pawn and keep your centre pawn rock solid. Plus the Elephant Trap, which wins a piece.',
+intro:'Push your queen\'s pawn so White can\'t take the whole centre. When White offers a side pawn, say no thanks and keep your centre pawn rock solid. Plus the Elephant Trap, which wins a whole piece.',
 lines:[
 {name:'Main line (4.Bg5)', pgn:`d4 {White takes the centre.}
  d5 {Stop e4 and take your share.}
@@ -1157,7 +1157,7 @@ lines:[
 ]},
 
 {id:'b-london', side:'b', group:'You play Black vs 1.d4', icon:'🎯', name:'vs London & d4 systems', blurb:'1.d4 d5 2.Bf4 and friends',
-intro:'Hit their calm setup early with a side pawn, then develop and castle. Their queenside is the weak spot.',
+intro:'Lots of club players use the London or similar calm setups. Hit back at their centre early with a side pawn, then develop and castle. Their weak spot is on the queen\'s side.',
 lines:[
 {name:'London (4.c3)', pgn:`d4 d5
  Bf4 {The London System.}
@@ -1213,7 +1213,7 @@ lines:[
 ]},
 
 {id:'b-flank', side:'b', group:'You play Black vs 1.d4', icon:'🌀', name:'vs 1.c4 & 1.Nf3', blurb:'English and Réti',
-intro:'White starts on the side. Take the centre with a pawn, get your pieces out and castle.',
+intro:'Sometimes White starts on the side of the board. Just take the centre yourself with a pawn, get your pieces out and castle. Simple, solid chess.',
 lines:[
 {name:'English (1.c4, 2.Nc3)', pgn:`c4 {The English: White fights for d5 from the side.}
  e5 {Take the centre.}
