@@ -156,6 +156,11 @@
   @keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
 
   .panel{display:flex;flex-direction:column;gap:10px}
+  .topbar{min-height:46px;margin-bottom:8px;padding:8px 12px;border-radius:12px;font-size:14px;font-weight:650;line-height:1.35;
+          background:var(--card);border:1px solid var(--line);color:var(--accent);display:flex;align-items:center;max-width:520px}
+  .topbar.think{background:#6b4fe0;border-color:#6b4fe0;color:#fff;font-weight:500}
+  .topbar.think b{font-weight:750;margin-right:5px;white-space:nowrap}
+  @media (min-width:820px){ .topbar{max-width:none} }
   .msgs{display:flex;flex-direction:column;gap:8px;min-height:96px}
   .msg{border-left:4px solid var(--line);padding:2px 0 2px 10px}
   .msg .h{font-weight:700;font-size:15px}
@@ -222,7 +227,7 @@
   <button class="back" id="chBack">‹ All openings</button>
   <div class="row"><span id="chIco" style="font-size:30px"></span><div class="grow"><h1 id="chName" style="font-size:23px"></h1><p class="sub" id="chSide"></p></div></div>
   <p class="intro" id="chIntro"></p>
-  <div class="actions"><button class="btn ghost" id="chLearn">📖 Learn</button><button class="btn" id="chPractise">🎯 Practise</button><button class="btn ghost" id="chSurprise">🎲 Surprise</button></div>
+  <div class="actions"><button class="btn ghost" id="chLearn">📖 Learn</button><button class="btn ghost" id="chPractise">🎯 Practise</button><button class="btn ghost" id="chSurprise">🎲 Surprise</button></div>
   <div class="card" id="chProg"></div>
 </section>
 
@@ -233,6 +238,7 @@
     <div class="grow"><div class="t" id="pTitle"></div><div class="m" id="pMode"></div></div>
     <button class="iconbtn" data-notation aria-label="How to read moves">❓</button>
   </div>
+  <div class="topbar" id="topbar"></div>
   <div class="play">
     <div class="bwrap" id="bwrap">
       <div class="board" id="board"></div>
@@ -294,7 +300,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.20';
+const VERSION = 'v1.21';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2423,6 +2429,7 @@ function drawBoard(anim){
 // the Think bubble, pointing at the piece the other side just moved
 function placeBubble(){
   const el=$('bubble');
+  el.className='bubble'; renderTop(); return;   // Think now lives in the bar above the board
   if(!B.think||!B.think.text){ el.className='bubble'; return; }
   el.innerHTML='<b>🤔 Think</b>'+esc(B.think.text);
   el.style.top=el.style.bottom='';
@@ -2634,10 +2641,17 @@ function pickLine(lines){
 let mode='learn', line=null, ply=0, timers=[];
 const later=(fn,ms)=>timers.push(setTimeout(fn,ms));
 function stopTimers(){ timers.forEach(clearTimeout); timers=[]; }
+// the bar above the board: the Think nudge when there is one, otherwise what to do now
+let lastPrompt='';
+function renderTop(){
+  const el=$('topbar');
+  if(B.think&&B.think.text){ el.className='topbar think'; el.innerHTML='<b>🤔 Think</b> '+esc(B.think.text); }
+  else { el.className='topbar'; el.textContent=lastPrompt||''; }
+}
 function setMsgs(list,prompt){
+  lastPrompt=prompt||''; renderTop();
   $('msgs').innerHTML=list.map(m=>`<div class="msg ${m.k}"><div class="h">${esc(m.h)}</div>${m.x?`<div class="x">${esc(m.x)}</div>`:''}`
-    +(m.btn?`<button class="btn ghost why" data-act="${m.btn[0]}">${esc(m.btn[1])}</button>`:'')+`</div>`).join('')
-    +(prompt?`<div class="prompt">${esc(prompt)}</div>`:'');
+    +(m.btn?`<button class="btn ghost why" data-act="${m.btn[0]}">${esc(m.btn[1])}</button>`:'')+`</div>`).join('');
 }
 $('msgs').addEventListener('click',e=>{ const b=e.target.closest('[data-act]'); if(b&&msgAct[b.dataset.act]) msgAct[b.dataset.act](); });
 const msgAct={};
@@ -2702,7 +2716,7 @@ function learnGo(k,anim){
   if(fwd) sndMove(!!mv[k-1].m.cap);
   drawBoard(fwd?mv[k-1].m:null);
   const you=line.ch.side;
-  if(k===0) setMsgs([lsur?{k:'info',h:'🎲 Mystery line',x:'The opponent picks the line, like a real game. Follow the explanations; you\'ll find out which line it was at the end.'}:{k:'info',h:'New line: '+line.title,x:line.about||line.ch.intro}].concat(you==='w'?[{k:'think',h:'🤔 Think',x:mv[0].think}]:[]),
+  if(k===0) setMsgs([lsur?{k:'info',h:'🎲 Mystery line',x:'The opponent picks the line, like a real game. Follow the explanations; you\'ll find out which line it was at the end.'}:{k:'info',h:'New line: '+line.title,x:line.about||line.ch.intro}],
     'You play '+sideName(you)+'. '+(you==='w'?'Find your first move, or tap ▶.':'Tap ▶ to see White\'s first move.'));
   else{
     const who=(k-1)%2===0?'w':'b', msgs=[];
@@ -2714,7 +2728,7 @@ function learnGo(k,anim){
       msgs.push({k:'done',h:'It was '+line.ch.name+': '+line.title,x:(line.about||'')+' Tap 🎯 to practise it, or 🎲 Next for another surprise.'}); }
     else if(k===mv.length){
       msgs.push({k:'done',h:'End of this line: '+line.title,x:'Tap 🎯 to practise it from memory'+(line.ch.lines.length>1?', or "Next line" for another one.':'.')}); }
-    else if((k%2===0?'w':'b')===you){ msgs.push({k:'think',h:'🤔 Think',x:mv[k].think}); prompt='Your move next. Can you find it? Play it on the board, or tap ▶.'; }
+    else if((k%2===0?'w':'b')===you){ prompt='Your move. Play it on the board, or tap ▶.'; }
     else prompt=fwd?sideName(you==='w'?'b':'w')+' is replying...':'Tap ▶ to see the reply.';
     setMsgs(msgs,prompt);
   }
@@ -2880,13 +2894,13 @@ function hint(){
   const think={k:'think',h:'🤔 Think',x:want.think||'What is the most useful move here?'};
   if(pr.hint===1){
     B.think={text:think.x,sq:ply?line.moves[ply-1].m.to:-1,open:true}; drawBoard();
-    setMsgs(pr.msgs.concat([think]),'Still stuck? Tap 🤔 Nudge again to see which piece to move.');
+    setMsgs(pr.msgs,'Still stuck? Tap 🤔 Nudge again to see which piece to move.');
   } else if(pr.hint===2){
-    B.hint=want.m.from; B.think=null; drawBoard();
-    setMsgs(pr.msgs.concat([think,{k:'info',h:'💡 Piece',x:want.m.castle?'Time to get your king safe.':'Move your '+PNAME[want.m.p.toUpperCase()]+' (the one with the green box).'}]),'Tap 🤔 Nudge once more to see the exact move.');
+    B.hint=want.m.from; if(!B.think) B.think={text:think.x,sq:-1}; drawBoard();
+    setMsgs(pr.msgs.concat([{k:'info',h:'💡 Piece',x:want.m.castle?'Time to get your king safe.':'Move your '+PNAME[want.m.p.toUpperCase()]+' (the one with the green box).'}]),'Tap 🤔 Nudge once more to see the exact move.');
   } else {
-    B.hint=-1; B.arrow={from:want.m.from,to:want.m.to}; drawBoard();
-    setMsgs(pr.msgs.concat([{k:'info',h:'👀 The move is '+want.san,x:'Play it on the board (follow the arrow).'}]));
+    B.hint=-1; B.think=null; B.arrow={from:want.m.from,to:want.m.to}; drawBoard();
+    setMsgs(pr.msgs.concat([{k:'info',h:'👀 The move is '+want.san,x:'Play it on the board (follow the arrow).'}]),'Play '+want.san+' (follow the arrow).');
   }
 }
 function finish(){
