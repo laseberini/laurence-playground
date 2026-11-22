@@ -123,6 +123,18 @@
   .tag{position:absolute;z-index:4;padding:3px 8px;border-radius:8px;font-size:12px;font-weight:700;color:#fff;
        white-space:nowrap;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,.3);display:none}
   .tag.show{display:block}
+  .bubble{position:absolute;z-index:6;width:66%;background:#6b4fe0;color:#fff;border-radius:12px;padding:8px 11px;
+          font-size:13px;line-height:1.35;box-shadow:0 4px 14px rgba(0,0,0,.35);display:none;pointer-events:none;transition:opacity .15s}
+  .bubble.dim{opacity:.15}
+  .bubble.show{display:block}
+  .bubble::after{content:"";position:absolute;left:var(--tx,50%);width:14px;height:14px;background:#6b4fe0;transform:translateX(-50%) rotate(45deg)}
+  .bubble.up::after{top:-6px} .bubble.down::after{bottom:-6px} .bubble.none::after{display:none}
+  .bubble b{display:block;font-size:12px;opacity:.85;margin-bottom:2px}
+  .bcard{position:absolute;left:5%;right:5%;bottom:4%;z-index:7;display:none;align-items:center;gap:10px;
+         background:var(--card);color:var(--ink);border-left:5px solid var(--bad);border-radius:12px;padding:10px 10px 10px 12px;
+         box-shadow:0 6px 18px rgba(0,0,0,.35);font-size:14px;font-weight:700}
+  .bcard.show{display:flex}
+  .bcard .btn{min-height:40px;padding:8px 14px;flex:none}
   .tag.why{pointer-events:auto;cursor:pointer;font-size:13px;padding:5px 6px 5px 9px}
   .tag .tw{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:6px;background:rgba(255,255,255,.25)}
   .tag.good{background:#2e8b57} .tag.weak{background:#c98a12} .tag.bad{background:#d64541}
@@ -221,6 +233,8 @@
       <div class="board" id="board"></div>
       <svg class="arrows" id="arrows" viewBox="0 0 800 800"></svg>
       <div class="tag" id="tag"></div>
+      <div class="bubble" id="bubble"></div>
+      <div class="bcard" id="bcard"><div class="grow" id="bcT"></div><button class="btn" id="bcB">↺ Back</button></div>
       <div class="banner" id="banner"><div class="k" id="bnK"></div><div class="n" id="bnN"></div><div class="s" id="bnS"></div></div>
     </div>
     <div class="panel">
@@ -266,7 +280,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.16';
+const VERSION = 'v1.17';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2349,7 +2363,7 @@ const sndWin=()=>beep([523,659,784,1047],.12,'sine',.07);
 const $=id=>document.getElementById(id);
 const GLYPH={K:'♚',Q:'♛',R:'♜',B:'♝',N:'♞',P:'♟'};
 const boardEl=$('board'), wrap=$('bwrap'), arrowsEl=$('arrows');
-const B={pos:startPos(),flip:false,last:null,sel:-1,targets:[],hint:-1,wrong:-1,arrow:null,tried:null,tag:null,canMove:()=>false,onMove:null};
+const B={pos:startPos(),flip:false,last:null,sel:-1,targets:[],hint:-1,wrong:-1,arrow:null,tried:null,tag:null,think:null,canMove:()=>false,onMove:null};
 // arrow colours: green = right / just as good, yellow = weaker, red = mistake
 const ARROW={good:'var(--arrow)',weak:'rgba(224,169,27,.92)',bad:'rgba(214,60,55,.9)'};
 const sqEls=[];
@@ -2390,8 +2404,26 @@ function drawBoard(anim){
       <polygon points="${x2-ux*8},${y2-uy*8} ${hx-uy*34},${hy+ux*34} ${hx+uy*34},${hy-ux*34}" fill="${col}"/>`;
   };
   arrowsEl.innerHTML=(B.tried?arrow(B.tried,ARROW[B.tried.level]):'')+(B.arrow?arrow(B.arrow,ARROW.good):'');
-  placeTag();
+  placeTag(); placeBubble();
 }
+// the Think bubble, pointing at the piece the other side just moved
+function placeBubble(){
+  const el=$('bubble');
+  if(!B.think||!B.think.text){ el.className='bubble'; return; }
+  el.innerHTML='<b>🤔 Think</b>'+esc(B.think.text);
+  el.style.top=el.style.bottom='';
+  const dim=(B.sel>=0||drag)?' dim':'';
+  if(B.think.sq<0){ el.style.left='17%'; el.style.top='36%'; el.className='bubble show none'+dim; return; }
+  const [x,y]=sqCenter(B.think.sq), xp=x/8, yp=y/8, left=Math.max(1,Math.min(33,xp-33));
+  el.style.left=left+'%'; el.style.setProperty('--tx',((xp-left)/66*100)+'%');
+  if(yp<50){ el.style.top=(yp+7)+'%'; el.className='bubble show up'+dim; }
+  else { el.style.bottom=(100-yp+7)+'%'; el.className='bubble show down'+dim; }
+}
+// taps go straight through the bubble to the board; it fades while you hold a piece
+// the card on the board at the end of a See why
+function boardCard(text){ $('bcT').textContent=text; $('bcard').classList.toggle('show',!!text); }
+$('bcard').addEventListener('pointerdown',e=>e.stopPropagation());
+$('bcB').addEventListener('click',()=>{ if(msgAct.back) msgAct.back(); });
 // the little reason label next to the square you tried
 $('tag').addEventListener('pointerdown',e=>e.stopPropagation());
 $('tag').addEventListener('click',()=>{ if(B.tag&&B.tag.why&&msgAct.why) msgAct.why(); });
@@ -2565,7 +2597,7 @@ function announce(kind,ln){
 }
 $('banner').onclick=()=>$('banner').classList.remove('show');
 const lineTag=ln=>'Line '+(ln.idx+1)+' of '+ln.ch.lines.length+': '+ln.title;
-function boardFor(lineObj){ B.flip=lineObj.ch.side==='b'; B.sel=-1; B.targets=[]; B.hint=-1; B.wrong=-1; B.arrow=null; B.tried=null; B.tag=null; }
+function boardFor(lineObj){ B.flip=lineObj.ch.side==='b'; B.sel=-1; B.targets=[]; B.hint=-1; B.wrong=-1; B.arrow=null; B.tried=null; B.tag=null; B.think=null; boardCard(''); }
 
 // ---------- learn: step through a line with explanations ----------
 function startLearn(ln){
@@ -2583,7 +2615,7 @@ function startLearn(ln){
     if(m.from===want.from&&m.to===want.to){ learnGo(ply+1,true); B.tag={sq:want.to,text:'✓ Correct',level:'good'}; placeTag(); return; }
     const before=B.pos, k0=ply, j=judgeMove(before,m,k0,line);
     if(!j.ok) sndBad();
-    const showIt=()=>{ learnGo(k0); B.tried={from:m.from,to:m.to,level:j.level}; B.tag={sq:m.to,text:j.short,level:j.level,why:!!j.pv};
+    const showIt=()=>{ learnGo(k0); B.think=null; B.tried={from:m.from,to:m.to,level:j.level}; B.tag={sq:m.to,text:j.short,level:j.level,why:!!j.pv};
       if(j.ok) B.arrow={from:want.from,to:want.to}; drawBoard();
       setMsgs([j.msg],j.ok?'Play '+line.moves[k0].san+' (green arrow), or tap ▶.':'Try again, or tap ▶ to see the move.'); };
     if(j.pv) msgAct.why=()=>replayWhy(before,j.pv,k0,line,showIt,j.loss);
@@ -2595,7 +2627,8 @@ $('lineSel').onchange=e=>startLearn(line.ch.lines[+e.target.value]);
 function learnGo(k,anim){
   stopTimers();
   k=Math.max(0,Math.min(line.moves.length,k)); const fwd=anim&&k===ply+1; ply=k;
-  const mv=line.moves; B.sel=-1; B.targets=[]; B.arrow=null; B.tried=null; B.tag=null;
+  const mv=line.moves; B.sel=-1; B.targets=[]; B.arrow=null; B.tried=null; B.tag=null; boardCard('');
+  B.think=k<mv.length&&(k%2===0?'w':'b')===line.ch.side?{text:mv[k].think,sq:k?mv[k-1].m.to:-1}:null;
   B.pos=k<mv.length?mv[k].pos:makeMove(mv[k-1].pos,mv[k-1].m);
   B.last=k?mv[k-1].m:null;
   if(fwd) sndMove(!!mv[k-1].m.cap);
@@ -2667,7 +2700,7 @@ function startPractice(ln,how,queue,sur){
 }
 function applyPly(){
   const mv=line.moves[ply];
-  B.pos=makeMove(mv.pos,mv.m); B.last=mv.m; B.arrow=null; B.hint=-1; B.wrong=-1; B.tried=null; B.tag=null;
+  B.pos=makeMove(mv.pos,mv.m); B.last=mv.m; B.arrow=null; B.hint=-1; B.wrong=-1; B.tried=null; B.tag=null; B.think=null;
   sndMove(!!mv.m.cap); drawBoard(mv.m); ply++; renderMoves(ply);
 }
 function opponentMove(){
@@ -2681,7 +2714,7 @@ function opponentMove(){
 }
 function practiceMove(m){
   const want=line.moves[ply];
-  B.tried=null; B.tag=null;
+  B.tried=null; B.tag=null; B.think=null;
   if(m.from===want.m.from&&m.to===want.m.to){
     applyPly(); sndGood(); B.tag={sq:want.m.to,text:'✓ Correct',level:'good'}; placeTag();
     pr.msgs=[{k:'good',h:(pr.slipped?'That\'s it: ':'✓ Correct: ')+plyLabel(ply-1,want.san),x:want.c}];
@@ -2754,7 +2787,7 @@ function judgeMove(before,m,k,ln){
 // play the punishing line on the board, then come back
 function replayWhy(before,pv,k,ln,onBack,loss){
   stopTimers(); if(mode!=='learn') pr.busy=true;
-  B.pos=before; B.arrow=null; B.tried=null; B.tag=null; B.hint=-1; B.wrong=-1; B.last=null; drawBoard();
+  B.pos=before; B.arrow=null; B.tried=null; B.tag=null; B.think=null; B.hint=-1; B.wrong=-1; B.last=null; boardCard(''); drawBoard();
   let pos=before, i=0, txt='';
   const step=()=>{
     const m=playUci(pos,pv[i]); if(!m) return end();
@@ -2763,8 +2796,9 @@ function replayWhy(before,pv,k,ln,onBack,loss){
     setMsgs([{k:'replay',h:'▶ Watch what happens',x:txt.trim()}]);
     i++; if(i<pv.length) later(step,1200); else later(end,900);
   };
-  const end=()=>{ setMsgs([{k:'replay',h:'That\'s why: '+costWords(before,pv,ln.ch.side,loss)+'.',x:txt.trim(),btn:['back','↺ Back to the position']}]); };
-  msgAct.back=()=>{ stopTimers(); onBack(); };
+  const end=()=>{ const w='That\'s why: '+costWords(before,pv,ln.ch.side,loss)+'.';
+    boardCard(w); setMsgs([{k:'replay',h:w,x:txt.trim(),btn:['back','↺ Back to the position']}]); };
+  msgAct.back=()=>{ stopTimers(); boardCard(''); onBack(); };
   later(step,500);
 }
 // Nudge, step by step: 1) a thinking clue (free), 2) which piece (counts as a slip), 3) the exact move.
@@ -2775,9 +2809,10 @@ function hint(){
   if(pr.hint>=2&&!pr.slipped){ pr.mistakes++; pr.slipped=true; }
   const think={k:'think',h:'🤔 Think',x:want.think||'What is the most useful move here?'};
   if(pr.hint===1){
+    B.think={text:think.x,sq:ply?line.moves[ply-1].m.to:-1}; drawBoard();
     setMsgs(pr.msgs.concat([think]),'Still stuck? Tap 🤔 Nudge again to see which piece to move.');
   } else if(pr.hint===2){
-    B.hint=want.m.from; drawBoard();
+    B.hint=want.m.from; B.think=null; drawBoard();
     setMsgs(pr.msgs.concat([think,{k:'info',h:'💡 Piece',x:want.m.castle?'Time to get your king safe.':'Move your '+PNAME[want.m.p.toUpperCase()]+' (the one with the green box).'}]),'Tap 🤔 Nudge once more to see the exact move.');
   } else {
     B.hint=-1; B.arrow={from:want.m.from,to:want.m.to}; drawBoard();
