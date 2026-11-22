@@ -39,6 +39,8 @@
   .view.show{display:block}
   h1{font-size:26px;font-weight:750;letter-spacing:-.4px}
   .sub{color:var(--muted);font-size:15px;margin-top:2px}
+  .vtag{display:inline-block;vertical-align:middle;font-size:12px;font-weight:700;letter-spacing:0;color:var(--accent);
+        border:1px solid var(--accent);border-radius:8px;padding:1px 7px;margin-left:4px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;
        background:var(--accent);color:var(--accent-ink);font-weight:650;border-radius:12px;
@@ -171,7 +173,7 @@
 <!-- HOME -->
 <section id="home" class="view show">
   <div class="top">
-    <div class="grow"><h1>♞ Opening Coach</h1><p class="sub">Learn your openings, and how to answer theirs.</p></div>
+    <div class="grow"><h1>♞ Opening Coach <button class="vtag" id="verTop"></button></h1><p class="sub">Learn your openings, and how to answer theirs.</p></div>
     <button class="iconbtn" id="setBtn" aria-label="Settings">⚙️</button>
   </div>
   <div class="card summary">
@@ -240,7 +242,7 @@
 
 <!-- SETTINGS -->
 <div class="sheet" id="sheet"><div class="card">
-  <h3>Settings</h3>
+  <h3>Settings <span class="vtag" id="verSet"></span></h3>
   <p>Your progress is saved on this phone only. Copy a backup code to keep it safe or move it to another phone.</p>
   <button class="btn ghost" id="soundBtn">🔊 Sound: on</button>
   <button class="btn ghost" id="copyBtn">📋 Copy backup code</button>
@@ -253,7 +255,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.11';
+const VERSION = 'v1.12';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2781,7 +2783,7 @@ $('resetBtn').onclick=()=>{ if(confirm('Wipe all your progress? This cannot be u
 // ================= updates =================
 // An installed app has no refresh button, so check for a newer copy on open and update by itself.
 // cache:'reload' also refreshes the phone's stored copy, so a plain reload then gets it.
-$('ver').textContent=VERSION;
+$('ver').textContent=VERSION; $('verTop').textContent=VERSION; $('verSet').textContent=VERSION;
 function reloadFresh(){ fetch(location.pathname,{cache:'reload'}).catch(()=>{}).finally(()=>location.reload()); }
 function checkUpdate(){
   if(location.protocol.indexOf('http')!==0) return;
@@ -2797,7 +2799,7 @@ function checkUpdate(){
   }).catch(()=>{});
 }
 $('update').onclick=reloadFresh;
-$('ver').onclick=reloadFresh;
+$('ver').onclick=reloadFresh; $('verTop').onclick=reloadFresh;
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) checkUpdate(); });
 
 renderHome();
