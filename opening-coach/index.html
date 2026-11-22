@@ -335,7 +335,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.33';
+const VERSION = 'v1.34';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2643,7 +2643,7 @@ function pickPlay(pool){
   if(fresh.length) return fresh[Math.floor(Math.random()*fresh.length)];
   return pickSurprise(pool);
 }
-function startPlay(pool,home){ startPractice(pickPlay(pool),'chapter',[],{pool,home}); }
+function startPlay(pool,home){ startPractice(pickPlay(pool),'chapter',[],{pool,home,show:true}); }   // the line's name is shown from the start
 // learn: a line you don't know yet, picked at random
 function pickLearn(lines){
   let pool=lines.filter(l=>!isSeen(l)&&l!==lastLine);
@@ -2828,7 +2828,7 @@ function startPractice(ln,how,queue,sur){
   const hide=!!(sur&&!sur.show);
   pr={queue:queue||[],mistakes:0,slipped:false,hint:0,busy:false,msgs:[],done:false,sur:sur||null,hide,home:!!(sur&&sur.home)};
   $('pTitle').textContent=sur?(sur.home?'Play all':ln.ch.name):mode==='review'?'Review':ln.ch.name;
-  $('pMode').textContent=hide?'Line name hidden until the end':sur?'From memory: '+lineTag(ln):(mode==='review'?'Review · '+ln.ch.name+' · '+(pr.queue.length+1)+' left':lineTag(ln));
+  $('pMode').textContent=hide?'Line name hidden until the end':sur?lineTag(ln):(mode==='review'?'Review · '+ln.ch.name+' · '+(pr.queue.length+1)+' left':lineTag(ln));
   $('learnPick').style.display='none';
   $('ctrls').innerHTML=`<button class="btn ghost" id="pHint">🤔 Nudge</button><button class="btn ghost" id="pShow">👀 Show</button><button class="btn ghost" id="pRestart">↺ Restart</button>`;
   $('pHint').onclick=hint; $('pShow').onclick=()=>{ pr.hint=Math.max(pr.hint,2); hint(); }; $('pRestart').onclick=()=>startPractice(line,how,pr.queue,pr.sur);
@@ -2842,8 +2842,8 @@ function startPractice(ln,how,queue,sur){
     $('bnK').textContent='▶ New game'; $('bnN').textContent='Which line will it be?'; $('bnS').textContent='The opponent picks';
     $('banner').classList.add('show'); clearTimeout(bannerT); bannerT=setTimeout(()=>$('banner').classList.remove('show'),1800);
   } else {
-    pr.msgs=[{k:'info',h:'New line: '+line.title,x:(line.when?line.when+'. ':'')+'You play '+sideName(you)+'. '+(you==='w'?'Make your first move.':'White moves first. Find the right answer to what they play.')}];
-    announce('🎯 New line',ln);
+    pr.msgs=[{k:'info',h:'▶ '+line.title+(line.when?' · '+line.when:''),x:(line.about?line.about+' ':'')+'You play '+sideName(you)+'.'}];
+    announce('▶ New game',ln);
   }
   if(you==='b'){ pr.busy=true; setMsgs(pr.msgs); later(opponentMove,2000); }
   else { setMsgs(pr.msgs,'Your move. Stuck? Tap 🤔 Nudge.'); showThink(); }
