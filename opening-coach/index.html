@@ -102,6 +102,13 @@
   .bhead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
   .bhead .t{font-weight:700;font-size:17px;line-height:1.2}
   .bhead .m{font-size:13px;color:var(--muted)}
+  /* each mode has its own colour: blue to learn, orange to practise */
+  .modepill{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.6px;color:#fff;border-radius:7px;padding:2px 7px;margin-right:7px;vertical-align:2px}
+  #play[data-mode=learn] .modepill{background:#2563eb} #play[data-mode=learn] .modepill::before{content:"📖 LEARN"}
+  #play[data-mode=practice] .modepill{background:#d97706} #play[data-mode=practice] .modepill::before{content:"🎯 PRACTISE"}
+  #play[data-mode=learn] .board{box-shadow:0 0 0 4px #2563eb,0 2px 10px rgba(0,0,0,.18)}
+  #play[data-mode=practice] .board{box-shadow:0 0 0 4px #d97706,0 2px 10px rgba(0,0,0,.18)}
+  #play[data-mode] .bwrap{padding:4px}
   .play{display:grid;grid-template-columns:1fr;gap:12px}
   @media (min-width:820px){ .play{grid-template-columns:minmax(0,520px) 1fr;align-items:start} }
   .bwrap{position:relative;width:100%;max-width:520px;margin:0 auto;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -248,7 +255,7 @@
 <section id="play" class="view">
   <div class="bhead">
     <button class="iconbtn" id="pBack" aria-label="Back">‹</button>
-    <div class="grow"><div class="t" id="pTitle"></div><div class="m" id="pMode"></div></div>
+    <div class="grow"><div class="t"><span class="modepill" id="modePill"></span><span id="pTitle"></span></div><div class="m" id="pMode"></div></div>
     <button class="iconbtn" data-notation aria-label="How to read moves">❓</button>
   </div>
   <div class="play">
@@ -318,7 +325,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.30';
+const VERSION = 'v1.31';
 
 /*BOOK-START*/
 const BOOK = [
@@ -2699,9 +2706,9 @@ function boardFor(lineObj){ whyDone=false; B.flip=lineObj.ch.side==='b'; B.sel=-
 // ---------- learn: step through a line with explanations ----------
 let lsur=null;   // surprise learn: {pool, home}
 function startLearn(ln,sur){
-  stopTimers(); mode='learn'; line=ln; lastLine=ln; ply=0; boardFor(ln); lsur=sur||null;
+  stopTimers(); mode='learn'; $('play').dataset.mode='learn'; line=ln; lastLine=ln; ply=0; boardFor(ln); lsur=sur||null;
   if(lsur) curCh=ln.ch;
-  $('pTitle').textContent=lsur?'🎲 Surprise':ln.ch.name; $('pMode').textContent=lsur?'📖 The opponent picks · line hidden until the end':'📖 '+lineTag(ln);
+  $('pTitle').textContent=lsur?'🎲 Surprise':ln.ch.name; $('pMode').textContent=lsur?'The opponent picks · line hidden until the end':lineTag(ln);
   $('learnPick').style.display=lsur?'none':'';
   $('lineSel').innerHTML=ln.ch.lines.map(l=>`<option value="${l.idx}"${l===ln?' selected':''}>${esc(l.title+(l.when?' · '+l.when:''))}</option>`).join('');
   $('ctrls').innerHTML=`<button class="btn ghost" id="lFirst">⏮</button><button class="btn ghost" id="lPrev">◀</button>
@@ -2785,10 +2792,10 @@ function startReview(){
   startPractice(q[0],'review',q.slice(1));
 }
 function startPractice(ln,how,queue,sur){
-  stopTimers(); mode=how==='review'?'review':'practice'; line=ln; lastLine=ln; ply=0; boardFor(ln);
+  stopTimers(); mode=how==='review'?'review':'practice'; $('play').dataset.mode='practice'; line=ln; lastLine=ln; ply=0; boardFor(ln);
   pr={queue:queue||[],mistakes:0,slipped:false,hint:0,busy:false,msgs:[],done:false,sur:sur||null,home:!!(sur&&sur.home)};
   $('pTitle').textContent=sur?(sur.home?'Practise all':ln.ch.name):mode==='review'?'Review':ln.ch.name;
-  $('pMode').textContent=sur?'🎯 Practise · line name hidden until the end':(mode==='review'?'🔁 '+ln.ch.name+' · '+ln.name+' · '+(pr.queue.length+1)+' left':'🎯 '+lineTag(ln));
+  $('pMode').textContent=sur?'Line name hidden until the end':(mode==='review'?'Review · '+ln.ch.name+' · '+(pr.queue.length+1)+' left':lineTag(ln));
   $('learnPick').style.display='none';
   $('ctrls').innerHTML=`<button class="btn ghost" id="pHint">🤔 Nudge</button><button class="btn ghost" id="pShow">👀 Show</button><button class="btn ghost" id="pRestart">↺ Restart</button>`;
   $('pHint').onclick=hint; $('pShow').onclick=()=>{ pr.hint=Math.max(pr.hint,2); hint(); }; $('pRestart').onclick=()=>startPractice(line,how,pr.queue,pr.sur);
