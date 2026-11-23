@@ -93,6 +93,21 @@ saves on the phone. Add it to your Home Screen to play full screen.
 
 **Live:** https://laseberini.github.io/laurence-playground/kings-quest/
 
+## ♟ Chess Club — [`chess-club/`](chess-club/index.html)
+
+A teacher's companion for a beginner school chess club (grades 1–7). One tactic
+per class: free pieces, forks, pins, skewers, discovered attacks, removing the
+defender, back-rank mate and checkmate patterns.
+
+**Live:** https://laseberini.github.io/laurence-playground/chess-club/
+
+- Each lesson: the idea in kid-friendly words, teaching tips, an example and 3 puzzles.
+- Each puzzle: a set-up list to tick off while hanging pieces on the demo board,
+  the question for the class, a hint, the solution step by step with arrows,
+  why it works, and the wrong answers kids often give.
+- Try a child's suggestion on the screen to check it.
+- Every puzzle was checked with Stockfish so it has one clear answer.
+
 ## ♞ Opening Coach — [`opening-coach/`](opening-coach/index.html)
 
 A chess coach that teaches openings: your own as White and Black, and how to
