@@ -88,7 +88,7 @@
 
   .q{font-size:19px;font-weight:700;line-height:1.35}
   .ctrls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-  .ctrls .btn{flex:1;min-width:100px}
+  .ctrls .btn{flex:1;min-width:90px;white-space:nowrap;padding:10px 8px}
   .msg{margin-top:10px;border-left:4px solid var(--line);padding:2px 0 2px 10px;font-size:16px}
   .msg.good{border-color:var(--good)} .msg.good b{color:var(--good)}
   .msg.bad{border-color:#d64541} .msg.bad b{color:#d64541}
@@ -133,7 +133,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.0';
+const VERSION = 'v1.1';
 
 // ================= chess rules =================
 // Board is an array of 64: index = rank*8 + file (a1 = 0, h8 = 63). White pieces upper case.
@@ -240,34 +240,8 @@ function moveFromSan(pos,s){
 
 /*LESSONS-START*/
 // Positions: piece letter + square, P = pawn. sol: [move, note] steps, alternating White/Black.
+// Puzzles go easy -> medium -> hard.
 const LESSONS = [
-{id:'free', icon:'🎁', title:'Free pieces',
- idea:"Before every move, look at your opponent's pieces. Is one of them not guarded? If you can take it and nobody can take back, it's a free piece!",
- tips:["Ask the class: which black pieces can White attack?","For each one ask: who guards it?","No guard means free. A guard means: think twice!"],
- example:{w:'Kg1 Rd1 Pf2 Pg2 Ph2', b:'Kg8 Bd5 Pf7 Pg7 Ph7', turn:'w',
-  sol:[['Rxd5','The rook takes the bishop. Nothing can take back, so it was a free piece.']],
-  say:"The rook attacks the bishop on d5. Who guards the bishop? Nobody! So the rook can take it for free."},
- puzzles:[
-  {w:'Kg1 Qd1 Pf2 Pg2 Ph2', b:'Kg8 Rf8 Na4 Pf7 Pg7 Ph6', turn:'w',
-   q:'White to move. Find the free piece!',
-   hint:"Look along the queen's diagonals.",
-   sol:[['Qxa4','The queen takes the knight. No black piece can take back.']],
-   why:'The knight on a4 has no guard, and the queen reaches it along the diagonal.',
-   wrong:'Some will say Qd8. But the rook on f8 just takes the queen!'},
-  {w:'Kg1 Qe2 Pf2 Pg2 Ph2', b:'Kg8 Bb5 Pa6 Nh5 Pf7 Pg7 Ph7', turn:'w',
-   q:"White's queen attacks two black pieces. Which one is really free?",
-   hint:'Check who guards each piece. Look at the black pawns.',
-   sol:[['Qxh5','The queen takes the knight on h5. Nothing guards it.']],
-   why:'The bishop on b5 is guarded by the pawn on a6. Taking it would lose the queen! The knight on h5 has no guard.',
-   wrong:'Qxb5?? axb5 and the queen is gone. A great moment to practise checking for guards.'},
-  {w:'Kg1 Bg2 Pf2 Pg3 Ph2', b:'Kg8 Rb7 Pf7 Pg7 Ph7', turn:'w',
-   q:'White to move. Is anything free?',
-   hint:'Follow the long diagonal from your bishop.',
-   sol:[['Bxb7','The bishop zooms along the long diagonal and takes the rook.']],
-   why:'The rook on b7 has no guard. Bishops can capture from far away!',
-   wrong:'Kids often miss long-distance captures. Trace the diagonal with your finger on the mat.'}
- ]},
-
 {id:'fork', icon:'🍴', title:'Forks',
  idea:"A fork is one piece attacking two things at the same time. Your opponent can only save one of them!",
  tips:['Knights are the best forkers: they jump in an L shape.','The best forks attack the king and something else. Check plus attack!','Any piece can fork. Even a pawn!'],
@@ -281,45 +255,45 @@ const LESSONS = [
    sol:[['Ne7+','Check! And the knight attacks the queen too.'],['Kh8','The king has to move.'],['Nxc8','The knight takes the queen.']],
    why:'From e7 the knight attacks the king on g8 and the queen on c8 at the same time.',
    wrong:'Nf6+ is also check, but the pawn just takes the knight (gxf6).'},
-  {w:'Kg1 Pc4 Pd4 Pg2', b:'Kg8 Nc6 Be6 Pg7', turn:'w',
-   q:'White to move. A pawn can fork too. Find it!',
-   hint:'Which pawn can step forward and attack two pieces?',
-   sol:[['d5','The pawn attacks the knight and the bishop.'],['Ne5','Black saves the knight.'],['dxe6','The pawn takes the bishop.']],
-   why:'d5 attacks c6 and e6 at once. The pawn is guarded by the c4 pawn, so Black loses a piece.',
-   wrong:'c5? attacks nothing. Count which squares a pawn attacks: one step forward, diagonally.'},
   {w:'Kg1 Qd1 Pg2 Ph2', b:'Kg8 Ra8 Pg7 Ph7', turn:'w',
    q:'White to move. Win the rook with a queen fork!',
    hint:'Find a queen check that also attacks the rook.',
    sol:[['Qd5+','Check! The queen also attacks the rook on a8.'],['Kh8','The king moves.'],['Qxa8#','The queen takes the rook, and it is even checkmate!']],
    why:'On d5 the queen looks diagonally at the king (g8) and the rook (a8). Bonus: after taking the rook it is back-rank mate.',
-   wrong:'Qb3+ is check too, but it does not attack the rook.'}
+   wrong:'Qb3+ is check too, but it does not attack the rook.'},
+  {w:'Kg1 Ra1 Re1 Nd5 Pa2 Pf2 Pg2 Ph2', b:'Kg8 Re8 Qc8 Pa7 Pf7 Pg6 Ph7', turn:'w',
+   q:'White to move. Set up a knight fork to win the queen!',
+   hint:'First take something with check. Where will the black queen end up?',
+   sol:[['Rxe8+','Take the rook with check.'],['Qxe8','The queen has to take back... and walks into a fork.'],['Nf6+','Fork! The knight checks the king and attacks the queen.'],['Kf8','The king moves.'],['Nxe8','The knight takes the queen.']],
+   why:'The rook swap drags the queen to e8. From f6 the knight then attacks g8 and e8 at the same time.',
+   wrong:'Ne7+ straight away? The rook just takes the knight (Rxe7). Nf6+ first? The queen is not on e8 yet. Order matters!'}
  ]},
 
 {id:'pin', icon:'📌', title:'Pins',
  idea:"A pin is when a piece can't move, because a more important piece is hiding behind it.",
- tips:['If the piece behind is the king, the pinned piece is not ALLOWED to move.','Attack a pinned piece: it cannot run away!','Only bishops, rooks and queens can pin.'],
+ tips:['If the piece behind is the king, the pinned piece is not ALLOWED to move.','Attack a pinned piece: it cannot run away!','A pinned piece cannot guard anything either.'],
  example:{w:'Kg1 Bf1', b:'Ke8 Nc6', turn:'w',
   sol:[['Bb5','Now the knight on c6 is pinned to the king.']],
   say:'If the knight moved, the bishop would be attacking the king. That is not allowed, so the knight is stuck!'},
  puzzles:[
-  {w:'Kg1 Bb5 Pd4 Pg2 Ph2', b:'Ke8 Nc6 Pb7 Pg7 Ph7', turn:'w',
-   q:'White to move. The knight is pinned. How do you win it?',
-   hint:'Attack the pinned knight with a pawn.',
-   sol:[['d5','The pawn attacks the knight. It cannot run away.'],['Kd8','Black moves the king out of the pin, but too late.'],['dxc6','The pawn takes the knight.']],
-   why:'The knight is pinned to the king, so it cannot escape the pawn.',
-   wrong:'Bxc6+ just swaps bishop for knight (bxc6). Attack it with something cheaper instead!'},
   {w:'Kg1 Bf1 Pb3 Pg2 Ph2', b:'Kg8 Qe6 Pg7 Ph7', turn:'w',
    q:'White to move. Pin the queen!',
    hint:'Put your bishop on the same diagonal as the queen and the king.',
    sol:[['Bc4','The bishop pins the queen to the king.'],['Qxc4','The queen can only take the bishop...'],['bxc4','...and the pawn takes the queen.']],
    why:'The queen on e6 and the king on g8 are on one diagonal. The bishop pins the queen, and the b3 pawn guards the bishop.',
    wrong:'Bd3 or Be2 does not pin anything. Look for the line from the queen to the king.'},
-  {w:'Kg1 Re1 Pf2 Pg2 Ph2', b:'Ke8 Ne5 Pd6 Pa7', turn:'w',
-   q:'White to move. The knight is pinned on the e-file. Win it!',
-   hint:'Which pawn can attack the knight?',
-   sol:[['f4','The pawn attacks the pinned knight.'],['Kd7','Black unpins the king...'],['fxe5','...but the pawn takes the knight anyway.']],
-   why:"The knight can't move because the rook would attack the king. A pawn attacks it and wins it.",
-   wrong:'Rxe5+?? dxe5 loses the rook: the knight is guarded by the d6 pawn.'}
+  {w:'Kg1 Bb5 Pd4 Pg2 Ph2', b:'Ke8 Nc6 Pb7 Pg7 Ph7', turn:'w',
+   q:'White to move. The knight is pinned. How do you win it?',
+   hint:'Attack the pinned knight with a pawn.',
+   sol:[['d5','The pawn attacks the knight. It cannot run away.'],['Kd8','Black moves the king out of the pin, but too late.'],['dxc6','The pawn takes the knight.']],
+   why:'The knight is pinned to the king, so it cannot escape the pawn.',
+   wrong:'Bxc6+ just swaps bishop for knight (bxc6). Attack it with something cheaper instead!'},
+  {w:'Kg1 Re1 Rd1 Pa2 Pf2 Pg2 Ph2', b:'Ke8 Rh8 Nd5 Pe6 Pa7 Pb7 Pg7 Ph7', turn:'w',
+   q:'White to move. The knight looks guarded... is it really?',
+   hint:'Which pawn guards the knight? Is that pawn allowed to move?',
+   sol:[['Rxd5','Take the knight! The e6 pawn cannot take back.']],
+   why:'The e6 pawn is pinned to its own king by the rook on e1. If it took on d5, the king would be in check. So the knight was really free.',
+   wrong:'Many will say "but the pawn takes back!" Ask them: if the pawn moves, what does the rook on e1 see? A pinned piece cannot guard.'}
  ]},
 
 {id:'skewer', icon:'🍢', title:'Skewers',
@@ -341,12 +315,12 @@ const LESSONS = [
    sol:[['Bb2+','Check on the long diagonal.'],['Kd5','The king steps off the diagonal.'],['Bxh8','The bishop takes the rook.']],
    why:'The king on e5 and the rook on h8 are on the same diagonal.',
    wrong:'Bf4+ is check, but nothing is behind the king on that diagonal.'},
-  {w:'Kg1 Qd1 Pg2', b:'Kc6 Qe8 Pa7', turn:'w',
-   q:'White to move. Win the black queen!',
-   hint:'Find a queen check on the diagonal through the king.',
-   sol:[['Qa4+','Check! The king and queen are on the same diagonal.'],['Kb6','The king steps aside.'],['Qxe8','The queen takes the queen.']],
-   why:'a4, c6 and e8 are on one diagonal: king in front, queen behind.',
-   wrong:'Qd5+? The king just takes it (Kxd5). Always check if your piece is safe!'}
+  {w:'Kg1 Re1 Bd1 Pf2 Pg2 Ph2', b:'Kd7 Rc8 Pa7 Pb7 Pf7 Pg7 Ph7', turn:'w',
+   q:'White to move. There are three checks. Only one wins something!',
+   hint:'Which check has a black piece BEHIND the king?',
+   sol:[['Bg4+','Check on the diagonal, with the rook on c8 behind the king.'],['Kd6','The king steps aside.'],['Bxc8','The bishop takes the rook.']],
+   why:'g4, d7 and c8 are on one diagonal: king in front, rook behind.',
+   wrong:'Ba4+ is check but nothing is behind the king. Re7+?? The king just takes the rook! Check every check.'}
  ]},
 
 {id:'discover', icon:'🎭', title:'Discovered attacks',
@@ -369,17 +343,18 @@ const LESSONS = [
    sol:[['Nc6+','Discovered check from the rook, and the knight attacks the queen.'],['Kf8','The king must move.'],['Nxa7','The knight takes the queen.']],
    why:'The knight unblocks the rook (check!) and attacks the queen on a7 at the same time.',
    wrong:'Nd7+ is a discovered check too, but the knight does not attack the queen from d7.'},
-  {w:'Kh1 Bb2 Pd4 Pg2 Ph3', b:'Kd8 Rh8 Nc6 Pf7 Ph7', turn:'w',
-   q:'White to move. A pawn move can be a discovered attack too!',
-   hint:'Which pawn is blocking your bishop?',
-   sol:[['d5','The pawn attacks the knight, and the bishop now attacks the rook.'],['Re8','Black saves the rook...'],['dxc6','...so the pawn takes the knight.']],
-   why:'d5 opens the long diagonal to h8 AND attacks the knight. Black can save the rook or the knight, not both.',
-   wrong:'Bxh8? The pawn on d4 is in the way: the bishop cannot get there yet.'}
+  {w:'Kg1 Qd1 Nd4 Pf2 Pg2 Ph2', b:'Kg7 Qd8 Pa7 Pf7 Pg6 Ph7', turn:'w',
+   q:'White to move. The queens are looking at each other. Win Black\'s queen!',
+   hint:'Your knight is in between the queens. Move it with check!',
+   sol:[['Ne6+','Check from the knight, and your queen now attacks Black\'s queen.'],['fxe6','Black takes the knight...'],['Qxd8','...but you take the queen.']],
+   also:['Nf5+'],
+   why:'When the knight moves, the d-file opens. Because the knight gives check, Black has no time to save the queen. (Nf5+ works too!)',
+   wrong:'Nc6? attacks the queen but is not check: Black just takes your queen first (Qxd1+). The knight must move WITH check.'}
  ]},
 
 {id:'defender', icon:'🛡️', title:'Removing the defender',
  idea:"Sometimes a piece is only safe because another piece guards it. Take the guard first, then grab what it was guarding!",
- tips:['Ask: why can\'t I just take it? Who is the guard?','Then ask: can I take the guard?'],
+ tips:["Ask: why can't I just take it? Who is the guard?",'Then ask: can I take the guard?','The guard might also be guarding the king. Take it and you might even mate!'],
  example:{w:'Kg1 Rd1 Bg5', b:'Kg8 Nf6 Bd5 Pg7 Ph7', turn:'w',
   sol:[['Bxf6','Take the guard: the knight was guarding the bishop on d5.'],['gxf6','Black takes back.'],['Rxd5','Now the bishop on d5 has no guard.']],
   say:'The bishop on d5 was guarded by the knight. Take the knight, and the bishop is free.'},
@@ -394,19 +369,19 @@ const LESSONS = [
    q:'White to move. Win a piece!',
    hint:'The knight on f5 guards the bishop on d6.',
    sol:[['Bxf5','Take the guard. Your rook now also attacks d6!'],['exf5','Black takes back.'],['Rxd6','The bishop has no guard any more.']],
-   why:'Taking the knight removes the guard of d6, and it also opens the d-file for your rook.',
+   why:'Taking the knight removes the guard of d6, and it also opens the d-file for your rook. If Black saves the bishop instead, you are a knight up.',
    wrong:'Bc4 or Be2 opens the file too, but then the knight still guards d6.'},
-  {w:'Kg1 Qd1 Na4 Pf2 Pg2 Ph2', b:'Kg8 Bb6 Nd4 Pa7 Pf7 Pg7 Ph7', turn:'w',
-   q:'White to move. Win the knight on d4!',
-   hint:'Who guards the knight? Your knight can take it.',
-   sol:[['Nxb6','Take the bishop that guards d4.'],['axb6','Black takes back.'],['Qxd4','Now the knight is free.']],
-   why:'The bishop on b6 was the only guard of the knight.',
-   wrong:'Qxd4?? Bxd4 loses the queen!'}
+  {w:'Kg1 Qh5 Rf3 Bd3 Pg2 Ph2', b:'Kh8 Rf8 Nf6 Pa7 Pg7 Ph7', turn:'w',
+   q:'White to move. The knight guards Black\'s king. Remove it!',
+   hint:'Which square is the knight protecting? Your queen and bishop both aim there.',
+   sol:[['Rxf6','Take the knight that guards h7!'],['gxf6','Black takes back...'],['Qxh7#','...and the queen mates on h7, guarded by the bishop.']],
+   why:'The knight was the only thing stopping Qxh7. Take it, and the mate cannot be stopped. If Black does not take back, White is a knight up and still attacking.',
+   wrong:'Qxh7+?? Nxh7: the knight is still guarding h7. Take the guard FIRST!'}
  ]},
 
 {id:'backrank', icon:'🚪', title:'Back-rank mate',
  idea:"If a king is stuck behind its own pawns, a rook or queen checking along the back row can be checkmate. The pawns are like a wall the king can't climb over!",
- tips:['Look for a king with no escape squares on the back row.','To stay safe yourself, give your king a little window: push h3 or g3 when you have time.'],
+ tips:['Look for a king with no escape squares on the back row.','To stay safe yourself, give your king a little window: push h3 or g3 when you have time.','But check that the window is really safe!'],
  example:{w:'Kg1 Ra1', b:'Kg8 Pf7 Pg7 Ph7', turn:'w',
   sol:[['Ra8#','Checkmate! The king cannot get past its own pawns.']],
   say:'The rook checks along the back row. The king wants to escape, but its own pawns block the way.'},
@@ -417,12 +392,12 @@ const LESSONS = [
    sol:[['Re8#','Checkmate on the back row.']],
    why:'The rook checks along row 8 and the pawns trap the king.',
    wrong:'Re7 attacks the pawn but gives Black time to make an escape square.'},
-  {w:'Kg1 Re1 Re2 Pf2 Pg2 Ph2', b:'Kg8 Rd8 Re8 Pf7 Pg7 Ph7', turn:'w',
-   q:'White to move. Checkmate in two moves!',
-   hint:'Count the attackers and defenders on e8.',
-   sol:[['Rxe8+','Take the rook with check.'],['Rxe8','Black takes back.'],['Rxe8#','The second rook mates on the back row.']],
-   why:'Two white rooks beat two black rooks on e8, and the last one gives mate.',
-   wrong:'Re7? lets Black take control of the e-file. Captures with check first!'},
+  {w:'Kg1 Rd1 Bb1 Pf2 Pg2 Ph2', b:'Kg8 Qa6 Pf7 Pg7 Ph6', turn:'w',
+   q:'Black made an escape window on h7. Is the king safe? White to move.',
+   hint:'Look at the h7 square. Which white piece is aiming at it?',
+   sol:[['Rd8#','Checkmate! The king cannot use h7: your bishop guards it.']],
+   why:'Black pushed h6 to make a window, but the bishop on b1 covers h7. The window is shut!',
+   wrong:'Many will say "the king escapes to h7". Trace the bishop\'s diagonal from b1 to h7 together.'},
   {w:'Kg1 Qe2 Re1 Pf2 Pg2 Ph2', b:'Kg8 Qd7 Re8 Pf7 Pg7 Ph7', turn:'w',
    q:'White to move. Checkmate in two moves!',
    hint:'Give up your queen!',
@@ -432,30 +407,30 @@ const LESSONS = [
  ]},
 
 {id:'mate', icon:'👑', title:'Checkmate patterns',
- idea:"Checkmate means the king is in check and has no safe square. Three famous patterns: the queen kiss, the two-rook ladder and Scholar's mate.",
- tips:['Queen kiss: the queen goes right next to the king, guarded by another piece.','Ladder: one rook guards a row, the other checks on the next row.',"Scholar's mate: queen and bishop team up on f7. Also teach how to STOP it!"],
- example:{w:'Kf6 Qa7', b:'Kf8', turn:'w',
-  sol:[['Qf7#','The queen kisses the king, guarded by the white king.']],
-  say:'The queen is right next to the black king. The king cannot take her because the white king guards her.'},
+ idea:"Checkmate means the king is in check and has no safe square. Learn the famous patterns: Scholar's mate, the two-rook ladder, the queen kiss and the smothered mate.",
+ tips:["Scholar's mate: queen and bishop team up on f7. Also teach how to STOP it (defend f7)!",'Ladder: one rook guards a row, the other checks on the next row.','Queen kiss: the queen goes right next to the king, guarded by another piece.','Smothered mate: the king is surrounded by its own pieces, and a knight checks it.'],
+ example:{w:'Ke1 Qf3 Bc4 Pe4', b:'Ke8 Qd8 Bf8 Ng8 Pd7 Pe5 Pf7 Pg7', turn:'w',
+  sol:[['Qxf7#',"Scholar's mate! The bishop guards the queen on f7."]],
+  say:"The queen takes on f7 with check. The king cannot take her because the bishop guards f7. This is the most famous trap for beginners. Show how ...Qe7 or ...Nf6 would have stopped it."},
  puzzles:[
-  {w:'Kh6 Qa1', b:'Kg8 Ra8', turn:'w',
-   q:'White to move. Find the queen kiss!',
-   hint:'Put the queen right next to the king, guarded by your king.',
-   sol:[['Qg7#','The queen kisses the king. Your king on h6 guards her.']],
-   why:'The queen on g7 covers every escape square, and the black king cannot take her.',
-   wrong:'Qxa8+? wins the rook, but the king escapes to f7. Mate is better than material!'},
   {w:'Kg1 Rb7 Rc1', b:'Kg8', turn:'w',
    q:'White to move. Checkmate with the two rooks!',
    hint:'One rook already guards row 7. Use the other one on row 8.',
    sol:[['Rc8#','The ladder mate: row 7 and row 8 are both covered.']],
    why:'The b7 rook stops the king going to row 7, and the c8 rook checks along row 8.',
    wrong:'Rb8+? The king escapes to f7, g7 or h7, because row 7 is no longer covered.'},
-  {w:'Ke1 Qf3 Bc4 Pe4', b:'Ke8 Qd8 Bf8 Ng8 Pd7 Pe5 Pf7 Pg7', turn:'w',
-   q:"White to move. Scholar's mate!",
-   hint:'Queen and bishop both aim at one square.',
-   sol:[['Qxf7#',"Scholar's mate! The bishop guards the queen on f7."]],
-   why:'The queen takes on f7 with check. The king cannot take her because the bishop guards f7.',
-   wrong:'Bxf7+? The king just takes the bishop. Use the queen!'}
+  {w:'Kh6 Qa1', b:'Kg8 Ra8', turn:'w',
+   q:'White to move. Find the queen kiss!',
+   hint:'Put the queen right next to the king, guarded by your king.',
+   sol:[['Qg7#','The queen kisses the king. Your king on h6 guards her.']],
+   why:'The queen on g7 covers every escape square, and the black king cannot take her.',
+   wrong:'Qxa8+? wins the rook, but the king escapes to f7. Mate is better than material!'},
+  {w:'Kg1 Qd5 Nh6 Pf2 Pg2 Ph2', b:'Kh8 Rf8 Pg7 Ph7', turn:'w',
+   q:'White to move. Checkmate in two moves! (Hint for the brave: give up your queen.)',
+   hint:'Put your queen next to the black king, where the knight guards her.',
+   sol:[['Qg8+','Queen sacrifice! The knight guards g8, so the king cannot take.'],['Rxg8','The rook must take the queen... and now the king is boxed in.'],['Nf7#','Smothered mate! The king is trapped by its own pieces.']],
+   why:'After Rxg8 the king is surrounded by its own rook and pawns. The knight jumps in with check and there is no escape.',
+   wrong:'Nf7+? Rxf7 and the mate is gone. Sometimes you give up the queen to win the game!'}
  ]}
 ];
 /*LESSONS-END*/
@@ -555,7 +530,8 @@ function openLesson(i){
   L=LESSONS[i]; L._i=i; $('lNum').textContent='Lesson '+(i+1)+' of '+LESSONS.length; $('lTitle').textContent=L.icon+' '+L.title;
   show('lesson'); openTab(0);
 }
-const tabNames=()=>['💡 Idea','👀 Example'].concat(L.puzzles.map((p,i)=>'🧩 Puzzle '+(i+1)));
+const LEVELS=['⭐ Easy','⭐⭐ Medium','⭐⭐⭐ Hard'];
+const tabNames=()=>['💡 Idea','👀 Example'].concat(L.puzzles.map((p,i)=>LEVELS[i]||'🧩 Puzzle '+(i+1)));
 function renderTabs(){ $('tabs').innerHTML=tabNames().map((t,i)=>`<button data-t="${i}" class="${i===tab?'on':''}">${t}</button>`).join(''); }
 $('tabs').addEventListener('click',e=>{ const b=e.target.closest('[data-t]'); if(b) openTab(+b.dataset.t); });
 function openTab(t){
@@ -588,7 +564,7 @@ function puzzlePane(p,ex){
   P=p; isEx=ex; step=0; tried=false;
   const num=ex?'':' '+(L.puzzles.indexOf(p)+1);
   $('pane').innerHTML=`<div class="grid"><div><div id="bhost"></div></div><div>
-    <div class="card"><div class="q">${esc(ex?'Show the class':p.q)}</div>
+    <div class="card">${ex?'':`<div class="sub" style="font-weight:700;margin-bottom:2px">${LEVELS[L.puzzles.indexOf(p)]||''}</div>`}<div class="q">${esc(ex?'Show the class':p.q)}</div>
       ${ex?`<div class="msg info">${esc(p.say)}</div>`:''}
       <div id="pmsg"></div>
       <div class="ctrls">${ex?'':'<button class="btn ghost" id="pHint">💡 Hint</button>'}<button class="btn" id="pStep">${ex?'▶ Show the move':'▶ Solution'}</button><button class="btn ghost" id="pReset">↺ Reset</button></div>

@@ -96,12 +96,13 @@ saves on the phone. Add it to your Home Screen to play full screen.
 ## ♟ Chess Club — [`chess-club/`](chess-club/index.html)
 
 A teacher's companion for a beginner school chess club (grades 1–7). One tactic
-per class: free pieces, forks, pins, skewers, discovered attacks, removing the
-defender, back-rank mate and checkmate patterns.
+per class: forks, pins, skewers, discovered attacks, removing the defender,
+back-rank mate and checkmate patterns.
 
 **Live:** https://laseberini.github.io/laurence-playground/chess-club/
 
-- Each lesson: the idea in kid-friendly words, teaching tips, an example and 3 puzzles.
+- Each lesson: the idea in kid-friendly words, teaching tips, an example and 3 puzzles
+  (easy, medium, hard).
 - Each puzzle: a set-up list to tick off while hanging pieces on the demo board,
   the question for the class, a hint, the solution step by step with arrows,
   why it works, and the wrong answers kids often give.
