@@ -133,7 +133,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.1';
+const VERSION = 'v1.2';
 
 // ================= chess rules =================
 // Board is an array of 64: index = rank*8 + file (a1 = 0, h8 = 63). White pieces upper case.
@@ -245,9 +245,9 @@ const LESSONS = [
 {id:'fork', icon:'🍴', title:'Forks',
  idea:"A fork is one piece attacking two things at the same time. Your opponent can only save one of them!",
  tips:['Knights are the best forkers: they jump in an L shape.','The best forks attack the king and something else. Check plus attack!','Any piece can fork. Even a pawn!'],
- example:{w:'Kg1 Nb5', b:'Ke8 Ra8', turn:'w',
-  sol:[['Nc7+','The knight checks the king and attacks the rook.'],['Kd7','The king must move.'],['Nxa8','Now the knight takes the rook.']],
-  say:'From c7 the knight attacks the king AND the rook. Black has to save the king, so the rook is lost.'},
+ example:{w:'Kg1 Ng5', b:'Kh8 Rd8 Pg7 Ph7', turn:'w',
+  sol:[['Nf7+','The knight checks the king and attacks the rook.'],['Kg8','The king must move.'],['Nxd8','Now the knight takes the rook, and it can still jump away to safety.']],
+  say:'From f7 the knight attacks the king AND the rook. Black has to save the king, so the rook is lost. Afterwards, check that your knight is not trapped!'},
  puzzles:[
   {w:'Kg1 Nd5 Pf2 Pg2 Ph2', b:'Kg8 Qc8 Pf7 Pg7 Ph7', turn:'w',
    q:'White to move. Win the queen!',
@@ -265,7 +265,7 @@ const LESSONS = [
    q:'White to move. Set up a knight fork to win the queen!',
    hint:'First take something with check. Where will the black queen end up?',
    sol:[['Rxe8+','Take the rook with check.'],['Qxe8','The queen has to take back... and walks into a fork.'],['Nf6+','Fork! The knight checks the king and attacks the queen.'],['Kf8','The king moves.'],['Nxe8','The knight takes the queen.']],
-   why:'The rook swap drags the queen to e8. From f6 the knight then attacks g8 and e8 at the same time.',
+   why:'The rook swap drags the queen to e8. From f6 the knight then attacks g8 and e8 at the same time. Afterwards the king takes your knight (Kxe8), but you swapped a knight for a queen: a big win!',
    wrong:'Ne7+ straight away? The rook just takes the knight (Rxe7). Nf6+ first? The queen is not on e8 yet. Order matters!'}
  ]},
 
