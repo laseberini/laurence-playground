@@ -133,7 +133,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.2';
+const VERSION = 'v1.3';
 
 // ================= chess rules =================
 // Board is an array of 64: index = rank*8 + file (a1 = 0, h8 = 63). White pieces upper case.
@@ -407,30 +407,67 @@ const LESSONS = [
  ]},
 
 {id:'mate', icon:'👑', title:'Checkmate patterns',
- idea:"Checkmate means the king is in check and has no safe square. Learn the famous patterns: Scholar's mate, the two-rook ladder, the queen kiss and the smothered mate.",
+ idea:"Checkmate means the king is in check and has no safe square. Every pattern has a name, like a famous move in sport. Collect them all!",
  tips:["Scholar's mate: queen and bishop team up on f7. Also teach how to STOP it (defend f7)!",'Ladder: one rook guards a row, the other checks on the next row.','Queen kiss: the queen goes right next to the king, guarded by another piece.','Smothered mate: the king is surrounded by its own pieces, and a knight checks it.'],
  example:{w:'Ke1 Qf3 Bc4 Pe4', b:'Ke8 Qd8 Bf8 Ng8 Pd7 Pe5 Pf7 Pg7', turn:'w',
   sol:[['Qxf7#',"Scholar's mate! The bishop guards the queen on f7."]],
   say:"The queen takes on f7 with check. The king cannot take her because the bishop guards f7. This is the most famous trap for beginners. Show how ...Qe7 or ...Nf6 would have stopped it."},
  puzzles:[
-  {w:'Kg1 Rb7 Rc1', b:'Kg8', turn:'w',
+  {name:'Ladder', lv:1, w:'Kg1 Rb7 Rc1', b:'Kg8', turn:'w',
    q:'White to move. Checkmate with the two rooks!',
    hint:'One rook already guards row 7. Use the other one on row 8.',
    sol:[['Rc8#','The ladder mate: row 7 and row 8 are both covered.']],
    why:'The b7 rook stops the king going to row 7, and the c8 rook checks along row 8.',
    wrong:'Rb8+? The king escapes to f7, g7 or h7, because row 7 is no longer covered.'},
-  {w:'Kh6 Qa1', b:'Kg8 Ra8', turn:'w',
+  {name:'Queen kiss', lv:1, w:'Kh6 Qa1', b:'Kg8 Ra8', turn:'w',
    q:'White to move. Find the queen kiss!',
    hint:'Put the queen right next to the king, guarded by your king.',
    sol:[['Qg7#','The queen kisses the king. Your king on h6 guards her.']],
    why:'The queen on g7 covers every escape square, and the black king cannot take her.',
    wrong:'Qxa8+? wins the rook, but the king escapes to f7. Mate is better than material!'},
-  {w:'Kg1 Qd5 Nh6 Pf2 Pg2 Ph2', b:'Kh8 Rf8 Pg7 Ph7', turn:'w',
+  {name:'Battery on h7', lv:1, w:'Kg1 Qh5 Bd3 Pf2 Pg2 Ph2', b:'Kg8 Rf8 Pf7 Pg7 Ph7 Pa7', turn:'w',
+   q:'White to move. Queen and bishop are aiming at the same square. Checkmate!',
+   hint:'Which square do the queen and bishop both attack?',
+   sol:[['Qxh7#','The queen takes on h7, guarded by the bishop. Checkmate!']],
+   why:'The bishop guards h7, so the king cannot take the queen, and every escape square is blocked or covered.',
+   wrong:'Bxh7+? is check, but the king just moves to h8. Lead with the queen when the bishop guards her.'},
+  {name:"Damiano's mate", lv:2, w:'Kg1 Qh5 Pg6 Pf2 Pg2', b:'Kg8 Rf8 Pf7 Pa7 Pb7', turn:'w',
+   q:'White to move. Your pawn on g6 is a great helper. Checkmate!',
+   hint:'Which square does the g6 pawn guard?',
+   sol:[['Qh7#','The queen lands on h7, guarded by the pawn. Checkmate!']],
+   why:'The g6 pawn guards h7. The king cannot take the queen, and f8 and f7 are blocked by its own pieces.',
+   wrong:'gxf7+? is check but the rook takes. Qh8+?? The king just takes the queen.'},
+  {name:'Arabian mate', lv:2, w:'Kg1 Ra7 Nf6 Pg2 Ph2', b:'Kh8 Pb6', turn:'w',
+   q:'White to move. A rook and a knight team up in the corner. Checkmate!',
+   hint:'The knight guards h7 and g8.',
+   sol:[['Rh7#','The rook checks on h7, guarded by the knight. Checkmate!']],
+   why:'The knight guards the rook on h7 and covers g8. The rook covers g7. The king has nowhere to go.',
+   wrong:'Ra8+? The king escapes to g7. In the corner, use rook AND knight together.'},
+  {name:'Opera mate', lv:2, w:'Kg1 Rd1 Bg5 Pf2 Pg2 Ph2', b:'Ke8 Bf8 Pf7 Pe6 Pa7', turn:'w',
+   q:'White to move. Rook and bishop team up. Checkmate!',
+   hint:'Use the open d-file. Which piece guards d8?',
+   sol:[['Rd8#','The rook checks on d8, guarded by the bishop. Checkmate!']],
+   why:'The bishop on g5 guards d8 and e7. The king is boxed in by its own bishop and pawn.',
+   wrong:'Rd7? is not check. Look for checks first, and check which piece guards the checking piece.'},
+  {name:"Boden's mate", lv:3, w:'Kg1 Be2 Bf4 Pf2 Pg2 Ph2', b:'Kc8 Rd8 Nd7 Pa7 Pc6 Pf7 Pg7', turn:'w',
+   q:'White to move. Two bishops can mate too! Find it.',
+   hint:'One bishop already covers b8 and c7. Where can the other give check?',
+   sol:[['Ba6#','The bishop checks from a6. The other bishop covers b8 and c7. Checkmate!']],
+   why:'The two bishops cross like scissors: one checks on the a6-c8 diagonal, the other covers the escape squares. The king\'s own rook and knight block the rest.',
+   wrong:'Bg4? pins the knight, but it is not check. Bd6? covers squares but gives no check.'},
+  {name:"Anastasia's mate", lv:3, w:'Kg1 Qh5 Rf3 Ne7 Pg2 Ph2', b:'Kh8 Rd8 Pg7 Ph7 Pa7 Pb7', turn:'w',
+   q:'White to move. Checkmate in two moves! Be brave.',
+   hint:'Give up the queen on h7 to open the h-file for your rook.',
+   sol:[['Qxh7+','Queen sacrifice! The king has to take.'],['Kxh7','The king takes the queen.'],['Rh3#',"Anastasia's mate! The rook checks on the h-file and the knight covers g8 and g6."]],
+   why:'After Kxh7 the king is on the open h-file. The rook checks, and the knight on e7 guards both escape squares.',
+   wrong:'Rf8+? The rook on d8 takes it. Qxh7+ looks crazy, but it wins!'},
+  {name:'Smothered mate', lv:3, w:'Kg1 Qd5 Nh6 Pf2 Pg2 Ph2', b:'Kh8 Rf8 Pg7 Ph7', turn:'w',
    q:'White to move. Checkmate in two moves! (Hint for the brave: give up your queen.)',
    hint:'Put your queen next to the black king, where the knight guards her.',
    sol:[['Qg8+','Queen sacrifice! The knight guards g8, so the king cannot take.'],['Rxg8','The rook must take the queen... and now the king is boxed in.'],['Nf7#','Smothered mate! The king is trapped by its own pieces.']],
    why:'After Rxg8 the king is surrounded by its own rook and pawns. The knight jumps in with check and there is no escape.',
    wrong:'Nf7+? Rxf7 and the mate is gone. Sometimes you give up the queen to win the game!'}
+
  ]}
 ];
 /*LESSONS-END*/
@@ -531,7 +568,10 @@ function openLesson(i){
   show('lesson'); openTab(0);
 }
 const LEVELS=['⭐ Easy','⭐⭐ Medium','⭐⭐⭐ Hard'];
-const tabNames=()=>['💡 Idea','👀 Example'].concat(L.puzzles.map((p,i)=>LEVELS[i]||'🧩 Puzzle '+(i+1)));
+// a puzzle can carry its own level (1-3) and name, e.g. "⭐⭐ Arabian mate"; otherwise easy/medium/hard by position
+const puzLabel=(p,i)=>p.name?'⭐'.repeat(p.lv||1)+' '+p.name:(LEVELS[i]||'🧩 Puzzle '+(i+1));
+const puzLevel=(p,i)=>LEVELS[(p.lv||i+1)-1]||'';
+const tabNames=()=>['💡 Idea','👀 Example'].concat(L.puzzles.map(puzLabel));
 function renderTabs(){ $('tabs').innerHTML=tabNames().map((t,i)=>`<button data-t="${i}" class="${i===tab?'on':''}">${t}</button>`).join(''); }
 $('tabs').addEventListener('click',e=>{ const b=e.target.closest('[data-t]'); if(b) openTab(+b.dataset.t); });
 function openTab(t){
@@ -564,7 +604,7 @@ function puzzlePane(p,ex){
   P=p; isEx=ex; step=0; tried=false;
   const num=ex?'':' '+(L.puzzles.indexOf(p)+1);
   $('pane').innerHTML=`<div class="grid"><div><div id="bhost"></div></div><div>
-    <div class="card">${ex?'':`<div class="sub" style="font-weight:700;margin-bottom:2px">${LEVELS[L.puzzles.indexOf(p)]||''}</div>`}<div class="q">${esc(ex?'Show the class':p.q)}</div>
+    <div class="card">${ex?'':`<div class="sub" style="font-weight:700;margin-bottom:2px">${puzLevel(p,L.puzzles.indexOf(p))}${p.name?' · '+esc(p.name):''}</div>`}<div class="q">${esc(ex?'Show the class':p.q)}</div>
       ${ex?`<div class="msg info">${esc(p.say)}</div>`:''}
       <div id="pmsg"></div>
       <div class="ctrls">${ex?'':'<button class="btn ghost" id="pHint">💡 Hint</button>'}<button class="btn" id="pStep">${ex?'▶ Show the move':'▶ Solution'}</button><button class="btn ghost" id="pReset">↺ Reset</button></div>
