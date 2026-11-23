@@ -344,7 +344,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.40';
+const VERSION = 'v1.41';
 
 /*BOOK-START*/
 const BOOK = [
@@ -3359,7 +3359,7 @@ function renderMoves(upto,showAll){
 }
 // a big card over the board, so it's obvious a new line has started
 let bannerT=null;
-function announce(kind,ln){
+function announce(kind,ln){ return;   // the pop-up card over the board is switched off
   $('bnK').textContent=kind; $('bnN').textContent=ln.title;
   $('bnS').textContent=(ln.when?ln.when+' · ':'')+'line '+(ln.idx+1)+' of '+ln.ch.lines.length;
   $('banner').classList.add('show'); clearTimeout(bannerT);
@@ -3397,9 +3397,9 @@ function startLearn(ln,sur,pl){
   };
   show('play'); sizeBoard(); learnGo(0);
   // playing Black: White's first move comes by itself once the banner has gone
-  if(ln.ch.side==='b'){ lastPrompt='White is about to move...'; renderTop(); later(()=>{ if(mode==='learn'&&line===ln&&ply===0) learnGo(1,true); },1700); }
+  if(ln.ch.side==='b'){ lastPrompt='White is about to move...'; renderTop(); later(()=>{ if(mode==='learn'&&line===ln&&ply===0) learnGo(1,true); },900); }
   if(lsur){ $('bnK').textContent='🎲 Surprise'; $('bnN').textContent='Mystery line'; $('bnS').textContent='The opponent picks';
-    $('banner').classList.add('show'); clearTimeout(bannerT); bannerT=setTimeout(()=>$('banner').classList.remove('show'),1800); }
+    }
   else announce('📖 Learning',ln);
 }
 $('lineSel').onchange=e=>startLearn(line.ch.lines[+e.target.value]);
@@ -3485,12 +3485,11 @@ function startPractice(ln,how,queue,sur){
   if(hide){
     pr.msgs=[{k:'info',h:'▶ Which line will it be?',x:'You play '+sideName(you)+'. The opponent picks, like in a real game. You\'ll find out which line it was at the end.'}];
     $('bnK').textContent='▶ New game'; $('bnN').textContent='Which line will it be?'; $('bnS').textContent='The opponent picks';
-    $('banner').classList.add('show'); clearTimeout(bannerT); bannerT=setTimeout(()=>$('banner').classList.remove('show'),1800);
   } else {
     pr.msgs=[{k:'info',h:line.when||'About this line',x:line.about||''}];
     announce('▶ New game',ln);
   }
-  if(you==='b'){ pr.busy=true; setMsgs(pr.msgs); later(opponentMove,2000); }
+  if(you==='b'){ pr.busy=true; setMsgs(pr.msgs); later(opponentMove,900); }
   else { setMsgs(pr.msgs,'Your move.'); showThink(); }
 }
 function playCtrls(){
