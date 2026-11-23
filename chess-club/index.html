@@ -89,6 +89,10 @@
   .q{font-size:19px;font-weight:700;line-height:1.35}
   .ctrls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   .ctrls .btn{flex:1;min-width:90px;white-space:nowrap;padding:10px 8px}
+  /* fixed controls right under the board: they never move when the text below changes */
+  .navrow{display:flex;gap:8px;margin-top:8px;max-width:520px;margin-left:auto;margin-right:auto}
+  .navrow .btn{flex:1;padding:8px;min-height:50px;font-size:16px}
+  .navrow .btn.nav{flex:1.4;font-size:24px}
   .msg{margin-top:10px;border-left:4px solid var(--line);padding:2px 0 2px 10px;font-size:16px}
   .msg.good{border-color:var(--good)} .msg.good b{color:var(--good)}
   .msg.bad{border-color:#d64541} .msg.bad b{color:#d64541}
@@ -133,7 +137,7 @@
 <button id="update">✨ New version ready. Tap to update</button>
 
 <script>
-const VERSION = 'v1.3';
+const VERSION = 'v1.4';
 
 // ================= chess rules =================
 // Board is an array of 64: index = rank*8 + file (a1 = 0, h8 = 63). White pieces upper case.
@@ -599,72 +603,77 @@ function setupHtml(p){
     <div class="count">${n} pieces · tap each one as you hang it up</div></div>`;
 }
 // one puzzle (or the example): set-up list, question, hint, step-by-step solution
-let P=null, step=0, isEx=false, tried=false;
+let P=null, step=0, isEx=false, posAt=[], moveAt=[];
 function puzzlePane(p,ex){
-  P=p; isEx=ex; step=0; tried=false;
-  const num=ex?'':' '+(L.puzzles.indexOf(p)+1);
-  $('pane').innerHTML=`<div class="grid"><div><div id="bhost"></div></div><div>
+  P=p; isEx=ex; step=0;
+  // every position along the solution, so ◀ and ▶ can step both ways
+  posAt=[posFrom(p)]; moveAt=[null];
+  p.sol.forEach(([s],i)=>{ const m=moveFromSan(posAt[i],s); moveAt.push(m); posAt.push(m?makeMove(posAt[i],m):posAt[i]); });
+  const last=L.puzzles.indexOf(p)===L.puzzles.length-1;
+  $('pane').innerHTML=`<div class="grid"><div><div id="bhost"></div>
+      <div class="navrow">
+        <button class="btn ghost nav" id="pBack" aria-label="Back one move">◀</button>
+        ${ex?'':'<button class="btn ghost" id="pHint">💡 Hint</button>'}
+        <button class="btn ghost" id="pReset">↺</button>
+        <button class="btn nav" id="pFwd" aria-label="Next move">▶</button>
+      </div></div><div>
     <div class="card">${ex?'':`<div class="sub" style="font-weight:700;margin-bottom:2px">${puzLevel(p,L.puzzles.indexOf(p))}${p.name?' · '+esc(p.name):''}</div>`}<div class="q">${esc(ex?'Show the class':p.q)}</div>
       ${ex?`<div class="msg info">${esc(p.say)}</div>`:''}
       <div id="pmsg"></div>
-      <div class="ctrls">${ex?'':'<button class="btn ghost" id="pHint">💡 Hint</button>'}<button class="btn" id="pStep">${ex?'▶ Show the move':'▶ Solution'}</button><button class="btn ghost" id="pReset">↺ Reset</button></div>
       ${ex?'':`<details id="pWhy"><summary>Why it works</summary><div class="msg info">${esc(p.why)}</div></details>
       <details><summary>Kids often say...</summary><div class="msg warn">${esc(p.wrong)}</div></details>`}
     </div>
     <div style="height:10px"></div>${setupHtml(p)}
-    ${ex?'':`<p class="sub" style="font-size:13px;margin-top:8px">Tip: you can also try a child's idea on the board above to check it.</p>`}
-    ${!ex&&L.puzzles.indexOf(p)<L.puzzles.length-1?`<div class="ctrls"><button class="btn ghost" id="pNext">Next puzzle ▶</button></div>`:''}
+    ${ex?'':`<p class="sub" style="font-size:13px;margin-top:8px">Tip: try a child's idea on the board to check it. ▶ plays the answer one move at a time, ◀ takes a move back.</p>`}
+    ${!last?`<div class="ctrls"><button class="btn ghost" id="pNext">${ex?'First puzzle ▶':'Next puzzle ▶'}</button></div>`:''}
   </div></div>`;
   mountBoard($('bhost'));
-  B.pos=posFrom(p); B.last=null; B.sel=-1; B.targets=[]; B.hint=-1; B.wrong=-1; B.arrow=null;
-  B.canMove=()=>!isEx&&step%2===0&&step<P.sol.length;
+  B.sel=-1; B.targets=[]; B.hint=-1; B.wrong=-1; B.arrow=null;
+  B.canMove=()=>!isEx&&step%2===0&&step<P.sol.length&&!timers.length;
   B.onMove=tryMove;
-  drawBoard();
-  $('pStep').onclick=nextStep;
-  $('pReset').onclick=()=>puzzlePane(P,isEx);
-  if($('pHint')) $('pHint').onclick=()=>{ say('info','💡 '+P.hint); const m=moveFromSan(B.pos,P.sol[step][0]); if(m&&step%2===0){ B.hint=m.from; drawBoard(); } };
+  goTo(0,false);
+  $('pFwd').onclick=()=>{ stopTimers(); if(step<P.sol.length) goTo(step+1,true); };
+  $('pBack').onclick=()=>{ stopTimers(); if(step>0) goTo(step-1,false); };
+  $('pReset').onclick=()=>{ stopTimers(); goTo(0,false); };
+  if($('pHint')) $('pHint').onclick=()=>{ if(step>=P.sol.length) return; say('info','💡 '+P.hint); const m=moveAt[step+1]; if(m&&step%2===0){ B.hint=m.from; drawBoard(); } };
   if($('pNext')) $('pNext').onclick=()=>openTab(tab+1);
   document.querySelectorAll('[data-chip]').forEach(c=>c.onclick=()=>c.classList.toggle('on'));
 }
 function say(k,t){ $('pmsg').innerHTML=`<div class="msg ${k}">${t}</div>`; }
 const label=(i,s)=>{ const black=P.turn==='b'; const k=i+(black?1:0); return (Math.floor(k/2)+1)+(k%2?'... ':'. ')+s; };
-function play(i){
-  const m=moveFromSan(B.pos,P.sol[i][0]); if(!m) return;
-  B.pos=makeMove(B.pos,m); B.last=m; B.arrow=null; B.hint=-1; B.wrong=-1; drawBoard(m);
-}
 function solutionList(upto){
   return `<ol class="steps">${P.sol.slice(0,upto).map((s,i)=>`<li><b>${esc(label(i,s[0]))}</b> ${esc(s[1])}</li>`).join('')}</ol>`;
 }
-// ▶ shows the next move as an arrow, the next tap plays it (so you can copy it on the board)
-let armed=false;
-function nextStep(){
-  if(step>=P.sol.length) return;
-  const m=moveFromSan(B.pos,P.sol[step][0]);
-  if(!armed){ B.arrow={from:m.from,to:m.to}; B.hint=-1; drawBoard(); armed=true;
-    say(step%2===0?'good':'info',`<b>${esc(label(step,P.sol[step][0]))}</b> ${esc(P.sol[step][1])}`);
-    $('pStep').textContent='▶ Play it'; return; }
-  armed=false; play(step); step++; afterStep();
-}
-function afterStep(){
-  if(step>=P.sol.length){ say('good',`<b>${isEx?'That\'s the idea!':'Solved!'}</b>${solutionList(step)}`); $('pStep').disabled=true; $('pStep').textContent='✓ Done'; if($('pWhy')) $('pWhy').open=true; return; }
-  $('pStep').textContent=step%2===0?'▶ Next move':'▶ Show reply';
-  say('info',solutionList(step));
+// jump to step k (0 = start). Moving forward shows the move with an arrow so it can be copied on the mat.
+function goTo(k,anim){
+  step=k; const m=moveAt[k];
+  B.pos=posAt[k]; B.last=m; B.arrow=m?{from:m.from,to:m.to}:null; B.hint=-1; B.wrong=-1; B.sel=-1; B.targets=[];
+  drawBoard(anim?m:null);
+  $('pBack').disabled=k===0; $('pReset').disabled=k===0; $('pFwd').disabled=k>=P.sol.length;
+  if(k===0){ $('pmsg').innerHTML=isEx?'':`<div class="msg info">Ask the class! Tap ▶ to show the answer.</div>`; if($('pWhy')) $('pWhy').open=false; return; }
+  if(k>=P.sol.length){ say('good',`<b>${isEx?'That\'s the idea!':'Solved!'}</b>${solutionList(k)}`); if($('pWhy')) $('pWhy').open=true; return; }
+  say('info',solutionList(k));
 }
 function tryMove(m){
-  const before=B.pos, s=san(before,m), want=moveFromSan(before,P.sol[step][0]);
+  const before=B.pos, s=san(before,m), want=moveAt[step+1];
   const isMain=!!want&&m.from===want.from&&m.to===want.to;
   const isAlso=step===0&&(P.also||[]).some(x=>{ const a=moveFromSan(before,x); return a&&a.from===m.from&&a.to===m.to; });
-  if(isMain||isAlso){
-    B.pos=makeMove(before,m); B.last=m; B.arrow=null; B.hint=-1; armed=false; drawBoard(m);
-    if(isAlso){ say('good',`<b>✓ Yes! ${esc(s)} works too.</b> ${esc(P.why)}`); $('pStep').disabled=true; return; }
-    say('good',`<b>✓ Correct: ${esc(label(step,P.sol[step][0]))}</b> ${esc(P.sol[step][1])}`); step++;
-    if(step<P.sol.length) later(()=>{ play(step); step++; afterStep(); },1100); else later(afterStep,900);
+  if(isMain){
+    goTo(step+1,true);
+    say('good',`<b>✓ Correct: ${esc(label(step-1,P.sol[step-1][0]))}</b> ${esc(P.sol[step-1][1])}`);
+    if(step<P.sol.length) later(()=>{ timers=[]; goTo(step+1,true); },1100); else later(()=>{ timers=[]; goTo(step,false); },900);
+    return;
+  }
+  if(isAlso){
+    B.pos=makeMove(before,m); B.last=m; B.arrow=null; B.hint=-1; drawBoard(m);
+    say('good',`<b>✓ Yes! ${esc(s)} works too.</b> ${esc(P.why)} Tap ◀ to go back and see the main answer.`);
+    $('pBack').disabled=false; $('pBack').onclick=()=>{ stopTimers(); goTo(0,false); $('pBack').onclick=()=>{ stopTimers(); if(step>0) goTo(step-1,false); }; };
     return;
   }
   // not it: show it for a moment, then put it back
-  B.pos=makeMove(before,m); B.wrong=m.to; B.last=m; drawBoard(m);
+  B.pos=makeMove(before,m); B.wrong=m.to; B.last=m; B.arrow=null; drawBoard(m);
   say('bad',`<b>✗ ${esc(s)} isn't it.</b> Good try! Ask the class for another idea.`);
-  later(()=>{ B.pos=before; B.wrong=-1; B.last=step?null:null; drawBoard(); },900);
+  later(()=>{ timers=[]; goTo(step,false); say('bad',`<b>✗ ${esc(s)} isn't it.</b> Good try! Ask the class for another idea.`); },900);
 }
 
 // ---------- updates ----------
